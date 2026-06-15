@@ -15,7 +15,7 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 
 | ID | Status | Branch | Spec | State | Log |
 |----|--------|--------|------|-------|-----|
-| TASK-2026-06-15-agent-workflow | DOING | cursor/agent-workflow-control-plane-2044 | `tasks/TASK-2026-06-15-agent-workflow.md` | `state/TASK-2026-06-15-agent-workflow.md` | `logs/TASK-2026-06-15-agent-workflow.md` |
+| TASK-2026-06-15-agent-workflow | REVIEW | cursor/agent-workflow-control-plane-2044 | `tasks/TASK-2026-06-15-agent-workflow.md` | `state/TASK-2026-06-15-agent-workflow.md` | `logs/TASK-2026-06-15-agent-workflow.md` |
 
 ## Upcoming Work Map
 

@@ -2,17 +2,17 @@
 
 ## Current status
 
-- Phase: DOING
+- Phase: REVIEW
 - Branch: cursor/agent-workflow-control-plane-2044
-- PR: TBD
+- PR: https://github.com/benpham3206/Atlas/pull/1
 - Owner: cursor-cloud
 - Last update: 2026-06-15
 
 ## Current summary
 
-Implementing the file-based agent workflow control plane with conservative fixes: preserve existing
-Atlas rules, keep `TASKS.md` and `CONTEXT_LOG.md` canonical, add per-task templates, and add
-Cursor/Codex workflow configuration.
+The file-based agent workflow control plane is implemented and locally verified. It preserves
+existing Atlas rules, keeps `TASKS.md` and `CONTEXT_LOG.md` canonical, adds per-task templates, and
+adds Cursor/Codex workflow configuration.
 
 ## Blockers
 
@@ -25,11 +25,11 @@ Cursor/Codex workflow configuration.
 
 ## Next action
 
-Complete file additions, commit and push the pre-verification revision, then run local verification.
+Review the draft PR and address any Codex, Bugbot, CI, or human review findings.
 
 ## Poke-ready summary
 
-Atlas agent workflow setup is being added. It preserves existing rules and adds Cursor/Codex/Poke
-handoff files, templates, and verification coverage. External Codex automation is deferred for
-security approval.
+Atlas agent workflow setup is in review. It preserves existing rules, adds Cursor/Codex/Poke
+handoff files and templates, and passed lint, record validation, migration verification, and all
+tests. External Codex automation remains deferred for security approval.
 

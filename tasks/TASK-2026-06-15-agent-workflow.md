@@ -32,14 +32,14 @@ Out:
 
 ## Acceptance criteria
 
-- [ ] Existing Atlas-specific rules in `AGENTS.md` are preserved.
-- [ ] `docs/AGENT_WORKFLOW.md` documents the Poke -> Cursor -> Codex workflow and security gates.
-- [ ] `.cursor/rules` and `.cursor/agents` define focused Cursor behavior without symlinking `AGENTS.md`.
-- [ ] `.agents/skills` defines reusable planning, implementation, review, and handoff skills.
-- [ ] `tasks/`, `state/`, and `logs/` include templates for future per-task handoffs.
-- [ ] Root `STATE.md`, `LOGS.md`, and `POKE_SUMMARY.md` are short summaries that do not replace `TASKS.md` or `CONTEXT_LOG.md`.
-- [ ] Workflow files are covered by lint or tests.
-- [ ] No external npm dependencies are added.
+- [x] Existing Atlas-specific rules in `AGENTS.md` are preserved.
+- [x] `docs/AGENT_WORKFLOW.md` documents the Poke -> Cursor -> Codex workflow and security gates.
+- [x] `.cursor/rules` and `.cursor/agents` define focused Cursor behavior without symlinking `AGENTS.md`.
+- [x] `.agents/skills` defines reusable planning, implementation, review, and handoff skills.
+- [x] `tasks/`, `state/`, and `logs/` include templates for future per-task handoffs.
+- [x] Root `STATE.md`, `LOGS.md`, and `POKE_SUMMARY.md` are short summaries that do not replace `TASKS.md` or `CONTEXT_LOG.md`.
+- [x] Workflow files are covered by lint or tests.
+- [x] No external npm dependencies are added.
 
 ## Test plan
 

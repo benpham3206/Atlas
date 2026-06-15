@@ -688,3 +688,44 @@ Markdown/tracker files have no trailing whitespace
 - The remaining Atlas goal is not complete; the next best implementation slice is Phase 3 A3.1 `ActionType` storage and API.
 
 ---
+
+## Turn 7: Agent Workflow Control Plane
+
+**Target:** `TASK-2026-06-15-agent-workflow`
+**Context:** The user requested implementation of the Poke/Cursor/Codex operating model with the
+review fixes applied.
+
+### Completed
+
+- Extended `AGENTS.md` without replacing Atlas-specific constraints.
+- Added `docs/AGENT_WORKFLOW.md` for the Poke -> Cursor -> Codex workflow.
+- Added Cursor rules and focused custom subagents.
+- Added portable `.agents/skills` workflows.
+- Added a manual Codex PR review prompt without enabling GitHub Action automation.
+- Added `tasks/`, `state/`, and `logs/` templates plus short root summary files.
+- Added workflow integration tests and expanded lint coverage to include the new control-plane files.
+
+### Verification
+
+```text
+npm run lint
+Lint passed
+
+npm run validate:records
+Validated 20 records
+
+npm run verify:migrations
+Verified 3 migration files
+
+npm test
+tests 47
+pass 47
+fail 0
+```
+
+### PRD Progress Update
+
+- This was an agent workflow/control-plane task; no Atlas runtime feature phase advanced.
+- Next recommended Atlas implementation task remains Phase 3 A3.1 `ActionType` storage and API.
+
+---
