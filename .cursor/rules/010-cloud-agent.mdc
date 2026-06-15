@@ -1,0 +1,24 @@
+---
+description: Cloud Agent workflow for delegated implementation tasks
+alwaysApply: false
+---
+
+# Cloud Agent workflow
+
+Use this when the task is delegated from Poke, GitHub, Linear, or Cursor Cloud.
+
+Required behavior:
+
+- Start by reading `AGENTS.md`, `TASKS.md`, `CONTEXT_LOG.md`, `docs/ARCHITECTURE.md`, and
+  `docs/AGENT_WORKFLOW.md`.
+- If the task is ambiguous, produce a plan and update `tasks/<TASK_ID>.md` before implementation.
+- Commit only scoped changes.
+- Use verifier and test-runner subagents before claiming completion on non-trivial work.
+- Use security-auditor when changes touch auth, permissions, secrets, user data, APIs, or database
+  access.
+- Update per-task state/log files when the task has a durable task spec.
+- End with commands run, risks, next action, and a Poke-ready summary under 100 words.
+
+Never rely on external services unless the task explicitly requires them and the environment is
+configured.
+

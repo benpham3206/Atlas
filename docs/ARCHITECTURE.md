@@ -18,8 +18,18 @@ infra/
 docs/
   PRD.md
   ARCHITECTURE.md
+  AGENT_WORKFLOW.md
   CODEX_RULES.md
+tasks/                  per-task specs for non-trivial agent work
+state/                  per-task handoff state
+logs/                   per-task command evidence and review notes
+.agents/skills/         portable Codex/Cursor workflow skills
+.cursor/rules/          Cursor-specific project rules
+.cursor/agents/         Cursor custom subagent definitions
+.github/codex/prompts/  Codex review prompts without enabling automation by default
 TASKS.md
+CONTEXT_LOG.md
+AGENTS.md
 README.md
 ```
 
@@ -86,6 +96,19 @@ Owns shared cross-app types and tiny runtime helpers. Current exports cover:
 Reserved for database migrations. The current migrations define `workspaces`, `object_types`, `object_instances`, `link_types`, `link_instances`, and `object_sets`.
 
 Migration verification is currently static because no local Postgres runtime is configured. `npm run verify:migrations` checks ordering, file naming, semicolon termination, and duplicate table creation.
+
+### Agent control plane
+
+Atlas uses repository files as the handoff surface between Poke, Cursor, Codex, and human review:
+
+- `AGENTS.md` stores stable repo-wide rules and the agent operating model.
+- `TASKS.md` remains the root implementation queue.
+- `CONTEXT_LOG.md` remains the historical evidence log until a deliberate migration replaces it.
+- `docs/AGENT_WORKFLOW.md` documents the Poke -> Cursor -> Codex workflow.
+- `tasks/`, `state/`, and `logs/` hold per-task specs, handoff state, and command evidence for non-trivial work.
+- `.agents/skills/` stores portable repeatable workflows.
+- `.cursor/rules/` and `.cursor/agents/` store Cursor-specific routing and subagent instructions.
+- `.github/codex/prompts/` stores review prompts without enabling GitHub Action automation by default.
 
 ## Future Direction
 

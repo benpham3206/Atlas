@@ -1,0 +1,23 @@
+---
+alwaysApply: true
+---
+
+# Cursor core agent rule
+
+Read `AGENTS.md` first. Treat it as the stable repo constitution, then read
+`docs/AGENT_WORKFLOW.md` for the Poke/Cursor/Codex operating model.
+
+For non-trivial work:
+
+1. Read `TASKS.md`, `CONTEXT_LOG.md`, `docs/ARCHITECTURE.md`, and relevant source files.
+2. Create or update `tasks/<TASK_ID>.md` when the task needs durable acceptance criteria, a test
+   plan, or handoff state.
+3. Update `state/<TASK_ID>.md` and `logs/<TASK_ID>.md` when a task file exists.
+4. Use one branch per task.
+5. Run the relevant tests before claiming completion.
+6. Record command evidence in the log or final handoff.
+7. Produce a Poke-ready summary under 100 words.
+
+Do not mark work complete solely because files were edited. Verification requires tests,
+build/typecheck/lint where relevant, and a diff review.
+
