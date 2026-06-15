@@ -19,6 +19,10 @@ Required behavior:
 - Use security-auditor when changes touch auth, permissions, secrets, user data, APIs, or database
   access.
 - Update per-task `100X/state/` and `100X/logs/` files when the task has a durable task spec.
+- After implementation and verification, run
+  `npm run 100x:review-packet -- <TASK_ID> --pr <PR_URL_OR_NUMBER>` when a PR exists. Commit the
+  generated `100X/review-packets/<TASK_ID>.md` so local Codex can review without reconstructing
+  context.
 - End with commands run, risks, next action, and a Poke-ready summary under 100 words.
 
 Never rely on external services unless the task explicitly requires them and the environment is

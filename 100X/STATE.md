@@ -2,9 +2,9 @@
 
 ## Current focus
 
-- Active task: TASK-2026-06-15-api-version-endpoint
-- Active branch: not created yet
-- Current phase: PLAN
+- Active task: TASK-2026-06-15-100x-local-codex-hooks
+- Active branch: local-main
+- Current phase: REVIEW
 
 ## Global constraints
 
@@ -15,11 +15,11 @@
 
 ## Active tasks
 
-See `TASKS.md` and `100X/tasks/TASK-2026-06-15-api-version-endpoint.md`.
+See `TASKS.md` and `100X/tasks/TASK-2026-06-15-100x-local-codex-hooks.md`.
 
 ## Last handoff
 
 - Date: 2026-06-15
 - Agent: local-codex
-- Summary: Planned a tiny product proof for Cursor Cloud: add `GET /version`, test it, update
-  100X handoff files, and open a PR for Codex review.
+- Summary: Added and verified a local-Codex-safe automation hook so Cursor agents can generate review
+  packets after implementation and verification.

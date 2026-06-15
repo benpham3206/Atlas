@@ -7,3 +7,4 @@ and in `100X/logs/<TASK_ID>.md` for workflow tasks.
 | --- | --- | --- | --- | --- |
 | 2026-06-15 | TASK-2026-06-15-100x-separation | cursor-cloud | `npm test` | pass, 49 tests |
 | 2026-06-15 | TASK-2026-06-15-api-version-endpoint | local-codex | planned Cursor Cloud product proof | pass, runtime code unchanged |
+| 2026-06-15 | TASK-2026-06-15-100x-local-codex-hooks | local-codex | `npm test` | pass, 51 tests |

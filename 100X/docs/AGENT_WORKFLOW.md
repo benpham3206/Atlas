@@ -6,21 +6,19 @@ It extends the existing `TASKS.md` and `CONTEXT_LOG.md` process instead of repla
 ## Operating model
 
 ```text
-Human
-  -> Poke intake and status interface
-  -> architecture lane: local Codex plugin writes/refines PRD, architecture, and task specs
-  -> implementation lane: Cursor Cloud coding agents execute Codex-planned atomic tasks
-  -> verification lane: Cursor verifier, test-runner, debugger, and security-auditor as needed
-  -> independent review lane: local Codex plugin review and/or Cursor Bugbot
-  -> fix lane: Cursor Cloud agents apply scoped follow-ups from Codex/Bugbot/human review
-  -> handoff lane: task/state/log updates plus concise Poke summary
-  -> Poke status back to human
+Prompt or goal
+  -> local Codex: design infrastructure, tests, and atomic task specs
+  -> Cursor Cloud or local Cursor agents: implement and verify those tasks
+  -> local Codex: review the code and handoff evidence
+  -> Cursor agents: apply scoped fixes from Codex findings
+  -> Poke or human: receive concise status and choose the next task
 ```
 
-Codex is the high-level architecture, planning, task decomposition, and review plane. Cursor Cloud
-is the execution plane for one or more coding agents that implement the atomic task files Codex
-plans. Poke is the control loop for launching, interrupting, monitoring, and receiving concise
-status from Cursor Cloud Agents. The repository files are the handoff surface between those tools.
+Codex is the local architecture, infrastructure-design, test-strategy, atomic-task-writing, and
+review plane. Cursor Cloud or local Cursor agents are the execution plane: they implement and verify
+the atomic task files Codex plans. Poke is the control loop for launching, interrupting, monitoring,
+and receiving concise status from Cursor agents. The repository files are the handoff surface
+between those tools.
 
 ## File ownership
 
@@ -59,13 +57,15 @@ subroutine.
 2. **Plan with local Codex**
    - Read `AGENTS.md` and `100X/AGENTS.md`, `TASKS.md`, `CONTEXT_LOG.md`, `docs/ARCHITECTURE.md`, and relevant code.
    - Create or update `100X/tasks/<TASK_ID>.md` for non-trivial work.
+   - Design any required scaffolding, tests, fixtures, prompts, and acceptance gates before Cursor
+     agents implement code.
    - Include goal, user intent, scope, non-goals, acceptance criteria, test plan, likely files,
-     risks, and review requirements.
+     risks, review requirements, and the exact Cursor launch prompt.
    - Split large goals into independent atomic tasks that can be assigned to separate Cursor Cloud
-     coding agents.
+     or local Cursor coding agents.
 
 3. **Implement**
-   - Cursor Cloud Agent implements only the scoped Codex-planned task.
+   - Cursor Cloud or local Cursor agents implement only the scoped Codex-planned task.
    - Do not let two live agents edit the same files on the same branch.
    - Keep changes minimal and reversible.
    - Do not add dependencies without explicit approval; Atlas is currently zero-dependency.
@@ -79,11 +79,15 @@ subroutine.
      - `npm test`
    - Store command evidence in `100X/logs/<TASK_ID>.md` when a task file exists.
 
-5. **Review**
+5. **Review with local Codex**
    - Use independent review for non-trivial changes.
    - Codex review should compare the diff to `AGENTS.md`, `100X/tasks/<TASK_ID>.md`, acceptance criteria,
      test plan, and architecture rules.
-   - Cursor Bugbot may be used for PR diff review.
+   - Cursor Cloud or a local Cursor agent should generate a local Codex review packet with
+     `npm run 100x:review-packet -- <TASK_ID> --pr <PR_URL_OR_NUMBER>` after implementation and
+     verification.
+   - Cursor Bugbot may be used as an additional PR diff review, but it does not replace local Codex
+     review when the task is proving this loop.
    - Treat P0/P1 correctness, security, data-loss, privacy, and missing-test findings as blocking.
 
 6. **Handoff**
@@ -111,9 +115,27 @@ Instructions:
 - Use security-auditor if the change touches auth, permissions, secrets, user data, APIs, or database access.
 - Run relevant tests.
 - Open or update a PR when verification passes.
+- Run npm run 100x:review-packet -- <TASK_ID> --pr <PR_URL_OR_NUMBER> after the PR exists.
 - Update task/state/log files.
 - End with a Poke-ready summary under 100 words.
 ```
+
+## Local Codex Automation Boundary
+
+Codex remains local/manual in this workflow. Cursor Cloud and local Cursor agents can automate the
+handoff into Codex by generating a review packet under `100X/review-packets/`, but they must not
+claim that Codex reviewed the work until the human runs local Codex against that packet.
+
+Use:
+
+```sh
+npm run 100x:status -- TASK-YYYY-MM-DD-slug
+npm run 100x:review-packet -- TASK-YYYY-MM-DD-slug --pr <PR_URL_OR_NUMBER>
+```
+
+The generated packet includes the task spec, state, log, Poke summary, git status, diff stat, changed
+files, and a Cursor fix follow-up template. It intentionally avoids environment dumps and secret
+capture.
 
 ## Codex planning prompt
 
@@ -121,21 +143,24 @@ Instructions:
 Read AGENTS.md, TASKS.md, CONTEXT_LOG.md, docs/ARCHITECTURE.md, 100X/docs/AGENT_WORKFLOW.md, and the
 relevant source files.
 
-Act as architect and test strategist. Do not implement code.
+Act as architect, infrastructure designer, test strategist, and atomic task writer. Do not implement
+runtime code unless the human explicitly asks Codex to do the implementation.
 
 Produce:
 1. PRD or requirements summary
-2. architecture options
-3. recommended design
-4. task breakdown
-5. acceptance criteria
-6. test plan
-7. risks
-8. files likely to change
+2. architecture or infrastructure design
+3. required tests, fixtures, scripts, or verification gates
+4. recommended implementation shape
+5. atomic task breakdown for Cursor agents
+6. acceptance criteria
+7. test plan
+8. risks
+9. files likely to change
+10. exact Cursor Cloud or local Cursor launch prompts
 
 Write or update 100X/tasks/<TASK_ID>.md. If the goal is large, split it into multiple atomic task files
-that can be safely assigned to separate Cursor Cloud coding agents. Summarize the exact Cursor Cloud
-prompts Poke should launch for each atomic task.
+that can be safely assigned to separate Cursor agents. Summarize the exact Cursor prompts Poke or the
+human should launch for each atomic task.
 ```
 
 ## Codex review prompt
@@ -172,4 +197,3 @@ Do not merge unless:
 - Independent review has no unresolved P0/P1 findings.
 - PR description includes commands run, files changed, risks, and follow-up work.
 - Task/state/log files are current when the task uses them.
-
