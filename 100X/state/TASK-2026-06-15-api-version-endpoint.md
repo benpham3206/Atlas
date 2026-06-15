@@ -4,7 +4,7 @@
 
 - Phase: REVIEW
 - Branch: cursor/application-version-endpoint-b920
-- PR: pending creation
+- PR: https://github.com/benpham3206/Atlas/pull/5
 - Owner: cursor-cloud implementation lane
 - Last update: 2026-06-15
 
@@ -27,7 +27,7 @@ success response, version value, and response shape. `npm run test:api` and `npm
 ## Next action
 
 Open the PR, then run local Codex review with
-`npm run 100x:review-packet -- TASK-2026-06-15-api-version-endpoint --pr <PR>`.
+`npm run 100x:review-packet -- TASK-2026-06-15-api-version-endpoint --pr 5`.
 
 ## Poke-ready summary
 
