@@ -37,7 +37,7 @@ Out:
 - [x] `POKE_SUMMARY.md` contains a Poke-ready summary under 100 words.
 - [x] A minor documentation-only change is included.
 - [x] `npm run lint` passes.
-- [ ] A draft pull request is open.
+- [x] A draft pull request is open.
 
 ## Test plan
 

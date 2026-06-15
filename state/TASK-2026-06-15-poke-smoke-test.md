@@ -2,16 +2,16 @@
 
 ## Current status
 
-- Phase: SUBMIT
+- Phase: REVIEW
 - Branch: cursor/docs-only-smoke-test-b0f7
-- PR: pending
+- PR: https://github.com/benpham3206/Atlas/pull/3
 - Owner: cursor-cloud
 - Last update: 2026-06-15
 
 ## Current summary
 
 Docs-only smoke-test handoff files are initialized. The workflow guide is present, task/state/log
-files are current, and `npm run lint` passed.
+files are current, `npm run lint` passed, and the draft PR is open.
 
 ## Blockers
 
@@ -23,9 +23,9 @@ files are current, and `npm run lint` passed.
 
 ## Next action
 
-Commit and push the docs-only changes, then open a draft pull request.
+Review the draft PR and confirm the docs-only handoff path works as expected.
 
 ## Poke-ready summary
 
-Docs-only smoke test in progress. Workflow, task, state, log, and Poke summary files are initialized.
-Lint passed; draft PR is pending.
+Docs-only smoke test complete. Workflow, task, state, log, and Poke summary files are updated.
+Lint passed and draft PR is open.
