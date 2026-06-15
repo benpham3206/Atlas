@@ -71,6 +71,6 @@ test("root summaries remain indexes instead of replacing task and log sources", 
   assert.match(state, /`TASKS\.md` is the root implementation queue/);
   assert.match(state, /Keep task-specific detail in `tasks\/`, `state\/`, and `logs\/`/);
   assert.match(logs, /Detailed command evidence remains in `CONTEXT_LOG\.md`/);
-  assert.match(summary, /Existing `AGENTS\.md`, `TASKS\.md`, and\s+`CONTEXT_LOG\.md` stay authoritative/);
+  assert.match(summary, /Existing `AGENTS\.md`, `TASKS\.md`, and `CONTEXT_LOG\.md`\s+stay authoritative/);
 });
 

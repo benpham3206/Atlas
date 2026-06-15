@@ -13,6 +13,7 @@
 | 2026-06-15T04:21:00Z | `npm run validate:records` | pass | Validated 20 records. |
 | 2026-06-15T04:21:00Z | `npm run verify:migrations` | pass | Verified 3 migration files. |
 | 2026-06-15T04:21:00Z | `npm test` | pass | 47 tests passed, including 5 new agent workflow tests. |
+| 2026-06-15T04:21:00Z | `npm run lint && npm run validate:records && npm run verify:migrations && npm test` | fail | Final pass found one line-wrapping-sensitive regex in `tests/integration/agent-workflow.test.js`; lint, record validation, and migration verification passed first. |
 
 ## Review notes
 
