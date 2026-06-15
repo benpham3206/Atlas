@@ -1,6 +1,13 @@
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createHealthStatus } from "../../../packages/ontology-core/src/index.js";
 import { ApiError, createOntologyStore } from "./ontology-store.js";
+
+const ROOT_PACKAGE_VERSION = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../../package.json"), "utf8")
+).version;
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 4000;
@@ -34,6 +41,13 @@ async function handleRequest({ request, response, now, store }) {
 
   if (request.method === "GET" && url.pathname === "/health") {
     return sendJson(response, 200, createHealthStatus("atlas-api", now()));
+  }
+
+  if (request.method === "GET" && url.pathname === "/version") {
+    return sendJson(response, 200, {
+      service: "atlas-api",
+      version: ROOT_PACKAGE_VERSION
+    });
   }
 
   if (request.method === "GET" && url.pathname === "/") {
