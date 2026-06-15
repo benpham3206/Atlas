@@ -9,12 +9,28 @@ Atlas is a minimal operational ontology platform. This repository currently cont
 - `packages/ontology-core`: shared health/status types, object property validation, and BaseRecord validation.
 - `infra/migrations`: database migration artifacts.
 - `docs`: PRD, architecture, Codex rules, and task queue.
+- `docs/AGENT_WORKFLOW.md`: Poke/Cursor/Codex operating model and handoff process.
+- `.agents/skills`, `.cursor/rules`, `.cursor/agents`: portable skills and Cursor-specific agent workflow configuration.
+- `.github/codex/prompts`: Codex review prompts; no automated Codex Action is enabled by default.
+- `onboarding`: file-based onboarding workspace for Cursor Cloud, local Codex plugin, and Poke smoke tests.
+- `tasks`, `state`, `logs`: templates for per-task specs, handoff state, and command evidence.
 
 The first ontology nouns and links are implemented with in-memory API storage: `Workspace`, `ObjectType`, `ObjectInstance`, `LinkType`, `LinkInstance`, and `ObjectSet`.
 
 The first Capability Graph record foundation is implemented in `ontology-core`: `BaseRecord` validation, a declarative record type registry, table-driven Phase 2 specs, AAA-wedge fixtures, and record validation command support. Candidate records remain visible but non-authoritative; only approved operational records can drive future recommendations or state-changing behavior.
 
 Auth, actions, policies, audit, database runtime wiring, and integrations are not implemented yet.
+
+## Agent Workflow
+
+For non-trivial agent work, read `AGENTS.md`, `TASKS.md`, `CONTEXT_LOG.md`, `docs/ARCHITECTURE.md`,
+and `docs/AGENT_WORKFLOW.md` before planning or coding. `TASKS.md` remains the root implementation
+queue, while per-task specs and handoff evidence belong under `tasks/`, `state/`, and `logs/` when
+the task needs durable acceptance criteria or status.
+
+For onboarding, start with `onboarding/README.md`. It provides the practical Enterprise-compatible
+loop where local Codex performs high-level architecture, atomic planning, and review; Poke launches
+and monitors Cursor Cloud coding agents; and Cursor Cloud creates the PR and `POKE_SUMMARY.md`.
 
 ## Requirements
 

@@ -3,8 +3,31 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const INCLUDED_DIRS = [".github", "apps", "docs", "infra", "packages", "scripts", "tests"];
-const TEXT_EXTENSIONS = new Set([".js", ".json", ".md", ".sql", ".yml"]);
+const INCLUDED_DIRS = [
+  ".agents",
+  ".cursor",
+  ".github",
+  "apps",
+  "docs",
+  "infra",
+  "logs",
+  "onboarding",
+  "packages",
+  "scripts",
+  "state",
+  "tasks",
+  "tests"
+];
+const INCLUDED_ROOT_FILES = [
+  "AGENTS.md",
+  "CONTEXT_LOG.md",
+  "LOGS.md",
+  "POKE_SUMMARY.md",
+  "README.md",
+  "STATE.md",
+  "TASKS.md"
+];
+const TEXT_EXTENSIONS = new Set([".js", ".json", ".md", ".mdc", ".sql", ".yml"]);
 
 const errors = [];
 
@@ -64,6 +87,22 @@ function listFiles(root) {
 
     try {
       visit(absoluteDir, files);
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
+
+  for (const file of INCLUDED_ROOT_FILES) {
+    const absoluteFile = join(root, file);
+
+    try {
+      const stat = statSync(absoluteFile);
+
+      if (stat.isFile()) {
+        files.push(absoluteFile);
+      }
     } catch (error) {
       if (error.code !== "ENOENT") {
         throw error;

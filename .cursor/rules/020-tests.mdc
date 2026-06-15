@@ -1,0 +1,23 @@
+---
+description: Test and verification expectations for Atlas
+alwaysApply: false
+---
+
+# Atlas test workflow
+
+Atlas uses dependency-free Node.js tooling. Prefer the scripts documented in `README.md` and
+`package.json`.
+
+Common commands:
+
+- `npm run lint`
+- `npm run validate:records`
+- `npm run verify:migrations`
+- `npm test`
+
+Use the narrowest relevant test command first. Run the broader suite when changes cross package,
+API, fixture, migration, or workflow boundaries.
+
+Changed behavior should include tests. If a change is documentation/configuration only, add a
+lightweight integration test when the workflow contract should remain stable.
+
