@@ -9,12 +9,20 @@ Atlas is a minimal operational ontology platform. This repository currently cont
 - `packages/ontology-core`: shared health/status types, object property validation, and BaseRecord validation.
 - `infra/migrations`: database migration artifacts.
 - `docs`: PRD, architecture, Codex rules, and task queue.
+- `100X`: Codex, Cursor Cloud Agents, and Poke workflow control plane.
 
 The first ontology nouns and links are implemented with in-memory API storage: `Workspace`, `ObjectType`, `ObjectInstance`, `LinkType`, `LinkInstance`, and `ObjectSet`.
 
 The first Capability Graph record foundation is implemented in `ontology-core`: `BaseRecord` validation, a declarative record type registry, table-driven Phase 2 specs, AAA-wedge fixtures, and record validation command support. Candidate records remain visible but non-authoritative; only approved operational records can drive future recommendations or state-changing behavior.
 
 Auth, actions, policies, audit, database runtime wiring, and integrations are not implemented yet.
+
+## Agent Workflow
+
+The Codex, Cursor Cloud Agents, and Poke interaction workflow is separated under `100X/`. Start with
+`100X/README.md`, then read `100X/AGENTS.md` and `100X/docs/AGENT_WORKFLOW.md`. Root `TASKS.md`
+remains the Atlas implementation queue; workflow task specs and handoff evidence live under
+`100X/tasks/`, `100X/state/`, and `100X/logs/` when needed.
 
 ## Requirements
 
