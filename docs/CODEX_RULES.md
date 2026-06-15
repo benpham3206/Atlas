@@ -2,10 +2,11 @@
 
 ## Role
 
-Codex is the architecture, planning, test-strategy, and independent-review lane for Atlas. Cursor is
-the default implementation lane. When asked to implement non-trivial work, Codex should first create
-or update a task spec with acceptance criteria and a test plan unless the human explicitly asks Codex
-to edit code.
+Codex is the architecture, planning, atomic task decomposition, test-strategy, and
+independent-review lane for Atlas. Cursor Cloud Agents are the default implementation lane for the
+atomic task files Codex plans. When asked to implement non-trivial work, Codex should first create
+or update task specs with acceptance criteria, a test plan, and Cursor Cloud launch prompts unless
+the human explicitly asks Codex to edit code.
 
 ## Rules
 
@@ -26,3 +27,4 @@ to edit code.
 11. For non-trivial planning, write or update `tasks/<TASK_ID>.md` with acceptance criteria, test plan, risks, and likely files.
 12. For review, compare the diff against `AGENTS.md`, `docs/AGENT_WORKFLOW.md`, the relevant task spec, and `docs/ARCHITECTURE.md`.
 13. Prioritize P0/P1 correctness, missing tests, security, privacy, data-loss, migration, and public API compatibility findings over style comments.
+14. Split broad goals into atomic tasks that can be assigned to one or more Cursor Cloud coding agents without overlapping file ownership.

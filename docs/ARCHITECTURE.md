@@ -27,6 +27,7 @@ logs/                   per-task command evidence and review notes
 .cursor/rules/          Cursor-specific project rules
 .cursor/agents/         Cursor custom subagent definitions
 .github/codex/prompts/  Codex review prompts without enabling automation by default
+onboarding/             File-based onboarding workspace for Cursor Cloud, local Codex, and Poke
 TASKS.md
 CONTEXT_LOG.md
 AGENTS.md
@@ -109,6 +110,8 @@ Atlas uses repository files as the handoff surface between Poke, Cursor, Codex, 
 - `.agents/skills/` stores portable repeatable workflows.
 - `.cursor/rules/` and `.cursor/agents/` store Cursor-specific routing and subagent instructions.
 - `.github/codex/prompts/` stores review prompts without enabling GitHub Action automation by default.
+- `onboarding/` stores setup checklists and copy/paste prompts for Cursor Cloud, local Codex plugin,
+  and Poke smoke tests.
 
 ## Future Direction
 

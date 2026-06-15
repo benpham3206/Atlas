@@ -2,11 +2,10 @@
 
 ## Latest text-ready update
 
-Atlas agent workflow setup is in review. Existing `AGENTS.md`, `TASKS.md`, and `CONTEXT_LOG.md`
-stay authoritative; new files add workflow docs, Cursor rules/subagents, portable skills, Codex
-review prompts, and per-task handoff templates. Lint, record validation, migration verification,
-and all tests passed. External Codex automation remains deferred until security and permission
-approval.
+Atlas agent workflow setup is in review. Local Codex owns architecture, atomic planning, and review.
+Poke launches/monitors Cursor Cloud coding agents, and Cursor Cloud executes Codex-planned tasks.
+Existing `AGENTS.md`, `TASKS.md`, and `CONTEXT_LOG.md` stay authoritative. Onboarding docs and
+smoke-test prompts are included. External Codex automation remains deferred.
 
 ## Suggested next Poke command
 

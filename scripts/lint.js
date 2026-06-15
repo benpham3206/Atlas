@@ -11,6 +11,7 @@ const INCLUDED_DIRS = [
   "docs",
   "infra",
   "logs",
+  "onboarding",
   "packages",
   "scripts",
   "state",

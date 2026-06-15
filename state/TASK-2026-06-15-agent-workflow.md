@@ -10,9 +10,9 @@
 
 ## Current summary
 
-The file-based agent workflow control plane is implemented and locally verified. It preserves
-existing Atlas rules, keeps `TASKS.md` and `CONTEXT_LOG.md` canonical, adds per-task templates, and
-adds Cursor/Codex workflow configuration.
+The file-based agent workflow control plane is implemented with onboarding docs for the corrected
+ownership split: local Codex owns architecture, atomic planning, and review; Poke launches and
+monitors Cursor Cloud; Cursor Cloud coding agents execute Codex-planned atomic tasks.
 
 ## Blockers
 
@@ -29,7 +29,7 @@ Review the draft PR and address any Codex, Bugbot, CI, or human review findings.
 
 ## Poke-ready summary
 
-Atlas agent workflow setup is in review. It preserves existing rules, adds Cursor/Codex/Poke
-handoff files and templates, and passed lint, record validation, migration verification, and all
-tests. External Codex automation remains deferred for security approval.
+Atlas agent workflow setup is in review. Local Codex plans/reviews, Poke launches and monitors
+Cursor Cloud, and Cursor Cloud executes Codex-planned atomic tasks. Onboarding docs and smoke-test
+prompts are included. External Codex automation remains deferred.
 

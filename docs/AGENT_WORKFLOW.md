@@ -8,39 +8,45 @@ It extends the existing `TASKS.md` and `CONTEXT_LOG.md` process instead of repla
 ```text
 Human
   -> Poke intake and status interface
-  -> planning lane: Codex or Cursor plan mode writes/refines task spec
-  -> implementation lane: Cursor Cloud Agent / Cursor Agent executes
+  -> architecture lane: local Codex plugin writes/refines PRD, architecture, and task specs
+  -> implementation lane: Cursor Cloud coding agents execute Codex-planned atomic tasks
   -> verification lane: Cursor verifier, test-runner, debugger, and security-auditor as needed
-  -> independent review lane: Codex review and/or Cursor Bugbot
-  -> fix lane: Cursor or Codex applies scoped follow-ups
+  -> independent review lane: local Codex plugin review and/or Cursor Bugbot
+  -> fix lane: Cursor Cloud agents apply scoped follow-ups from Codex/Bugbot/human review
   -> handoff lane: task/state/log updates plus concise Poke summary
   -> Poke status back to human
 ```
 
-Cursor is the execution plane for repo edits, terminal commands, commits, and PRs. Codex is the
-architecture and review plane. Poke is the control loop for launching, interrupting, and receiving
-concise status. The repository files are the handoff surface between those tools.
+Codex is the high-level architecture, planning, task decomposition, and review plane. Cursor Cloud
+is the execution plane for one or more coding agents that implement the atomic task files Codex
+plans. Poke is the control loop for launching, interrupting, monitoring, and receiving concise
+status from Cursor Cloud Agents. The repository files are the handoff surface between those tools.
 
 ## File ownership
 
 | File or directory | Purpose | Owner |
 | --- | --- | --- |
 | `AGENTS.md` | Stable repo-wide agent rules and non-negotiables | Human-reviewed, all agents read |
-| `TASKS.md` | Root implementation queue and task index | Cursor updates during implementation |
+| `TASKS.md` | Root implementation queue and task index | Codex plans; Cursor updates status during execution |
 | `CONTEXT_LOG.md` | Historical evidence log for completed turns | Cursor updates when task scope requires it |
 | `docs/AGENT_WORKFLOW.md` | This workflow guide | Human-reviewed, all agents read |
-| `docs/CODEX_RULES.md` | Codex-specific review and planning rules | Codex-focused, Cursor respects |
-| `tasks/` | Per-task specs, acceptance criteria, and test plans | Planning lane creates; implementation lane updates |
+| `docs/CODEX_RULES.md` | Codex-specific architecture, planning, and review rules | Codex-focused, Cursor respects |
+| `tasks/` | Per-task specs, acceptance criteria, and test plans | Codex creates; Cursor executes and updates status |
 | `state/` | Per-task current state and handoff snapshots | Implementation lane updates |
 | `logs/` | Per-task command evidence and review notes | Implementation and verification lanes update |
 | `.agents/skills/` | Portable repeatable workflows for Codex and Cursor | Human-reviewed, all agents may use |
 | `.cursor/rules/` | Cursor-specific project rules | Cursor-only |
 | `.cursor/agents/` | Cursor custom subagent definitions | Cursor-only |
 | `.github/codex/prompts/` | Codex PR review prompts for manual or approved automated use | Codex review lane |
+| `onboarding/` | Setup checklists and smoke-test prompts for Cursor Cloud, local Codex, and Poke | Human and agent onboarding |
 
 Root summary files such as `STATE.md`, `LOGS.md`, and `POKE_SUMMARY.md` may be introduced later if
 they are useful, but they should stay short and index-like. Detailed evidence belongs in per-task
 files to avoid merge conflicts between parallel agents.
+
+For setup validation, use `onboarding/README.md`. It documents the Enterprise-compatible path where
+Codex runs locally in Cursor as architect/planner/reviewer and is not treated as a Cursor Cloud
+subroutine.
 
 ## Task lifecycle
 
@@ -49,14 +55,16 @@ files to avoid merge conflicts between parallel agents.
    - Assign one task ID, for example `TASK-2026-06-15-agent-workflow`.
    - Create one branch per implementation task.
 
-2. **Plan**
+2. **Plan with local Codex**
    - Read `AGENTS.md`, `TASKS.md`, `CONTEXT_LOG.md`, `docs/ARCHITECTURE.md`, and relevant code.
    - Create or update `tasks/<TASK_ID>.md` for non-trivial work.
    - Include goal, user intent, scope, non-goals, acceptance criteria, test plan, likely files,
      risks, and review requirements.
+   - Split large goals into independent atomic tasks that can be assigned to separate Cursor Cloud
+     coding agents.
 
 3. **Implement**
-   - Cursor Cloud Agent or Cursor Agent implements only the scoped task.
+   - Cursor Cloud Agent implements only the scoped Codex-planned task.
    - Do not let two live agents edit the same files on the same branch.
    - Keep changes minimal and reversible.
    - Do not add dependencies without explicit approval; Atlas is currently zero-dependency.
@@ -91,13 +99,13 @@ Start Cursor Cloud Agent.
 Repo: <org/repo>
 Base branch: main
 Task ID: TASK-YYYY-MM-DD-<slug>
-Mode: plan first, then implement after the task spec is written
-Goal: <goal>
+Mode: implement the existing Codex-planned atomic task
+Goal: Execute the task described in tasks/<TASK_ID>.md
 
 Instructions:
 - Read AGENTS.md, TASKS.md, CONTEXT_LOG.md, docs/ARCHITECTURE.md, and docs/AGENT_WORKFLOW.md.
-- Create or update tasks/<TASK_ID>.md with acceptance criteria and a test plan.
-- Implement only the scoped task.
+- Read tasks/<TASK_ID>.md.
+- Implement only the scoped atomic task. Do not make architecture decisions beyond the task spec.
 - Use verifier and test-runner subagents before claiming completion.
 - Use security-auditor if the change touches auth, permissions, secrets, user data, APIs, or database access.
 - Run relevant tests.
@@ -124,7 +132,9 @@ Produce:
 7. risks
 8. files likely to change
 
-Write or update tasks/<TASK_ID>.md and summarize what Cursor should implement.
+Write or update tasks/<TASK_ID>.md. If the goal is large, split it into multiple atomic task files
+that can be safely assigned to separate Cursor Cloud coding agents. Summarize the exact Cursor Cloud
+prompts Poke should launch for each atomic task.
 ```
 
 ## Codex review prompt

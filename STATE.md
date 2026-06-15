@@ -23,5 +23,5 @@ See `TASKS.md` and `tasks/TASK-2026-06-15-agent-workflow.md`.
 
 - Date: 2026-06-15
 - Agent: cursor-cloud
-- Summary: Agent workflow control-plane files are implemented and locally verified with existing Atlas task/log sources preserved.
+- Summary: Agent workflow control-plane files and onboarding docs define local Codex as planner/reviewer, Poke as launcher/monitor, and Cursor Cloud as atomic-task executor.
 

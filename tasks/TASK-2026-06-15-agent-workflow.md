@@ -40,6 +40,7 @@ Out:
 - [x] Root `STATE.md`, `LOGS.md`, and `POKE_SUMMARY.md` are short summaries that do not replace `TASKS.md` or `CONTEXT_LOG.md`.
 - [x] Workflow files are covered by lint or tests.
 - [x] No external npm dependencies are added.
+- [x] File-based onboarding documents local Codex as architecture/planning/review lane and Cursor Cloud as Codex-planned atomic-task execution lane.
 
 ## Test plan
 
@@ -65,6 +66,7 @@ Out:
 - `logs/`
 - `scripts/lint.js`
 - `tests/integration/agent-workflow.test.js`
+- `onboarding/`
 
 ## Risks
 

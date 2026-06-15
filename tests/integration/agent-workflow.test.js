@@ -19,6 +19,14 @@ const REQUIRED_FILES = [
   "tasks/TEMPLATE.md",
   "state/TEMPLATE.md",
   "logs/TEMPLATE.md",
+  "onboarding/README.md",
+  "onboarding/CURSOR_CLOUD_AGENT.md",
+  "onboarding/LOCAL_CODEX_PLUGIN.md",
+  "onboarding/POKE_LOOP_SMOKE_TEST.md",
+  "onboarding/prompts/cursor-cloud-agent-smoke-test.md",
+  "onboarding/prompts/local-codex-planning.md",
+  "onboarding/prompts/local-codex-review.md",
+  "onboarding/prompts/poke-fix-follow-up.md",
   "tasks/TASK-2026-06-15-agent-workflow.md",
   "state/TASK-2026-06-15-agent-workflow.md",
   "logs/TASK-2026-06-15-agent-workflow.md",
@@ -42,8 +50,8 @@ test("AGENTS.md preserves Atlas constraints while adding workflow rules", async 
   assert.match(agents, /No external npm packages/);
   assert.match(agents, /API store is fully in-memory/);
   assert.match(agents, /Poke is the intake/);
+  assert.match(agents, /Codex owns high-level architecture/);
   assert.match(agents, /Cursor Cloud Agent \/ Cursor Agent owns scoped implementation/);
-  assert.match(agents, /Codex owns architecture critique/);
 });
 
 test("workflow guide keeps existing trackers canonical and defers unsafe automation", async () => {
@@ -72,5 +80,23 @@ test("root summaries remain indexes instead of replacing task and log sources", 
   assert.match(state, /Keep task-specific detail in `tasks\/`, `state\/`, and `logs\/`/);
   assert.match(logs, /Detailed command evidence remains in `CONTEXT_LOG\.md`/);
   assert.match(summary, /Existing `AGENTS\.md`, `TASKS\.md`, and `CONTEXT_LOG\.md`\s+stay authoritative/);
+});
+
+test("onboarding workspace documents local Codex and Cursor Cloud lanes", async () => {
+  const onboarding = await readFile("onboarding/README.md", "utf8");
+  const codex = await readFile("onboarding/LOCAL_CODEX_PLUGIN.md", "utf8");
+  const cloud = await readFile("onboarding/CURSOR_CLOUD_AGENT.md", "utf8");
+  const smoke = await readFile("onboarding/POKE_LOOP_SMOKE_TEST.md", "utf8");
+
+  assert.match(onboarding, /Codex plugin runs locally inside Cursor for high-level architecture/);
+  assert.match(onboarding, /Codex cloud automation is not required/);
+  assert.match(onboarding, /Cursor Cloud Agents implement, verify, commit, push, and open PRs for Codex-planned atomic tasks/);
+  assert.match(codex, /Codex is local\/manual/);
+  assert.match(codex, /Codex is still the high-level owner/);
+  assert.match(codex, /Do not assume the Codex plugin can run inside Cursor Cloud/);
+  assert.match(cloud, /Cursor Cloud is the execution lane/);
+  assert.match(cloud, /Cursor Cloud can access the Atlas GitHub repository/);
+  assert.match(smoke, /local Codex plugin\s+  -> architecture plan and atomic task file/);
+  assert.match(smoke, /local Cursor Codex plugin review/);
 });
 

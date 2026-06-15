@@ -22,8 +22,10 @@ Steps:
 5. Identify risks, non-goals, and open questions.
 6. Write acceptance criteria.
 7. Write a test plan.
-8. Create or update `tasks/<TASK_ID>.md`.
-9. Do not implement production code unless explicitly asked.
+8. Split broad goals into atomic task files for Cursor Cloud coding agents.
+9. Create or update `tasks/<TASK_ID>.md`.
+10. Produce Poke-ready Cursor Cloud launch prompts for each atomic task.
+11. Do not implement production code unless explicitly asked.
 
 Output:
 
@@ -32,5 +34,6 @@ Output:
 - Test plan
 - Risk list
 - Files likely to change
+- Atomic task list and launch prompts
 - Poke-ready summary under 100 words
 

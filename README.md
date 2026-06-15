@@ -12,6 +12,7 @@ Atlas is a minimal operational ontology platform. This repository currently cont
 - `docs/AGENT_WORKFLOW.md`: Poke/Cursor/Codex operating model and handoff process.
 - `.agents/skills`, `.cursor/rules`, `.cursor/agents`: portable skills and Cursor-specific agent workflow configuration.
 - `.github/codex/prompts`: Codex review prompts; no automated Codex Action is enabled by default.
+- `onboarding`: file-based onboarding workspace for Cursor Cloud, local Codex plugin, and Poke smoke tests.
 - `tasks`, `state`, `logs`: templates for per-task specs, handoff state, and command evidence.
 
 The first ontology nouns and links are implemented with in-memory API storage: `Workspace`, `ObjectType`, `ObjectInstance`, `LinkType`, `LinkInstance`, and `ObjectSet`.
@@ -26,6 +27,10 @@ For non-trivial agent work, read `AGENTS.md`, `TASKS.md`, `CONTEXT_LOG.md`, `doc
 and `docs/AGENT_WORKFLOW.md` before planning or coding. `TASKS.md` remains the root implementation
 queue, while per-task specs and handoff evidence belong under `tasks/`, `state/`, and `logs/` when
 the task needs durable acceptance criteria or status.
+
+For onboarding, start with `onboarding/README.md`. It provides the practical Enterprise-compatible
+loop where local Codex performs high-level architecture, atomic planning, and review; Poke launches
+and monitors Cursor Cloud coding agents; and Cursor Cloud creates the PR and `POKE_SUMMARY.md`.
 
 ## Requirements
 

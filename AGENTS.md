@@ -10,8 +10,8 @@ target. Standard commands (run/test/lint/verify) are documented in `README.md` a
 ## Agent operating model
 
 - Poke is the intake, interrupt, and concise status surface.
-- Cursor Cloud Agent / Cursor Agent owns scoped implementation, verification commands, commits, and PR workflow.
-- Codex owns architecture critique, PRD refinement, test strategy, and independent review.
+- Codex owns high-level architecture, PRD refinement, atomic task planning, test strategy, and independent review.
+- Cursor Cloud Agent / Cursor Agent owns scoped implementation, verification commands, commits, and PR workflow for Codex-planned atomic tasks.
 - Human owner is the final merge authority.
 - Do not make one agent both author and final judge of non-trivial work; use independent review before merge.
 

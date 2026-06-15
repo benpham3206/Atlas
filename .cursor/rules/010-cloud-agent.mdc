@@ -11,7 +11,9 @@ Required behavior:
 
 - Start by reading `AGENTS.md`, `TASKS.md`, `CONTEXT_LOG.md`, `docs/ARCHITECTURE.md`, and
   `docs/AGENT_WORKFLOW.md`.
-- If the task is ambiguous, produce a plan and update `tasks/<TASK_ID>.md` before implementation.
+- Read the Codex-planned `tasks/<TASK_ID>.md` before implementation.
+- If the task spec is missing or ambiguous, stop and request a local Codex planning update instead
+  of inventing architecture.
 - Commit only scoped changes.
 - Use verifier and test-runner subagents before claiming completion on non-trivial work.
 - Use security-auditor when changes touch auth, permissions, secrets, user data, APIs, or database

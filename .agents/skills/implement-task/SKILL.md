@@ -16,7 +16,7 @@ Inputs:
 
 Steps:
 
-1. Confirm the task goal, acceptance criteria, test plan, risks, and non-goals.
+1. Confirm the Codex-planned task goal, acceptance criteria, test plan, risks, and non-goals.
 2. Identify the smallest set of files to change.
 3. Add or update tests for changed behavior first when practical.
 4. Implement the scoped change using existing repo patterns.
@@ -29,6 +29,7 @@ Steps:
 Constraints:
 
 - Do not add external dependencies without explicit approval.
-- Do not expand scope without updating the task file.
+- Do not expand scope or make architecture decisions beyond the task file.
+- If the task spec is missing or ambiguous, request a Codex planning update before implementation.
 - Do not mark completion without verification evidence.
 
