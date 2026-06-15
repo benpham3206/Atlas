@@ -2,9 +2,9 @@
 
 ## Current focus
 
-- Active task: TASK-2026-06-15-100x-separation
-- Active branch: cursor/separate-100x-workflow-8207
-- Current phase: DOING
+- Active task: TASK-2026-06-15-api-version-endpoint
+- Active branch: not created yet
+- Current phase: PLAN
 
 ## Global constraints
 
@@ -15,10 +15,11 @@
 
 ## Active tasks
 
-See `TASKS.md` and `100X/tasks/TASK-2026-06-15-100x-separation.md`.
+See `TASKS.md` and `100X/tasks/TASK-2026-06-15-api-version-endpoint.md`.
 
 ## Last handoff
 
 - Date: 2026-06-15
-- Agent: cursor-cloud
-- Summary: Moved the Codex-Cursor Cloud Agents-Poke workflow into the `100X/` file structure.
+- Agent: local-codex
+- Summary: Planned a tiny product proof for Cursor Cloud: add `GET /version`, test it, update
+  100X handoff files, and open a PR for Codex review.
