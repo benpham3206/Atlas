@@ -4,7 +4,7 @@
 
 - Phase: REVIEW
 - Branch: cursor/poke-smoke-test-7826
-- PR: pending
+- PR: https://github.com/benpham3206/Atlas/pull/2
 - Owner: cursor-cloud
 - Last update: 2026-06-15
 

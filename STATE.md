@@ -4,7 +4,7 @@
 
 - Active task: TASK-2026-06-15-poke-smoke-test
 - Active branch: cursor/poke-smoke-test-7826
-- Active PR: pending
+- Active PR: https://github.com/benpham3206/Atlas/pull/2
 - Current phase: REVIEW
 
 ## Global constraints

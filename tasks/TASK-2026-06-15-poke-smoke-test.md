@@ -32,7 +32,7 @@ Out:
 - [x] `logs/TASK-2026-06-15-poke-smoke-test.md` records `npm run lint` evidence.
 - [x] `STATE.md`, `LOGS.md`, and `POKE_SUMMARY.md` are updated as short indexes.
 - [x] `npm run lint` passes.
-- [ ] Draft PR is open.
+- [x] Draft PR is open.
 
 ## Test plan
 
