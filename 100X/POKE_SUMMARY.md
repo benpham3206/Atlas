@@ -2,13 +2,14 @@
 
 ## Latest text-ready update
 
-Local-Codex-safe automation is being added to 100X. Cursor Cloud or local Cursor agents can run
-`npm run 100x:review-packet -- <TASK_ID> --pr <PR>` after implementation to generate a local Codex
-review packet. The intended loop is prompt -> Codex plans infrastructure/tests/tasks -> Cursor codes
-and verifies -> Codex reviews. Root `AGENTS.md`, `TASKS.md`, and `CONTEXT_LOG.md` stay
-authoritative for Atlas product work.
+Cursor Cloud completed the first 100X product proof on branch
+`cursor/application-version-endpoint-b920`. The Atlas API now exposes `GET /version`, returning
+`service: "atlas-api"` and the root package version from `package.json`. API tests and lint passed.
+The PR is ready for local Codex review via
+`npm run 100x:review-packet -- TASK-2026-06-15-api-version-endpoint --pr <PR>`.
 
 ## Suggested next Poke command
 
-After Cursor opens a PR, ask it to run `npm run 100x:review-packet -- <TASK_ID> --pr <PR>` and
-commit the generated packet for local Codex review.
+After the PR is open, ask Cursor to run
+`npm run 100x:review-packet -- TASK-2026-06-15-api-version-endpoint --pr <PR>` and commit the
+generated packet for local Codex review.
