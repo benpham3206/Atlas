@@ -729,3 +729,46 @@ fail 0
 - Next recommended Atlas implementation task remains Phase 3 A3.1 `ActionType` storage and API.
 
 ---
+
+## Turn 8: Onboarding Workspace Correction
+
+**Target:** `TASK-2026-06-15-agent-workflow`
+**Context:** The user clarified that Codex is the high-level architecture, planning, atomic task
+decomposition, and review lane. Poke launches and monitors Cursor Cloud Agents, while Cursor Cloud
+Agents execute the atomic coding tasks Codex plans.
+
+### Completed
+
+- Added `onboarding/` as a file-based setup workspace.
+- Added Cursor Cloud Agent onboarding for Codex-planned task execution.
+- Added local Codex plugin onboarding for architecture, planning, task splitting, and review.
+- Added Poke loop smoke-test instructions.
+- Added copy/paste prompts for local Codex planning, Cursor Cloud execution, local Codex review,
+  and Poke fix follow-up.
+- Updated workflow docs, repo rules, Cursor rules, shared skills, summaries, and tests to reflect
+  the corrected ownership split.
+
+### Verification
+
+```text
+npm run lint
+Lint passed
+
+npm run validate:records
+Validated 20 records
+
+npm run verify:migrations
+Verified 3 migration files
+
+npm test
+tests 48
+pass 48
+fail 0
+```
+
+### PRD Progress Update
+
+- This remains an agent workflow/control-plane task; no Atlas runtime feature phase advanced.
+- Next recommended Atlas implementation task remains Phase 3 A3.1 `ActionType` storage and API.
+
+---

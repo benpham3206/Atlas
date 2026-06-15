@@ -15,6 +15,7 @@
 | 2026-06-15T04:21:00Z | `npm test` | pass | 47 tests passed, including 5 new agent workflow tests. |
 | 2026-06-15T04:21:00Z | `npm run lint && npm run validate:records && npm run verify:migrations && npm test` | fail | Final pass found one line-wrapping-sensitive regex in `tests/integration/agent-workflow.test.js`; lint, record validation, and migration verification passed first. |
 | 2026-06-15T04:21:00Z | `npm run lint && npm run validate:records && npm run verify:migrations && npm test` | pass | Lint passed; validated 20 records; verified 3 migrations; 47 tests passed. |
+| 2026-06-15T04:57:00Z | `npm run lint && npm run validate:records && npm run verify:migrations && npm test` | pass | Lint passed; validated 20 records; verified 3 migrations; 48 tests passed, including onboarding ownership-lane assertions. |
 
 ## Review notes
 
@@ -31,4 +32,6 @@
 - Draft PR is open for review.
 - External Codex GitHub Action automation remains intentionally deferred until secrets and
   permissions are approved.
+- Onboarding now documents local Codex as architect/planner/reviewer, Poke as launcher/monitor, and
+  Cursor Cloud as Codex-planned atomic-task executor.
 
