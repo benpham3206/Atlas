@@ -87,6 +87,16 @@ Reserved for database migrations. The current migrations define `workspaces`, `o
 
 Migration verification is currently static because no local Postgres runtime is configured. `npm run verify:migrations` checks ordering, file naming, semicolon termination, and duplicate table creation.
 
+## Agent Workflow Control Plane
+
+Atlas product code and the agent workflow are separated:
+
+- `100X/` is the canonical home for the Codex, Cursor Cloud Agents, and Poke interaction workflow.
+- Root `AGENTS.md` keeps Atlas runtime constraints and points agents at `100X/`.
+- Root `.cursor/rules/` and `.cursor/agents/` are the Cursor discovery layer and should stay aligned
+  with `100X/cursor/`.
+- `TASKS.md` and `CONTEXT_LOG.md` remain the root Atlas trackers.
+
 ## Future Direction
 
 The target architecture grows toward:

@@ -7,6 +7,11 @@ Atlas is a zero-dependency Node.js monorepo (npm workspaces: `apps/api`, `apps/w
 target. Standard commands (run/test/lint/verify) are documented in `README.md` and `package.json`
 `scripts` — use those; they are not duplicated here.
 
+## Agent workflow
+
+The Codex, Cursor Cloud Agents, and Poke interaction workflow lives under `100X/`. For non-trivial
+agent work, also read `100X/AGENTS.md`, `100X/docs/AGENT_WORKFLOW.md`, and `100X/README.md`.
+
 Non-obvious notes for future agents:
 
 - No external npm packages. `npm install` only links the local workspace packages; modules are

@@ -11,6 +11,12 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 - Keep scope boundaries explicit; do not add attractive but unverified product surface.
 - For each phase, complete tasks in order unless a dependency forces a different sequence.
 
+## Active Workflow Task
+
+| ID | Status | Branch | Spec | State | Log |
+|----|--------|--------|------|-------|-----|
+| TASK-2026-06-15-100x-separation | DONE | cursor/separate-100x-workflow-8207 | `100X/tasks/TASK-2026-06-15-100x-separation.md` | `100X/state/TASK-2026-06-15-100x-separation.md` | `100X/logs/TASK-2026-06-15-100x-separation.md` |
+
 ## Upcoming Work Map
 
 | Phase | Next Atomic Task | Required Verification | Likely Challenges |
