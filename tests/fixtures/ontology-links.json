@@ -1,0 +1,46 @@
+{
+  "link_types": [
+    {
+      "id": "link_type_bug_affects_build",
+      "workspace_id": "workspace_game_studio",
+      "name": "Bug affects Build",
+      "from_object_type_id": "object_type_bug",
+      "to_object_type_id": "object_type_build",
+      "cardinality": "many_to_many",
+      "properties_schema": {
+        "type": "object",
+        "properties": {
+          "impact": {
+            "type": "string",
+            "enum": ["low", "medium", "high"]
+          }
+        }
+      }
+    }
+  ],
+  "link_instances": [
+    {
+      "id": "link_bug_camera_clip_affects_build_v001",
+      "workspace_id": "workspace_game_studio",
+      "link_type_id": "link_type_bug_affects_build",
+      "from_object_id": "object_bug_camera_clip",
+      "to_object_id": "object_build_v001",
+      "properties_json": {
+        "impact": "high"
+      }
+    }
+  ],
+  "object_sets": [
+    {
+      "id": "object_set_open_bugs",
+      "workspace_id": "workspace_game_studio",
+      "name": "Open bugs",
+      "object_type_id": "object_type_bug",
+      "filter_expression": {
+        "property_equals": {
+          "status": "open"
+        }
+      }
+    }
+  ]
+}

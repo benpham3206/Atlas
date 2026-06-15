@@ -1,0 +1,27 @@
+{
+  "name": "atlas",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Minimal operational ontology platform skeleton.",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "node apps/api/src/server.js",
+    "dev:web": "node apps/web/src/server.js",
+    "lint": "node scripts/lint.js",
+    "start:api": "node apps/api/src/server.js",
+    "start:web": "node apps/web/src/server.js",
+    "test": "node --test",
+    "test:api": "node --test apps/api/test/*.test.js",
+    "test:web": "node --test apps/web/test/*.test.js",
+    "test:core": "node --test packages/ontology-core/test/*.test.js",
+    "validate:records": "node scripts/validate-records.js tests/fixtures/capability-records.valid.json",
+    "verify:migrations": "node scripts/verify-migrations.js"
+  },
+  "engines": {
+    "node": ">=18.17"
+  }
+}

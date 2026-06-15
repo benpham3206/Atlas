@@ -1,0 +1,61 @@
+{
+  "workspaces": [
+    {
+      "id": "workspace_game_studio",
+      "name": "Game Studio"
+    }
+  ],
+  "object_types": [
+    {
+      "id": "object_type_build",
+      "workspace_id": "workspace_game_studio",
+      "name": "Build",
+      "schema_json": {
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "object_type_bug",
+      "workspace_id": "workspace_game_studio",
+      "name": "Bug",
+      "schema_json": {
+        "type": "object",
+        "required": ["title", "status"],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["open", "resolved"]
+          }
+        }
+      }
+    }
+  ],
+  "object_instances": [
+    {
+      "id": "object_build_v001",
+      "workspace_id": "workspace_game_studio",
+      "object_type_id": "object_type_build",
+      "properties_json": {
+        "version": "v0.1"
+      }
+    },
+    {
+      "id": "object_bug_camera_clip",
+      "workspace_id": "workspace_game_studio",
+      "object_type_id": "object_type_bug",
+      "properties_json": {
+        "title": "Camera clips through wall",
+        "status": "open"
+      }
+    }
+  ]
+}

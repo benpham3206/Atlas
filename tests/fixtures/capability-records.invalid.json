@@ -1,0 +1,54 @@
+{
+  "records": [
+    {
+      "id": "task_vague_without_acceptance",
+      "record_type": "task",
+      "workspace_id": "workspace_game_studio",
+      "lifecycle": "operational",
+      "review_state": "approved",
+      "visibility": "workspace",
+      "source_refs": ["source_atlas_prd"],
+      "created_at": "2026-06-14T12:00:00.000Z",
+      "updated_at": "2026-06-14T12:00:00.000Z",
+      "reviewed_by": "user_ben",
+      "reviewed_at": "2026-06-14T12:00:00.000Z",
+      "objective": "Build something exciting",
+      "status": "todo",
+      "acceptance_criteria": ["make it good"],
+      "blocked_by": [],
+      "actionable": true
+    },
+    {
+      "id": "statement_unsupported_claim",
+      "record_type": "statement",
+      "workspace_id": "workspace_game_studio",
+      "lifecycle": "operational",
+      "review_state": "approved",
+      "visibility": "workspace",
+      "source_refs": ["source_atlas_prd"],
+      "created_at": "2026-06-14T12:00:00.000Z",
+      "updated_at": "2026-06-14T12:00:00.000Z",
+      "reviewed_by": "user_ben",
+      "reviewed_at": "2026-06-14T12:00:00.000Z",
+      "statement_text": "The recommendation is safe because it sounds plausible.",
+      "evidence_refs": [],
+      "evidence_exception": ""
+    },
+    {
+      "id": "overlay_public_private_leak",
+      "record_type": "overlay",
+      "workspace_id": "workspace_game_studio",
+      "lifecycle": "operational",
+      "review_state": "approved",
+      "visibility": "public",
+      "source_refs": ["source_atlas_prd"],
+      "created_at": "2026-06-14T12:00:00.000Z",
+      "updated_at": "2026-06-14T12:00:00.000Z",
+      "reviewed_by": "user_ben",
+      "reviewed_at": "2026-06-14T12:00:00.000Z",
+      "base_record_id": "task_build_movement_prototype",
+      "overlay_workspace_id": "workspace_game_studio",
+      "overlay_visibility": "private"
+    }
+  ]
+}
