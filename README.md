@@ -1,21 +1,21 @@
 # Atlas
 
-Atlas is a minimal operational ontology platform. This repository currently contains only the initial monorepo skeleton.
+Atlas is a minimal operational ontology platform. The Personal Atlas v0 slice adds governed actions, a next-action dashboard, and an in-memory personal workspace.
 
 ## What Exists
 
-- `apps/api`: minimal backend server.
-- `apps/web`: minimal frontend placeholder.
+- `apps/api`: backend HTTP server with ontology nouns, actions, and personal endpoints.
+- `apps/web`: server-rendered personal dashboard with API proxy.
 - `packages/ontology-core`: shared health/status types, object property validation, and BaseRecord validation.
 - `infra/migrations`: database migration artifacts.
 - `docs`: PRD, architecture, Codex rules, and task queue.
 - `100X`: Codex, Cursor Cloud Agents, and Poke workflow control plane.
 
-The first ontology nouns and links are implemented with in-memory API storage: `Workspace`, `ObjectType`, `ObjectInstance`, `LinkType`, `LinkInstance`, and `ObjectSet`.
+The ontology nouns and links are implemented with in-memory API storage: `Workspace`, `ObjectType`, `ObjectInstance`, `LinkType`, `LinkInstance`, and `ObjectSet`. Generic `ActionType` and `ActionRun` records support declarative property-update effects. Personal Atlas seeds a Carbon Copy, AAA vertical-slice project, task graph, and next-action selector.
 
-The first Capability Graph record foundation is implemented in `ontology-core`: `BaseRecord` validation, a declarative record type registry, table-driven Phase 2 specs, AAA-wedge fixtures, and record validation command support. Candidate records remain visible but non-authoritative; only approved operational records can drive future recommendations or state-changing behavior.
+The Capability Graph record foundation is implemented in `ontology-core`: `BaseRecord` validation, a declarative record type registry, table-driven Phase 2 specs, AAA-wedge fixtures, and record validation command support. Candidate records remain visible but non-authoritative; only approved operational records can drive future recommendations or state-changing behavior.
 
-Auth, actions, policies, audit, database runtime wiring, and integrations are not implemented yet.
+Auth, policies, audit, database runtime wiring, and integrations are not implemented yet.
 
 ## Agent Workflow
 
@@ -184,6 +184,101 @@ Evaluate an object set:
 
 ```sh
 curl http://localhost:4000/workspaces/workspace_game_studio/object-sets/object_set_open_bugs/objects
+```
+
+## Personal Atlas
+
+Personal Atlas v0 is a local, in-memory AAA vertical slice: bootstrap a personal workspace, view carbon copy / project / tasks, and complete tasks through a dependency-aware next-action flow.
+
+**Run flow**
+
+1. Start the API: `npm run dev:api`
+2. Start the web app: `npm run dev:web`
+3. Open `http://localhost:3000`
+4. Click **Bootstrap Personal Atlas** (or call `POST /personal/bootstrap` below)
+5. Complete tasks from the dashboard or via the API
+
+**Note:** Personal Atlas uses in-memory storage with no authentication. All personal data resets when the API process restarts. Route scoping is not privacy protection.
+
+Bootstrap the personal workspace (idempotent):
+
+```sh
+curl -X POST http://localhost:4000/personal/bootstrap
+```
+
+Load the personal overview (carbon copy, project, tasks, blockers, next action):
+
+```sh
+curl http://localhost:4000/personal/overview
+```
+
+Get the current next action:
+
+```sh
+curl http://localhost:4000/personal/next-action
+```
+
+Complete a personal task (requires `artifact_uri` and `evidence_note`):
+
+```sh
+curl -X POST http://localhost:4000/personal/tasks/object_task_movement/complete \
+  -H 'content-type: application/json' \
+  -d '{
+    "artifact_uri": "artifacts/movement-demo.md",
+    "evidence_note": "Movement prototype runs in test scene"
+  }'
+```
+
+Create an ActionType (generic workspace action definition):
+
+```sh
+curl -X POST http://localhost:4000/workspaces/workspace_game_studio/action-types \
+  -H 'content-type: application/json' \
+  -d '{
+    "id": "action_type_mark_bug_resolved",
+    "name": "Mark Bug Resolved",
+    "target_object_type_id": "object_type_bug",
+    "input_schema_json": {
+      "type": "object",
+      "properties": {
+        "resolution_note": { "type": "string" }
+      }
+    },
+    "effect_json": {
+      "type": "update_object_properties",
+      "set_properties_json": { "status": "resolved" },
+      "copy_input_fields": ["resolution_note"]
+    }
+  }'
+```
+
+Run an action (creates an ActionRun and mutates the target object):
+
+```sh
+curl -X POST http://localhost:4000/workspaces/workspace_game_studio/action-runs \
+  -H 'content-type: application/json' \
+  -d '{
+    "id": "action_run_mark_resolved",
+    "action_type_id": "action_type_mark_bug_resolved",
+    "target_object_id": "object_bug_camera_clip",
+    "actor": "local_user",
+    "input_json": {
+      "resolution_note": "Fixed collision mesh"
+    }
+  }'
+```
+
+Patch an object instance directly:
+
+```sh
+curl -X PATCH http://localhost:4000/workspaces/workspace_game_studio/objects/object_bug_camera_clip \
+  -H 'content-type: application/json' \
+  -d '{
+    "properties_json": {
+      "title": "Camera clips through wall",
+      "status": "open"
+    }
+  }'
 ```
 
 ## Environment Variables

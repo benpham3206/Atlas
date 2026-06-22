@@ -1,7 +1,7 @@
 # Atlas Security Model
 
-Status: Initial placeholder
-Last updated: 2026-06-14
+Status: Personal Atlas v0 slice
+Last updated: 2026-06-22
 
 ## Current Security Boundary
 
@@ -22,6 +22,18 @@ An object type or object instance created in one workspace is not returned from 
 5. Agent tools must be least-privilege by default.
 6. Derived records, summaries, and embeddings must inherit source permissions.
 
+## Personal Atlas v0 Boundary
+
+Personal Atlas is **local in-memory personal state** for a single developer workflow demo. It is **not** real authentication or privacy protection.
+
+- No auth, users, memberships, or roles.
+- Route scoping (`/workspaces/:workspace_id/...`, `/personal/...`) organizes data paths; it does **not** provide identity security or multi-tenant isolation.
+- All personal workspace data lives in the API process memory and **resets on API restart**.
+- Personal overview includes an explicit `security_boundary` notice in API responses and the web dashboard.
+- Do **not** claim enterprise tenancy, audit guarantees, durable persistence, or production-grade access control for this slice.
+
+Completing a personal task creates an ActionRun record in memory, but that is an operational trace—not an audit log with hash chaining, retention, or compliance guarantees.
+
 ## Non-Goals For Current Slice
 
 - No auth.
@@ -30,3 +42,4 @@ An object type or object instance created in one workspace is not returned from 
 - No policies.
 - No audit log.
 - No tenant isolation.
+- No durable persistence (in-memory only; restart clears state).

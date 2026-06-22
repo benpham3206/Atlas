@@ -9,6 +9,7 @@ test("migration files pass static verification", () => {
   assert.deepEqual(result.files, [
     "0001_ontology_nouns.sql",
     "0002_links.sql",
-    "0003_object_sets.sql"
+    "0003_object_sets.sql",
+    "0004_actions.sql"
   ]);
 });

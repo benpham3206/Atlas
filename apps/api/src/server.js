@@ -1,6 +1,14 @@
 import { createServer } from "node:http";
 import { createHealthStatus } from "../../../packages/ontology-core/src/index.js";
 import { ApiError, createOntologyStore } from "./ontology-store.js";
+import {
+  bootstrapPersonalAtlas,
+  completePersonalTask,
+  getPersonalOverview,
+  guardPersonalObjectPatch,
+  selectNextAction,
+  PERSONAL_WORKSPACE_ID
+} from "./personal-atlas.js";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 4000;
@@ -167,6 +175,91 @@ async function handleRequest({ request, response, now, store }) {
         data: store.getObjectInstance(workspaceId, segments[3])
       });
     }
+
+    if (segments.length === 4 && request.method === "PATCH") {
+      const body = await readJsonBody(request);
+      guardPersonalObjectPatch(store, workspaceId, segments[3], body);
+      const objectInstance = store.updateObjectInstance(workspaceId, segments[3], body);
+      return sendJson(response, 200, {
+        data: objectInstance
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "action-types") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listActionTypes(workspaceId)
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const actionType = store.createActionType(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: actionType
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getActionType(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "action-runs") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listActionRuns(workspaceId)
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const actionRun = store.createActionRun(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: actionRun
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getActionRun(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (request.method === "POST" && url.pathname === "/personal/bootstrap") {
+    return sendJson(response, 200, {
+      data: bootstrapPersonalAtlas(store)
+    });
+  }
+
+  if (request.method === "GET" && url.pathname === "/personal/overview") {
+    return sendJson(response, 200, {
+      data: getPersonalOverview(store)
+    });
+  }
+
+  if (request.method === "GET" && url.pathname === "/personal/next-action") {
+    return sendJson(response, 200, {
+      data: selectNextAction(store, PERSONAL_WORKSPACE_ID)
+    });
+  }
+
+  if (
+    segments[0] === "personal" &&
+    segments[1] === "tasks" &&
+    segments[2] &&
+    segments[3] === "complete" &&
+    request.method === "POST"
+  ) {
+    return sendJson(response, 200, {
+      data: completePersonalTask(store, segments[2], await readJsonBody(request))
+    });
   }
 
   if (segments[0] === "workspaces" && segments[1] && segments[2] === "links") {

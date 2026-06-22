@@ -1,7 +1,7 @@
 # Atlas Architecture
 
-Status: Initial skeleton
-Last updated: 2026-06-14
+Status: Personal Atlas v0 slice
+Last updated: 2026-06-22
 
 ## Current Architecture
 
@@ -51,6 +51,7 @@ Owns HTTP API routes. Current routes:
 - `GET /workspaces/:workspace_id/objects` lists object instances in one workspace.
 - `POST /workspaces/:workspace_id/objects` creates an object instance in one workspace.
 - `GET /workspaces/:workspace_id/objects/:object_id` fetches an object instance scoped to one workspace.
+- `PATCH /workspaces/:workspace_id/objects/:object_id` updates an object instance; validates properties against the object type schema.
 - `GET /workspaces/:workspace_id/link-types` lists link types in one workspace.
 - `POST /workspaces/:workspace_id/link-types` creates a link type in one workspace.
 - `GET /workspaces/:workspace_id/link-types/:link_type_id` fetches a link type scoped to one workspace.
@@ -62,15 +63,29 @@ Owns HTTP API routes. Current routes:
 - `POST /workspaces/:workspace_id/object-sets` creates an object set in one workspace.
 - `GET /workspaces/:workspace_id/object-sets/:object_set_id` fetches an object set scoped to one workspace.
 - `GET /workspaces/:workspace_id/object-sets/:object_set_id/objects` evaluates an object set.
+- `GET /workspaces/:workspace_id/action-types` lists action types in one workspace.
+- `POST /workspaces/:workspace_id/action-types` creates an action type in one workspace.
+- `GET /workspaces/:workspace_id/action-types/:action_type_id` fetches an action type scoped to one workspace.
+- `GET /workspaces/:workspace_id/action-runs` lists action runs in one workspace.
+- `POST /workspaces/:workspace_id/action-runs` creates an action run; applies the action type effect to the target object and records before/after properties.
+- `GET /workspaces/:workspace_id/action-runs/:action_run_id` fetches an action run scoped to one workspace.
+- `POST /personal/bootstrap` seeds the personal workspace, object types, AAA project graph, tasks, and complete-task action type. Idempotent.
+- `GET /personal/overview` returns carbon copy, project, tasks, blockers map, next action, and security boundary notice.
+- `GET /personal/next-action` returns the highest-priority unblocked open personal task with acceptance criteria and blocker context.
+- `POST /personal/tasks/:task_id/complete` completes a personal task via the complete-task ActionType/ActionRun path; requires `artifact_uri` and `evidence_note`.
 
-Storage is currently in-memory. `infra/migrations/0001_ontology_nouns.sql`, `infra/migrations/0002_links.sql`, and `infra/migrations/0003_object_sets.sql` define the intended Postgres schema for the same records.
+Storage is currently in-memory. `infra/migrations/0001_ontology_nouns.sql`, `infra/migrations/0002_links.sql`, `infra/migrations/0003_object_sets.sql`, and `infra/migrations/0004_actions.sql` define the intended Postgres schema for the same records. `0004_actions.sql` adds `action_types` and `action_runs` with workspace-scoped foreign keys to object types and object instances.
 
 ### `apps/web`
 
 Owns the human-facing UI. Current behavior:
 
-- `GET /` returns a placeholder Atlas page.
+- `GET /` proxies to the API `GET /personal/overview`. If the personal workspace is not bootstrapped, renders a bootstrap page with a form that posts to `POST /bootstrap`.
+- `POST /bootstrap` proxies to the API `POST /personal/bootstrap`, then redirects to `/`.
+- `POST /tasks/:task_id/complete` proxies to the API `POST /personal/tasks/:task_id/complete` with form fields `artifact_uri` and `evidence_note`, then redirects to `/` (errors surface via `?error=` query param).
 - `GET /health` returns frontend health.
+
+The web server does not embed personal state. It calls the API at `ATLAS_API_URL` (default `http://127.0.0.1:4000`) through `apps/web/src/api-client.js`.
 
 ### `packages/ontology-core`
 
@@ -83,7 +98,7 @@ Owns shared cross-app types and tiny runtime helpers. Current exports cover:
 
 ### `infra/migrations`
 
-Reserved for database migrations. The current migrations define `workspaces`, `object_types`, `object_instances`, `link_types`, `link_instances`, and `object_sets`.
+Reserved for database migrations. The current migrations define `workspaces`, `object_types`, `object_instances`, `link_types`, `link_instances`, `object_sets`, `action_types`, and `action_runs`.
 
 Migration verification is currently static because no local Postgres runtime is configured. `npm run verify:migrations` checks ordering, file naming, semicolon termination, and duplicate table creation.
 
