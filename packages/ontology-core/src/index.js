@@ -527,6 +527,12 @@ function validateValue(path, value, definition) {
     errors.push(`${path} must be ${definition.type}`);
   }
 
+  if (definition.type === "string" && typeof value === "string" && definition.minLength !== undefined) {
+    if (value.length < definition.minLength) {
+      errors.push(`${path} must be at least ${definition.minLength} characters`);
+    }
+  }
+
   if (definition.type === "array" && definition.items && Array.isArray(value)) {
     value.forEach((item, index) => {
       errors.push(...validateValue(`${path}[${index}]`, item, definition.items));

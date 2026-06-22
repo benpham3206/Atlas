@@ -19,6 +19,8 @@ export function createOntologyStore(options = {}) {
   const linkTypes = new Map();
   const linkInstances = new Map();
   const objectSets = new Map();
+  const actionTypes = new Map();
+  const actionRuns = new Map();
 
   function createWorkspace(input) {
     assertPlainObject(input, "request body");
@@ -157,6 +159,232 @@ export function createOntologyStore(options = {}) {
     }
 
     return clone(objectInstance);
+  }
+
+  function updateObjectInstance(workspaceId, objectInstanceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    assertWorkspaceBody(input, workspaceId);
+
+    const objectInstance = objectInstances.get(objectInstanceId);
+
+    if (!objectInstance || objectInstance.workspace_id !== workspaceId) {
+      throw new ApiError(404, "object_instance_not_found", "ObjectInstance not found in workspace");
+    }
+
+    const patchProperties = input.properties_json ?? input.properties;
+
+    if (patchProperties === undefined) {
+      throw new ApiError(400, "invalid_request", "properties_json is required");
+    }
+
+    assertPlainObject(patchProperties, "properties_json");
+
+    const objectType = objectTypes.get(objectInstance.object_type_id);
+
+    if (!objectType || objectType.workspace_id !== workspaceId) {
+      throw new ApiError(404, "object_type_not_found", "ObjectType not found in workspace");
+    }
+
+    const mergedProperties = {
+      ...objectInstance.properties_json,
+      ...patchProperties
+    };
+    const validation = validateObjectProperties(objectType.schema_json, mergedProperties);
+
+    if (!validation.valid) {
+      throw new ApiError(400, "object_validation_failed", "ObjectInstance properties do not match ObjectType schema", validation.errors);
+    }
+
+    const timestamp = now();
+    objectInstance.properties_json = clone(mergedProperties);
+    objectInstance.updated_at = timestamp;
+    return clone(objectInstance);
+  }
+
+  function createActionType(workspaceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    assertWorkspaceBody(input, workspaceId);
+
+    const name = requireString(input.name, "name");
+    const targetObjectTypeId = requireString(input.target_object_type_id, "target_object_type_id");
+    const targetObjectType = objectTypes.get(targetObjectTypeId);
+
+    if (!targetObjectType || targetObjectType.workspace_id !== workspaceId) {
+      throw new ApiError(404, "object_type_not_found", "Target ObjectType not found in workspace");
+    }
+
+    const inputSchema = input.input_schema_json ?? input.input_schema;
+    assertPlainObject(inputSchema, "input_schema_json");
+
+    if (inputSchema.type !== "object") {
+      throw new ApiError(400, "invalid_action_type", "input_schema_json.type must be object");
+    }
+
+    const effect = input.effect_json ?? input.effect;
+    assertPlainObject(effect, "effect_json");
+
+    if (effect.type !== "update_object_properties") {
+      throw new ApiError(400, "invalid_action_type", "effect_json.type must be update_object_properties");
+    }
+
+    const setPropertiesJson = effect.set_properties_json ?? {};
+    assertPlainObject(setPropertiesJson, "effect_json.set_properties_json");
+
+    const copyInputFields = effect.copy_input_fields ?? [];
+    assertStringArray(copyInputFields, "effect_json.copy_input_fields");
+
+    const timestamp = now();
+    const actionType = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("action_type"),
+      workspace_id: workspaceId,
+      name,
+      target_object_type_id: targetObjectTypeId,
+      input_schema_json: clone(inputSchema),
+      effect_json: {
+        type: "update_object_properties",
+        set_properties_json: clone(setPropertiesJson),
+        copy_input_fields: [...copyInputFields]
+      },
+      created_at: timestamp,
+      updated_at: timestamp
+    };
+
+    if (actionTypes.has(actionType.id)) {
+      throw new ApiError(409, "action_type_conflict", "ActionType already exists");
+    }
+
+    actionTypes.set(actionType.id, actionType);
+    return clone(actionType);
+  }
+
+  function listActionTypes(workspaceId) {
+    assertWorkspaceExists(workspaceId);
+
+    return [...actionTypes.values()]
+      .filter((actionType) => actionType.workspace_id === workspaceId)
+      .map(clone);
+  }
+
+  function getActionType(workspaceId, actionTypeId) {
+    assertWorkspaceExists(workspaceId);
+    const actionType = actionTypes.get(actionTypeId);
+
+    if (!actionType || actionType.workspace_id !== workspaceId) {
+      throw new ApiError(404, "action_type_not_found", "ActionType not found in workspace");
+    }
+
+    return clone(actionType);
+  }
+
+  function createActionRun(workspaceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    assertWorkspaceBody(input, workspaceId);
+
+    const actionTypeId = requireString(input.action_type_id, "action_type_id");
+    const targetObjectId = requireString(input.target_object_id, "target_object_id");
+    const actor = input.actor ?? "local_user";
+
+    if (typeof actor !== "string" || actor.trim() === "") {
+      throw new ApiError(400, "invalid_request", "actor must be a non-empty string");
+    }
+
+    const actionType = actionTypes.get(actionTypeId);
+
+    if (!actionType || actionType.workspace_id !== workspaceId) {
+      throw new ApiError(404, "action_type_not_found", "ActionType not found in workspace");
+    }
+
+    const targetObject = objectInstances.get(targetObjectId);
+
+    if (!targetObject || targetObject.workspace_id !== workspaceId) {
+      throw new ApiError(404, "object_instance_not_found", "Target ObjectInstance not found in workspace");
+    }
+
+    if (targetObject.object_type_id !== actionType.target_object_type_id) {
+      throw new ApiError(400, "action_target_type_mismatch", "Target object type does not match ActionType target_object_type_id");
+    }
+
+    const inputJson = input.input_json ?? {};
+    assertPlainObject(inputJson, "input_json");
+
+    const inputValidation = validateObjectProperties(actionType.input_schema_json, inputJson);
+
+    if (!inputValidation.valid) {
+      throw new ApiError(400, "action_input_validation_failed", "input_json does not match ActionType input_schema_json", inputValidation.errors);
+    }
+
+    const objectType = objectTypes.get(targetObject.object_type_id);
+
+    if (!objectType || objectType.workspace_id !== workspaceId) {
+      throw new ApiError(404, "object_type_not_found", "ObjectType not found in workspace");
+    }
+
+    const beforePropertiesJson = clone(targetObject.properties_json);
+    const appliedChanges = clone(actionType.effect_json.set_properties_json);
+
+    for (const fieldName of actionType.effect_json.copy_input_fields) {
+      if (Object.hasOwn(inputJson, fieldName)) {
+        appliedChanges[fieldName] = inputJson[fieldName];
+      }
+    }
+
+    const mergedProperties = {
+      ...targetObject.properties_json,
+      ...appliedChanges
+    };
+    const outputValidation = validateObjectProperties(objectType.schema_json, mergedProperties);
+
+    if (!outputValidation.valid) {
+      throw new ApiError(400, "action_effect_validation_failed", "Action effect would produce invalid object properties", outputValidation.errors);
+    }
+
+    const timestamp = now();
+    targetObject.properties_json = clone(mergedProperties);
+    targetObject.updated_at = timestamp;
+
+    const actionRun = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("action_run"),
+      workspace_id: workspaceId,
+      action_type_id: actionTypeId,
+      target_object_id: targetObjectId,
+      actor: actor.trim(),
+      input_json: clone(inputJson),
+      output_json: appliedChanges,
+      status: "completed",
+      before_properties_json: beforePropertiesJson,
+      after_properties_json: clone(mergedProperties),
+      created_at: timestamp,
+      updated_at: timestamp
+    };
+
+    if (actionRuns.has(actionRun.id)) {
+      throw new ApiError(409, "action_run_conflict", "ActionRun already exists");
+    }
+
+    actionRuns.set(actionRun.id, actionRun);
+    return clone(actionRun);
+  }
+
+  function listActionRuns(workspaceId) {
+    assertWorkspaceExists(workspaceId);
+
+    return [...actionRuns.values()]
+      .filter((actionRun) => actionRun.workspace_id === workspaceId)
+      .map(clone);
+  }
+
+  function getActionRun(workspaceId, actionRunId) {
+    assertWorkspaceExists(workspaceId);
+    const actionRun = actionRuns.get(actionRunId);
+
+    if (!actionRun || actionRun.workspace_id !== workspaceId) {
+      throw new ApiError(404, "action_run_not_found", "ActionRun not found in workspace");
+    }
+
+    return clone(actionRun);
   }
 
   function createLinkType(workspaceId, input) {
@@ -413,6 +641,13 @@ export function createOntologyStore(options = {}) {
     createObjectInstance,
     listObjectInstances,
     getObjectInstance,
+    updateObjectInstance,
+    createActionType,
+    listActionTypes,
+    getActionType,
+    createActionRun,
+    listActionRuns,
+    getActionRun,
     createLinkType,
     listLinkTypes,
     getLinkType,
@@ -479,6 +714,18 @@ function requireIdentifier(value, field) {
 function assertEnum(value, field, allowedValues) {
   if (!allowedValues.includes(value)) {
     throw new ApiError(400, "invalid_request", `${field} must be one of: ${allowedValues.join(", ")}`);
+  }
+}
+
+function assertStringArray(value, field) {
+  if (!Array.isArray(value)) {
+    throw new ApiError(400, "invalid_request", `${field} must be an array`);
+  }
+
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== "string" || item.trim() === "") {
+      throw new ApiError(400, "invalid_request", `${field}[${index}] must be a non-empty string`);
+    }
   }
 }
 
