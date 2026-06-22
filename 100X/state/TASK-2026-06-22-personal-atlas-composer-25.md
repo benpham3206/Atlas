@@ -3,14 +3,14 @@
 ## Current status
 
 - Phase: REVIEW
-- Branch: not created yet
-- PR: not created yet
+- Branch: cursor/personal-atlas-composer-25
+- PR: https://github.com/benpham3206/Atlas/pull/6
 - Owner: Cursor Composer 2.5
 - Last update: 2026-06-22
 
 ## Current summary
 
-Personal Atlas v0 implementation complete: generic ActionType/ActionRun CRUD, object PATCH, personal bootstrap/overview/next-action/complete endpoints, web dashboard with API proxy, migration `0004_actions.sql`, tests, and documentation updates. Ready for review packet and PR.
+Personal Atlas v0 implementation complete on PR #6. Review packet generated for local Codex review.
 
 ## Blockers
 
@@ -22,8 +22,8 @@ Personal Atlas v0 implementation complete: generic ActionType/ActionRun CRUD, ob
 
 ## Next action
 
-Run `npm run 100x:review-packet -- TASK-2026-06-22-personal-atlas-composer-25 --pr <PR>` after PR is opened, or open PR for Codex review.
+Run local Codex review using `100X/review-packets/TASK-2026-06-22-personal-atlas-composer-25.md`. Resolve any P0/P1 findings before merge.
 
 ## Poke-ready summary
 
-Personal Atlas v0 landed: in-memory AAA vertical slice with bootstrap, overview, next-action, task completion, ActionType/ActionRun, object PATCH, and a dependency-free web dashboard. No auth; data resets on restart. Docs updated. Ready for review.
+Personal Atlas v0 PR #6 is open with 78 passing tests. Review packet committed for local Codex. In-memory slice with bootstrap, next-action, governed task completion, and web dashboard. Awaiting Codex review before merge.
