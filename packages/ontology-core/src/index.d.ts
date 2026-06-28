@@ -95,6 +95,31 @@ export declare const BASE_RECORD_SCHEMA: JsonSchema;
 
 export declare const RECORD_TYPE_SPECS: Readonly<Record<RecordType, RecordTypeSpec>>;
 
+export type AuditEvent = {
+  id: string;
+  sequence: number;
+  workspace_id: string;
+  actor: string;
+  event_type: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  decision: "allow" | "deny" | "not_applicable";
+  before_hash: string | null;
+  after_hash: string | null;
+  metadata: Record<string, unknown>;
+  previous_event_hash: string | null;
+  event_hash: string;
+  created_at: string;
+};
+
+export declare function canonicalJson(value: unknown): string;
+
+export declare function sha256Hex(input: string): string;
+
+export declare function auditEventHash(event: Record<string, unknown>): string;
+
+export declare function verifyAuditEventChain(events: unknown): ValidationResult;
+
 export declare function createHealthStatus(
   service: AtlasServiceName,
   timestamp?: string

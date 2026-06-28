@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export const atlasPackage = Object.freeze({
   name: "ontology-core",
   version: "0.0.0",
@@ -180,6 +182,53 @@ export const RECORD_TYPE_SPECS = Object.freeze({
     references: [{ field: "previous_record_id" }]
   })
 });
+
+export function canonicalJson(value) {
+  return JSON.stringify(sortKeysDeep(value));
+}
+
+export function sha256Hex(input) {
+  return createHash("sha256").update(input).digest("hex");
+}
+
+export function auditEventHash(event) {
+  if (!isPlainObject(event)) {
+    throw new TypeError("auditEventHash requires an object");
+  }
+
+  const { event_hash, ...rest } = event;
+  return sha256Hex(canonicalJson(rest));
+}
+
+export function verifyAuditEventChain(events) {
+  if (!Array.isArray(events)) {
+    return { valid: false, errors: ["events must be an array"] };
+  }
+
+  const errors = [];
+  let previousHash = null;
+
+  events.forEach((event, index) => {
+    if (!isPlainObject(event)) {
+      errors.push(`events[${index}] must be an object`);
+      return;
+    }
+
+    const expectedHash = auditEventHash(event);
+
+    if (event.event_hash !== expectedHash) {
+      errors.push(`events[${index}] (${event.id ?? "unknown"}) event_hash does not match contents (tampered)`);
+    }
+
+    if ((event.previous_event_hash ?? null) !== previousHash) {
+      errors.push(`events[${index}] (${event.id ?? "unknown"}) previous_event_hash breaks the chain`);
+    }
+
+    previousHash = event.event_hash;
+  });
+
+  return { valid: errors.length === 0, errors };
+}
 
 export function createHealthStatus(service, timestamp) {
   const status = {
@@ -565,4 +614,21 @@ function matchesJsonType(value, type) {
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function sortKeysDeep(value) {
+  if (Array.isArray(value)) {
+    return value.map(sortKeysDeep);
+  }
+
+  if (isPlainObject(value)) {
+    return Object.keys(value)
+      .sort()
+      .reduce((sorted, key) => {
+        sorted[key] = sortKeysDeep(value[key]);
+        return sorted;
+      }, {});
+  }
+
+  return value;
 }
