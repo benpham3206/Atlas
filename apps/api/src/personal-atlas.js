@@ -11,15 +11,19 @@ const ACTION_TYPE_COMPLETE_PERSONAL_TASK = "action_type_complete_personal_task";
 const SECURITY_BOUNDARY =
   "Local in-memory personal state. No authentication. Data resets on API restart. Route scoping is not privacy protection.";
 
-const PROJECT_GOAL = "Produce a playable AAA vertical slice prototype";
+const PROJECT_GOAL = "Use Personal Atlas to build the public and enterprise Atlas versions";
 
 function personalWorkspaceExists(store) {
   return store.listWorkspaces().some((workspace) => workspace.id === PERSONAL_WORKSPACE_ID);
 }
 
-function ensurePersonalBootstrap(store) {
+function assertPersonalBootstrap(store) {
   if (!personalWorkspaceExists(store)) {
-    bootstrapPersonalAtlas(store);
+    throw new ApiError(
+      404,
+      "workspace_not_bootstrapped",
+      "Personal Atlas has not been bootstrapped"
+    );
   }
 }
 
@@ -89,6 +93,54 @@ export function guardPersonalObjectPatch(store, workspaceId, objectInstanceId, i
   );
 }
 
+function assertPersonalTaskCanComplete(store, taskId) {
+  const task = store.getObjectInstance(PERSONAL_WORKSPACE_ID, taskId);
+
+  if (task.object_type_id !== OBJECT_TYPE_PERSONAL_TASK) {
+    throw new ApiError(400, "invalid_task", "Object is not a personal task");
+  }
+
+  if (task.properties_json.status === "done") {
+    throw new ApiError(400, "task_already_done", "Personal task is already complete");
+  }
+
+  const blockers = getTaskBlockers(store, PERSONAL_WORKSPACE_ID, taskId);
+
+  if (blockers.length > 0) {
+    throw new ApiError(
+      409,
+      "task_blocked",
+      "Personal task cannot be completed until blockers are done",
+      blockers.map((blocker) => ({
+        id: blocker.id,
+        title: blocker.properties_json.title,
+        status: blocker.properties_json.status
+      }))
+    );
+  }
+
+  return task;
+}
+
+export function guardPersonalActionRun(store, workspaceId, input) {
+  if (workspaceId !== PERSONAL_WORKSPACE_ID) {
+    return;
+  }
+
+  if (input.action_type_id !== ACTION_TYPE_COMPLETE_PERSONAL_TASK) {
+    return;
+  }
+
+  assertPersonalBootstrap(store);
+  const taskId = input.target_object_id;
+
+  if (typeof taskId !== "string" || taskId.trim() === "") {
+    return;
+  }
+
+  assertPersonalTaskCanComplete(store, taskId);
+}
+
 export function bootstrapPersonalAtlas(store) {
   if (personalWorkspaceExists(store)) {
     return summarizePersonalAtlas(store, { already_existed: true });
@@ -149,52 +201,74 @@ export function bootstrapPersonalAtlas(store) {
     id: "object_personal_carbon_copy",
     object_type_id: OBJECT_TYPE_PERSONAL_CARBON_COPY,
     properties_json: {
-      goal: "Build AAA sci-fi action game",
-      constraints: "30-second movement prototype first",
-      preferences: ""
+      goal: "Build Atlas into a Palantir-class ontology platform",
+      constraints: "Use Personal Atlas as the cockpit; promote only reviewed records into public or enterprise layers",
+      preferences: "Keep lifecycle gates, evidence, review packets, and tests visible in the local workflow"
     }
   });
 
   store.createObjectInstance(PERSONAL_WORKSPACE_ID, {
-    id: "object_personal_project_aaa",
+    id: "object_personal_project_atlas",
     object_type_id: OBJECT_TYPE_PERSONAL_PROJECT,
     properties_json: {
-      name: "AAA third-person combat vertical slice",
-      description: "",
+      name: "Atlas self-hosting roadmap",
+      description: "Personal Atlas manages the work needed to build shared core, public Atlas, and enterprise Atlas.",
       goal: PROJECT_GOAL
     }
   });
 
   store.createObjectInstance(PERSONAL_WORKSPACE_ID, {
-    id: "object_task_movement",
+    id: "object_task_harden_personal_loop",
     object_type_id: OBJECT_TYPE_PERSONAL_TASK,
     properties_json: {
-      title: "Implement third-person movement controller",
+      title: "Harden Personal Atlas self-hosting loop",
       status: "todo",
       priority: 1,
-      acceptance_criteria: "Player moves, collision works, camera follows, test scene runs"
+      acceptance_criteria: "Read endpoints are side-effect free, blocked tasks cannot complete, and every seeded task has done criteria"
     }
   });
 
   store.createObjectInstance(PERSONAL_WORKSPACE_ID, {
-    id: "object_task_camera",
+    id: "object_task_runtime_foundation",
     object_type_id: OBJECT_TYPE_PERSONAL_TASK,
     properties_json: {
-      title: "Implement camera follow",
+      title: "Add durable Atlas runtime foundation",
       status: "todo",
       priority: 2,
-      acceptance_criteria: ""
+      acceptance_criteria: "Postgres wiring, transaction boundary, migration runner, and object history tests are implemented"
     }
   });
 
   store.createObjectInstance(PERSONAL_WORKSPACE_ID, {
-    id: "object_task_collision",
+    id: "object_task_policy_audit",
     object_type_id: OBJECT_TYPE_PERSONAL_TASK,
     properties_json: {
-      title: "Test collision in test scene",
+      title: "Add policy checks and audit events before broader actions",
       status: "todo",
       priority: 3,
-      acceptance_criteria: ""
+      acceptance_criteria: "All mutations pass PermissionCheck and write append-only AuditEvent records with tests"
+    }
+  });
+
+  store.createObjectInstance(PERSONAL_WORKSPACE_ID, {
+    id: "object_task_public_atlas",
+    object_type_id: OBJECT_TYPE_PERSONAL_TASK,
+    properties_json: {
+      title: "Build reviewed Public Atlas publishing layer",
+      status: "todo",
+      priority: 4,
+      acceptance_criteria: "Candidate personal records can be reviewed, redacted, and promoted into public packages without private leakage"
+    }
+  });
+
+  store.createObjectInstance(PERSONAL_WORKSPACE_ID, {
+    id: "object_task_enterprise_workspace",
+    object_type_id: OBJECT_TYPE_PERSONAL_TASK,
+    properties_json: {
+      title: "Build Enterprise Atlas workspace layer",
+      status: "todo",
+      priority: 5,
+      acceptance_criteria: "Tenant, organization, membership, scoped agent, and admin-console foundations pass isolation tests"
     }
   });
 
@@ -206,17 +280,31 @@ export function bootstrapPersonalAtlas(store) {
   });
 
   store.createLinkInstance(PERSONAL_WORKSPACE_ID, {
-    id: "link_movement_blocks_camera",
+    id: "link_personal_loop_blocks_runtime",
     link_type_id: LINK_TYPE_TASK_BLOCKS_TASK,
-    from_object_id: "object_task_movement",
-    to_object_id: "object_task_camera"
+    from_object_id: "object_task_harden_personal_loop",
+    to_object_id: "object_task_runtime_foundation"
   });
 
   store.createLinkInstance(PERSONAL_WORKSPACE_ID, {
-    id: "link_movement_blocks_collision",
+    id: "link_runtime_blocks_policy_audit",
     link_type_id: LINK_TYPE_TASK_BLOCKS_TASK,
-    from_object_id: "object_task_movement",
-    to_object_id: "object_task_collision"
+    from_object_id: "object_task_runtime_foundation",
+    to_object_id: "object_task_policy_audit"
+  });
+
+  store.createLinkInstance(PERSONAL_WORKSPACE_ID, {
+    id: "link_policy_blocks_public_atlas",
+    link_type_id: LINK_TYPE_TASK_BLOCKS_TASK,
+    from_object_id: "object_task_policy_audit",
+    to_object_id: "object_task_public_atlas"
+  });
+
+  store.createLinkInstance(PERSONAL_WORKSPACE_ID, {
+    id: "link_policy_blocks_enterprise_workspace",
+    link_type_id: LINK_TYPE_TASK_BLOCKS_TASK,
+    from_object_id: "object_task_policy_audit",
+    to_object_id: "object_task_enterprise_workspace"
   });
 
   store.createObjectSet(PERSONAL_WORKSPACE_ID, {
@@ -267,13 +355,20 @@ function summarizePersonalAtlas(store, { already_existed, workspace }) {
     ],
     object_ids: [
       "object_personal_carbon_copy",
-      "object_personal_project_aaa",
-      "object_task_movement",
-      "object_task_camera",
-      "object_task_collision"
+      "object_personal_project_atlas",
+      "object_task_harden_personal_loop",
+      "object_task_runtime_foundation",
+      "object_task_policy_audit",
+      "object_task_public_atlas",
+      "object_task_enterprise_workspace"
     ],
     link_type_id: LINK_TYPE_TASK_BLOCKS_TASK,
-    link_ids: ["link_movement_blocks_camera", "link_movement_blocks_collision"],
+    link_ids: [
+      "link_personal_loop_blocks_runtime",
+      "link_runtime_blocks_policy_audit",
+      "link_policy_blocks_public_atlas",
+      "link_policy_blocks_enterprise_workspace"
+    ],
     object_set_id: "object_set_open_tasks",
     action_type_id: ACTION_TYPE_COMPLETE_PERSONAL_TASK,
     task_count: tasks.length,
@@ -282,7 +377,7 @@ function summarizePersonalAtlas(store, { already_existed, workspace }) {
 }
 
 export function selectNextAction(store, workspaceId = PERSONAL_WORKSPACE_ID) {
-  ensurePersonalBootstrap(store);
+  assertPersonalBootstrap(store);
 
   const openTasks = getPersonalTasks(store, workspaceId).filter(
     (task) => task.properties_json.status === "todo"
@@ -327,11 +422,11 @@ export function selectNextAction(store, workspaceId = PERSONAL_WORKSPACE_ID) {
 }
 
 export function getPersonalOverview(store) {
-  ensurePersonalBootstrap(store);
+  assertPersonalBootstrap(store);
 
   const workspace = store.getWorkspace(PERSONAL_WORKSPACE_ID);
   const carbon_copy = store.getObjectInstance(PERSONAL_WORKSPACE_ID, "object_personal_carbon_copy");
-  const project = store.getObjectInstance(PERSONAL_WORKSPACE_ID, "object_personal_project_aaa");
+  const project = store.getObjectInstance(PERSONAL_WORKSPACE_ID, "object_personal_project_atlas");
   const tasks = getPersonalTasks(store);
   const blockers = buildBlockersMap(store, PERSONAL_WORKSPACE_ID, tasks);
   const next_action = selectNextAction(store, PERSONAL_WORKSPACE_ID);
@@ -348,19 +443,8 @@ export function getPersonalOverview(store) {
 }
 
 export function completePersonalTask(store, taskId, input) {
-  ensurePersonalBootstrap(store);
-
-  let task;
-
-  try {
-    task = store.getObjectInstance(PERSONAL_WORKSPACE_ID, taskId);
-  } catch (error) {
-    throw error;
-  }
-
-  if (task.object_type_id !== OBJECT_TYPE_PERSONAL_TASK) {
-    throw new ApiError(400, "invalid_task", "Object is not a personal task");
-  }
+  assertPersonalBootstrap(store);
+  assertPersonalTaskCanComplete(store, taskId);
 
   store.createActionRun(PERSONAL_WORKSPACE_ID, {
     action_type_id: ACTION_TYPE_COMPLETE_PERSONAL_TASK,

@@ -15,40 +15,40 @@ const sampleOverview = {
   carbon_copy: {
     id: "object_personal_carbon_copy",
     properties_json: {
-      goal: "Build AAA sci-fi action game",
-      constraints: "30-second movement prototype first"
+      goal: "Build Atlas into a Palantir-class ontology platform",
+      constraints: "Use Personal Atlas as the cockpit"
     }
   },
   project: {
-    id: "object_personal_project_aaa",
+    id: "object_personal_project_atlas",
     properties_json: {
-      name: "AAA third-person combat vertical slice",
-      goal: "Produce a playable AAA vertical slice prototype"
+      name: "Atlas self-hosting roadmap",
+      goal: "Use Personal Atlas to build the public and enterprise Atlas versions"
     }
   },
   tasks: [
     {
-      id: "object_task_movement",
+      id: "object_task_harden_personal_loop",
       properties_json: {
-        title: "Implement third-person movement controller",
+        title: "Harden Personal Atlas self-hosting loop",
         status: "todo"
       }
     },
     {
-      id: "object_task_camera",
+      id: "object_task_runtime_foundation",
       properties_json: {
-        title: "Implement camera follow",
+        title: "Add durable Atlas runtime foundation",
         status: "todo"
       }
     }
   ],
   blockers: {
-    object_task_camera: ["object_task_movement"]
+    object_task_runtime_foundation: ["object_task_harden_personal_loop"]
   },
   next_action: {
-    task_id: "object_task_movement",
-    title: "Implement third-person movement controller",
-    acceptance_criteria: "Player moves, collision works, camera follows, test scene runs",
+    task_id: "object_task_harden_personal_loop",
+    title: "Harden Personal Atlas self-hosting loop",
+    acceptance_criteria: "Read endpoints are side-effect free, blocked tasks cannot complete, and every seeded task has done criteria",
     explanation: "Highest-priority unblocked task.",
     blockers: []
   }
@@ -68,39 +68,39 @@ test("dashboard renders API-shaped next action", () => {
     carbon_copy: {
       id: "object_personal_carbon_copy",
       properties_json: {
-        goal: "Build AAA sci-fi action game",
-        constraints: "30-second movement prototype first"
+        goal: "Build Atlas into a Palantir-class ontology platform",
+        constraints: "Use Personal Atlas as the cockpit"
       }
     },
     project: {
-      id: "object_personal_project_aaa",
+      id: "object_personal_project_atlas",
       properties_json: {
-        name: "AAA third-person combat vertical slice",
-        goal: "Produce a playable AAA vertical slice prototype"
+        name: "Atlas self-hosting roadmap",
+        goal: "Use Personal Atlas to build the public and enterprise Atlas versions"
       }
     },
     tasks: [
       {
-        id: "object_task_movement",
-        properties_json: { title: "Implement third-person movement controller", status: "todo" }
+        id: "object_task_harden_personal_loop",
+        properties_json: { title: "Harden Personal Atlas self-hosting loop", status: "todo" }
       },
       {
-        id: "object_task_camera",
-        properties_json: { title: "Implement camera follow", status: "todo" }
+        id: "object_task_runtime_foundation",
+        properties_json: { title: "Add durable Atlas runtime foundation", status: "todo" }
       }
     ],
     blockers: {
-      object_task_camera: [{ id: "object_task_movement", title: "Implement third-person movement controller" }]
+      object_task_runtime_foundation: [{ id: "object_task_harden_personal_loop", title: "Harden Personal Atlas self-hosting loop" }]
     },
     next_action: {
       task: {
-        id: "object_task_movement",
+        id: "object_task_harden_personal_loop",
         properties_json: {
-          title: "Implement third-person movement controller",
-          acceptance_criteria: "Player moves, collision works, camera follows, test scene runs"
+          title: "Harden Personal Atlas self-hosting loop",
+          acceptance_criteria: "Read endpoints are side-effect free, blocked tasks cannot complete, and every seeded task has done criteria"
         }
       },
-      acceptance_criteria: "Player moves, collision works, camera follows, test scene runs",
+      acceptance_criteria: "Read endpoints are side-effect free, blocked tasks cannot complete, and every seeded task has done criteria",
       explanation: "Dependencies satisfied.",
       blockers: []
     }
@@ -108,8 +108,8 @@ test("dashboard renders API-shaped next action", () => {
 
   const html = renderPersonalDashboard(apiOverview);
 
-  assert.match(html, /<form method="post" action="\/tasks\/object_task_movement\/complete">/);
-  assert.match(html, /Implement third-person movement controller/);
+  assert.match(html, /<form method="post" action="\/tasks\/object_task_harden_personal_loop\/complete">/);
+  assert.match(html, /Harden Personal Atlas self-hosting loop/);
 });
 
 test("bootstrap page renders security boundary notice", () => {
@@ -123,15 +123,15 @@ test("dashboard renders next action, blockers, and complete form", () => {
   const html = renderPersonalDashboard(sampleOverview);
 
   assert.match(html, /Security boundary/);
-  assert.match(html, /Build AAA sci-fi action game/);
-  assert.match(html, /AAA third-person combat vertical slice/);
-  assert.match(html, /Implement third-person movement controller/);
-  assert.match(html, /object_task_movement/);
-  assert.match(html, /object_task_camera/);
+  assert.match(html, /Build Atlas into a Palantir-class ontology platform/);
+  assert.match(html, /Atlas self-hosting roadmap/);
+  assert.match(html, /Harden Personal Atlas self-hosting loop/);
+  assert.match(html, /object_task_harden_personal_loop/);
+  assert.match(html, /object_task_runtime_foundation/);
   assert.match(html, /Blockers:/);
   assert.match(html, /Acceptance criteria/);
-  assert.match(html, /Player moves, collision works, camera follows, test scene runs/);
-  assert.match(html, /<form method="post" action="\/tasks\/object_task_movement\/complete">/);
+  assert.match(html, /Read endpoints are side-effect free, blocked tasks cannot complete, and every seeded task has done criteria/);
+  assert.match(html, /<form method="post" action="\/tasks\/object_task_harden_personal_loop\/complete">/);
   assert.match(html, /name="artifact_uri"/);
   assert.match(html, /name="evidence_note"/);
 });

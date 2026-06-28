@@ -43,10 +43,12 @@ test("POST /personal/bootstrap is idempotent", async (t) => {
   assert.equal(first.payload.data.workspace_id, "workspace_personal");
   assert.deepEqual(first.payload.data.object_ids, [
     "object_personal_carbon_copy",
-    "object_personal_project_aaa",
-    "object_task_movement",
-    "object_task_camera",
-    "object_task_collision"
+    "object_personal_project_atlas",
+    "object_task_harden_personal_loop",
+    "object_task_runtime_foundation",
+    "object_task_policy_audit",
+    "object_task_public_atlas",
+    "object_task_enterprise_workspace"
   ]);
 
   const second = await requestJson(baseUrl, "/personal/bootstrap", {
@@ -68,10 +70,25 @@ test("POST /personal/bootstrap is idempotent", async (t) => {
   const tasks = await requestJson(baseUrl, "/workspaces/workspace_personal/objects?object_type_id=object_type_personal_task");
 
   assert.equal(tasks.status, 200);
-  assert.equal(tasks.payload.data.length, 3);
+  assert.equal(tasks.payload.data.length, 5);
 });
 
-test("GET /personal/next-action returns movement task first", async (t) => {
+test("personal read endpoints do not bootstrap workspace", async (t) => {
+  const baseUrl = await startTestServer(t);
+
+  const overview = await requestJson(baseUrl, "/personal/overview");
+  const nextAction = await requestJson(baseUrl, "/personal/next-action");
+  const workspaces = await requestJson(baseUrl, "/workspaces");
+
+  assert.equal(overview.status, 404);
+  assert.equal(overview.payload.error, "workspace_not_bootstrapped");
+  assert.equal(nextAction.status, 404);
+  assert.equal(nextAction.payload.error, "workspace_not_bootstrapped");
+  assert.equal(workspaces.status, 200);
+  assert.deepEqual(workspaces.payload.data, []);
+});
+
+test("GET /personal/next-action returns Personal Atlas hardening task first", async (t) => {
   const baseUrl = await startTestServer(t);
 
   await requestJson(baseUrl, "/personal/bootstrap", {
@@ -81,39 +98,39 @@ test("GET /personal/next-action returns movement task first", async (t) => {
   const nextAction = await requestJson(baseUrl, "/personal/next-action");
 
   assert.equal(nextAction.status, 200);
-  assert.equal(nextAction.payload.data.task.id, "object_task_movement");
+  assert.equal(nextAction.payload.data.task.id, "object_task_harden_personal_loop");
   assert.equal(nextAction.payload.data.task.properties_json.priority, 1);
   assert.equal(
     nextAction.payload.data.acceptance_criteria,
-    "Player moves, collision works, camera follows, test scene runs"
+    "Read endpoints are side-effect free, blocked tasks cannot complete, and every seeded task has done criteria"
   );
   assert.equal(nextAction.payload.data.blockers.length, 0);
 });
 
-test("completing first task advances next action to camera", async (t) => {
+test("completing first task advances next action to runtime foundation", async (t) => {
   const baseUrl = await startTestServer(t);
 
   await requestJson(baseUrl, "/personal/bootstrap", {
     method: "POST"
   });
 
-  const complete = await requestJson(baseUrl, "/personal/tasks/object_task_movement/complete", {
+  const complete = await requestJson(baseUrl, "/personal/tasks/object_task_harden_personal_loop/complete", {
     method: "POST",
     body: {
-      artifact_uri: "artifacts/movement-demo.md",
-      evidence_note: "Movement prototype runs in test scene"
+      artifact_uri: "evidence/personal-atlas-composer-25-review.md",
+      evidence_note: "Personal Atlas review findings were fixed and verified"
     }
   });
 
   assert.equal(complete.status, 200);
   assert.equal(complete.payload.data.task.properties_json.status, "done");
-  assert.equal(complete.payload.data.next_action.task.id, "object_task_camera");
+  assert.equal(complete.payload.data.next_action.task.id, "object_task_runtime_foundation");
   assert.equal(complete.payload.data.next_action.task.properties_json.priority, 2);
 
   const nextAction = await requestJson(baseUrl, "/personal/next-action");
 
   assert.equal(nextAction.status, 200);
-  assert.equal(nextAction.payload.data.task.id, "object_task_camera");
+  assert.equal(nextAction.payload.data.task.id, "object_task_runtime_foundation");
 });
 
 test("missing artifact or evidence is rejected and task status unchanged", async (t) => {
@@ -123,10 +140,10 @@ test("missing artifact or evidence is rejected and task status unchanged", async
     method: "POST"
   });
 
-  const missingEvidence = await requestJson(baseUrl, "/personal/tasks/object_task_movement/complete", {
+  const missingEvidence = await requestJson(baseUrl, "/personal/tasks/object_task_harden_personal_loop/complete", {
     method: "POST",
     body: {
-      artifact_uri: "artifacts/movement-demo.md"
+      artifact_uri: "evidence/personal-atlas-composer-25-review.md"
     }
   });
 
@@ -135,16 +152,16 @@ test("missing artifact or evidence is rejected and task status unchanged", async
 
   const taskAfterMissingEvidence = await requestJson(
     baseUrl,
-    "/workspaces/workspace_personal/objects/object_task_movement"
+    "/workspaces/workspace_personal/objects/object_task_harden_personal_loop"
   );
 
   assert.equal(taskAfterMissingEvidence.status, 200);
   assert.equal(taskAfterMissingEvidence.payload.data.properties_json.status, "todo");
 
-  const missingArtifact = await requestJson(baseUrl, "/personal/tasks/object_task_movement/complete", {
+  const missingArtifact = await requestJson(baseUrl, "/personal/tasks/object_task_harden_personal_loop/complete", {
     method: "POST",
     body: {
-      evidence_note: "Movement prototype runs in test scene"
+      evidence_note: "Personal Atlas review findings were fixed and verified"
     }
   });
 
@@ -153,7 +170,7 @@ test("missing artifact or evidence is rejected and task status unchanged", async
 
   const taskAfterMissingArtifact = await requestJson(
     baseUrl,
-    "/workspaces/workspace_personal/objects/object_task_movement"
+    "/workspaces/workspace_personal/objects/object_task_harden_personal_loop"
   );
 
   assert.equal(taskAfterMissingArtifact.status, 200);
@@ -167,10 +184,10 @@ test("empty artifact or evidence strings are rejected", async (t) => {
     method: "POST"
   });
 
-  const emptyEvidence = await requestJson(baseUrl, "/personal/tasks/object_task_movement/complete", {
+  const emptyEvidence = await requestJson(baseUrl, "/personal/tasks/object_task_harden_personal_loop/complete", {
     method: "POST",
     body: {
-      artifact_uri: "artifacts/movement-demo.md",
+      artifact_uri: "evidence/personal-atlas-composer-25-review.md",
       evidence_note: ""
     }
   });
@@ -178,11 +195,11 @@ test("empty artifact or evidence strings are rejected", async (t) => {
   assert.equal(emptyEvidence.status, 400);
   assert.equal(emptyEvidence.payload.error, "action_input_validation_failed");
 
-  const emptyArtifact = await requestJson(baseUrl, "/personal/tasks/object_task_movement/complete", {
+  const emptyArtifact = await requestJson(baseUrl, "/personal/tasks/object_task_harden_personal_loop/complete", {
     method: "POST",
     body: {
       artifact_uri: "",
-      evidence_note: "Movement prototype runs in test scene"
+      evidence_note: "Personal Atlas review findings were fixed and verified"
     }
   });
 
@@ -202,10 +219,14 @@ test("GET /personal/overview returns workspace, tasks, and next action", async (
   assert.equal(overview.status, 200);
   assert.equal(overview.payload.data.workspace.id, "workspace_personal");
   assert.equal(overview.payload.data.carbon_copy.id, "object_personal_carbon_copy");
-  assert.equal(overview.payload.data.project.id, "object_personal_project_aaa");
-  assert.equal(overview.payload.data.tasks.length, 3);
-  assert.equal(overview.payload.data.next_action.task.id, "object_task_movement");
+  assert.equal(overview.payload.data.project.id, "object_personal_project_atlas");
+  assert.equal(overview.payload.data.tasks.length, 5);
+  assert.equal(overview.payload.data.next_action.task.id, "object_task_harden_personal_loop");
   assert.match(overview.payload.data.security_boundary, /No authentication/);
+  assert.equal(
+    overview.payload.data.tasks.every((task) => task.properties_json.acceptance_criteria.length > 0),
+    true
+  );
 });
 
 test("PATCH cannot bypass governed personal task completion", async (t) => {
@@ -215,7 +236,7 @@ test("PATCH cannot bypass governed personal task completion", async (t) => {
     method: "POST"
   });
 
-  const patchAttempt = await requestJson(baseUrl, "/workspaces/workspace_personal/objects/object_task_movement", {
+  const patchAttempt = await requestJson(baseUrl, "/workspaces/workspace_personal/objects/object_task_harden_personal_loop", {
     method: "PATCH",
     body: {
       properties_json: {
@@ -227,7 +248,83 @@ test("PATCH cannot bypass governed personal task completion", async (t) => {
   assert.equal(patchAttempt.status, 400);
   assert.equal(patchAttempt.payload.error, "governed_action_required");
 
-  const task = await requestJson(baseUrl, "/workspaces/workspace_personal/objects/object_task_movement");
+  const task = await requestJson(baseUrl, "/workspaces/workspace_personal/objects/object_task_harden_personal_loop");
 
   assert.equal(task.payload.data.properties_json.status, "todo");
+});
+
+test("blocked tasks cannot be completed directly", async (t) => {
+  const baseUrl = await startTestServer(t);
+
+  await requestJson(baseUrl, "/personal/bootstrap", {
+    method: "POST"
+  });
+
+  const blockedComplete = await requestJson(baseUrl, "/personal/tasks/object_task_runtime_foundation/complete", {
+    method: "POST",
+    body: {
+      artifact_uri: "docs/runtime-foundation.md",
+      evidence_note: "Tried to skip blocker"
+    }
+  });
+
+  assert.equal(blockedComplete.status, 409);
+  assert.equal(blockedComplete.payload.error, "task_blocked");
+  assert.equal(blockedComplete.payload.details[0].id, "object_task_harden_personal_loop");
+
+  const task = await requestJson(baseUrl, "/workspaces/workspace_personal/objects/object_task_runtime_foundation");
+
+  assert.equal(task.payload.data.properties_json.status, "todo");
+});
+
+test("generic ActionRun endpoint cannot bypass personal blockers", async (t) => {
+  const baseUrl = await startTestServer(t);
+
+  await requestJson(baseUrl, "/personal/bootstrap", {
+    method: "POST"
+  });
+
+  const directRun = await requestJson(baseUrl, "/workspaces/workspace_personal/action-runs", {
+    method: "POST",
+    body: {
+      action_type_id: "action_type_complete_personal_task",
+      target_object_id: "object_task_runtime_foundation",
+      input_json: {
+        artifact_uri: "docs/runtime-foundation.md",
+        evidence_note: "Tried to skip blocker"
+      }
+    }
+  });
+
+  assert.equal(directRun.status, 409);
+  assert.equal(directRun.payload.error, "task_blocked");
+
+  const task = await requestJson(baseUrl, "/workspaces/workspace_personal/objects/object_task_runtime_foundation");
+
+  assert.equal(task.payload.data.properties_json.status, "todo");
+});
+
+test("completed personal task cannot be completed twice", async (t) => {
+  const baseUrl = await startTestServer(t);
+
+  await requestJson(baseUrl, "/personal/bootstrap", {
+    method: "POST"
+  });
+
+  const body = {
+    artifact_uri: "evidence/personal-atlas-composer-25-review.md",
+    evidence_note: "Personal Atlas review findings were fixed and verified"
+  };
+  const first = await requestJson(baseUrl, "/personal/tasks/object_task_harden_personal_loop/complete", {
+    method: "POST",
+    body
+  });
+  const second = await requestJson(baseUrl, "/personal/tasks/object_task_harden_personal_loop/complete", {
+    method: "POST",
+    body
+  });
+
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 400);
+  assert.equal(second.payload.error, "task_already_done");
 });

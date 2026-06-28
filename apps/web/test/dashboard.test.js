@@ -12,27 +12,27 @@ const sampleOverview = {
   security_boundary: "Local in-memory personal state.",
   carbon_copy: {
     properties_json: {
-      goal: "Build AAA sci-fi action game",
-      constraints: "30-second movement prototype first"
+      goal: "Build Atlas into a Palantir-class ontology platform",
+      constraints: "Use Personal Atlas as the cockpit"
     }
   },
   project: {
     properties_json: {
-      name: "AAA vertical slice",
-      goal: "Playable prototype"
+      name: "Atlas self-hosting roadmap",
+      goal: "Use Personal Atlas to build the public and enterprise Atlas versions"
     }
   },
   tasks: [
     {
-      id: "object_task_movement",
-      properties_json: { title: "Movement controller", status: "todo" }
+      id: "object_task_harden_personal_loop",
+      properties_json: { title: "Harden Personal Atlas self-hosting loop", status: "todo" }
     }
   ],
   blockers: {},
   next_action: {
-    task_id: "object_task_movement",
-    title: "Movement controller",
-    acceptance_criteria: "Player moves at 6 m/s",
+    task_id: "object_task_harden_personal_loop",
+    title: "Harden Personal Atlas self-hosting loop",
+    acceptance_criteria: "Read endpoints are side-effect free",
     explanation: "Unblocked highest-priority task.",
     blockers: []
   }
@@ -131,8 +131,8 @@ test("server renders dashboard when overview is available", async (t) => {
   assert.equal(response.status, 200);
   assert.match(html, /Personal Atlas/);
   assert.match(html, /Next action/);
-  assert.match(html, /Player moves at 6 m\/s/);
-  assert.match(html, /action="\/tasks\/object_task_movement\/complete"/);
+  assert.match(html, /Read endpoints are side-effect free/);
+  assert.match(html, /action="\/tasks\/object_task_harden_personal_loop\/complete"/);
 });
 
 test("server handles API errors gracefully on bootstrap", async (t) => {
@@ -170,7 +170,7 @@ test("server redirects with error when task completion fails", async (t) => {
     })
   });
 
-  const response = await fetch(`${baseUrl}/tasks/object_task_movement/complete`, {
+  const response = await fetch(`${baseUrl}/tasks/object_task_harden_personal_loop/complete`, {
     method: "POST",
     headers: {
       "content-type": "application/x-www-form-urlencoded"
@@ -198,19 +198,19 @@ test("server completes task and redirects home", async (t) => {
     }),
     completePersonalTask: async (_apiUrl, taskId, input) => {
       completed = true;
-      assert.equal(taskId, "object_task_movement");
+      assert.equal(taskId, "object_task_harden_personal_loop");
       assert.equal(input.artifact_uri, "artifacts/demo.md");
-      assert.equal(input.evidence_note, "Movement verified");
+      assert.equal(input.evidence_note, "Loop verified");
       return { ok: true, data: { task_id: taskId }, error: null };
     }
   });
 
-  const response = await fetch(`${baseUrl}/tasks/object_task_movement/complete`, {
+  const response = await fetch(`${baseUrl}/tasks/object_task_harden_personal_loop/complete`, {
     method: "POST",
     headers: {
       "content-type": "application/x-www-form-urlencoded"
     },
-    body: "artifact_uri=artifacts%2Fdemo.md&evidence_note=Movement%20verified",
+    body: "artifact_uri=artifacts%2Fdemo.md&evidence_note=Loop%20verified",
     redirect: "manual"
   });
 
