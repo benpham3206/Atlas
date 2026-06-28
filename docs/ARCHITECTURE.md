@@ -54,6 +54,10 @@ Owns HTTP API routes. Current routes:
 - `GET /workspaces/:workspace_id/policies` lists local policies.
 - `POST /workspaces/:workspace_id/policies` creates a local policy with validated rules.
 - `GET /workspaces/:workspace_id/policies/:policy_id` fetches a local policy scoped to one workspace.
+- `GET /workspaces/:workspace_id/permission-checks` lists recorded permission-check decisions.
+- `POST /workspaces/:workspace_id/permission-checks` records a permission-check decision.
+- `GET /workspaces/:workspace_id/permission-checks/:permission_check_id` fetches a permission-check decision.
+- `POST /workspaces/:workspace_id/authorize` evaluates a policy decision for a principal/role/action/resource without mutating state, recording a `PermissionCheck` and an audit event.
 - `GET /workspaces/:workspace_id/object-types` lists object types in one workspace.
 - `POST /workspaces/:workspace_id/object-types` creates an object type in one workspace.
 - `GET /workspaces/:workspace_id/object-types/:object_type_id` fetches an object type scoped to one workspace.
@@ -76,14 +80,23 @@ Owns HTTP API routes. Current routes:
 - `POST /workspaces/:workspace_id/action-types` creates an action type in one workspace.
 - `GET /workspaces/:workspace_id/action-types/:action_type_id` fetches an action type scoped to one workspace.
 - `GET /workspaces/:workspace_id/action-runs` lists action runs in one workspace.
-- `POST /workspaces/:workspace_id/action-runs` creates an action run; applies the action type effect to the target object and records before/after properties.
+- `POST /workspaces/:workspace_id/action-runs` creates an action run; enforces workspace policy before applying the action type effect to the target object, records before/after properties, and appends an audit event. Denied runs do not mutate the object.
 - `GET /workspaces/:workspace_id/action-runs/:action_run_id` fetches an action run scoped to one workspace.
+- `GET /audit/verify` verifies the integrity of the append-only, hash-chained audit log.
+- `GET /workspaces/:workspace_id/audit-events` lists audit events for one workspace (filterable by `resource_id`, `event_type`).
+- `GET /workspaces/:workspace_id/audit-events/:event_id` fetches a single audit event.
+- `GET /agents` / `POST /agents` / `GET /agents/:agent_id` manage agent identities.
+- `GET /workspaces/:workspace_id/agent-delegations` lists scoped delegations for one workspace.
+- `POST /workspaces/:workspace_id/agent-delegations` mints a scoped, expiring delegation (role + scopes + allowed tools + expiry).
+- `GET /workspaces/:workspace_id/agent-delegations/:delegation_id` fetches a delegation.
+- `GET /agent/manifest` returns the discoverable agent tool contract (tools, scopes, verification order).
+- `POST /agent/tools/:tool` dispatches a governed agent tool call; authorizes the delegation bearer (status, expiry, scope, tool allowlist), evaluates policy for actions, executes within the delegation's workspace, and appends an audit event for every call (allow or deny).
 - `POST /personal/bootstrap` seeds the personal workspace, object types, Atlas self-hosting roadmap, tasks, and complete-task action type. Idempotent.
 - `GET /personal/overview` returns carbon copy, project, tasks, blockers map, next action, and security boundary notice.
 - `GET /personal/next-action` returns the highest-priority unblocked open personal task with acceptance criteria and blocker context.
 - `POST /personal/tasks/:task_id/complete` completes a personal task via the complete-task ActionType/ActionRun path; requires `artifact_uri` and `evidence_note`.
 
-Storage is currently in-memory. `infra/migrations/0001_ontology_nouns.sql`, `infra/migrations/0002_links.sql`, `infra/migrations/0003_object_sets.sql`, `infra/migrations/0004_actions.sql`, `infra/migrations/0005_governance.sql`, and `infra/migrations/0006_policies.sql` define the intended Postgres schema for the same records. `0004_actions.sql` adds `action_types` and `action_runs` with workspace-scoped foreign keys to object types and object instances. `0005_governance.sql` adds local `users` and `workspace_memberships`. `0006_policies.sql` adds local `policies`.
+Storage is in-memory by default and can be snapshotted to a JSON file when `ATLAS_DATA_FILE` is set (`apps/api/src/persistence.js`): the full store is written after each mutating request and reloaded on boot, so state survives restarts without a database. The migrations under `infra/migrations/` (`0001`–`0009`) define the intended Postgres schema for the same records. `0004_actions.sql` adds `action_types` and `action_runs`. `0005_governance.sql` adds local `users` and `workspace_memberships`. `0006_policies.sql` adds local `policies`. `0007_permission_checks.sql` adds `permission_checks`. `0008_agents.sql` adds `agents` and `agent_delegations`. `0009_audit_events.sql` adds the insert-only, hash-chained `audit_events` log.
 
 ### `apps/web`
 
@@ -104,27 +117,39 @@ Owns shared cross-app types and tiny runtime helpers. Current exports cover:
 - object property validation against the first JSON Schema subset
 - `BaseRecord` lifecycle/review/visibility validation for future Capability Graph records
 - declarative Phase 2 record type specs and table-driven record set validation
+- audit hash-chain helpers (`canonicalJson`, `sha256Hex`, `auditEventHash`, `verifyAuditEventChain`) shared by the API audit log
 
 ### `infra/migrations`
 
-Reserved for database migrations. The current migrations define `workspaces`, `object_types`, `object_instances`, `link_types`, `link_instances`, `object_sets`, `action_types`, `action_runs`, `users`, `workspace_memberships`, and `policies`.
+Reserved for database migrations. The current migrations define `workspaces`, `object_types`, `object_instances`, `link_types`, `link_instances`, `object_sets`, `action_types`, `action_runs`, `users`, `workspace_memberships`, `policies`, `permission_checks`, `agents`, `agent_delegations`, and `audit_events`.
 
 Migration verification is currently static because no local Postgres runtime is configured. `npm run verify:migrations` checks ordering, file naming, semicolon termination, and duplicate table creation.
 
-## Future Direction
+## Implemented vs. Target
 
-The target architecture grows toward:
+Implemented in this slice (in-memory / file-backed, single node):
 
 ```text
 Ontology nouns
 -> capability graph records
 -> governed actions
--> policy checks
+-> policy checks (enforced on the action path)
 -> hash-chained audit log
--> object UI
--> agent-readable tools
--> domain pack
--> next-action engine
+-> agent-readable tools (governed gateway + scoped delegations)
+-> generalized next-action engine
+-> durable file-backed persistence
 ```
 
-Do not add those features during the skeleton task.
+Still on the target architecture (not yet implemented):
+
+```text
+Real authentication (OAuth 2.0 / signed JWT delegation)
+-> Postgres + Row-Level Security (multi-tenant isolation)
+-> sandboxed Tool Router execution profiles
+-> classification propagation + redaction
+-> rich object UI
+-> domain packs and external integrations
+```
+
+Delegation tokens are currently local scoped bearers (not signed JWTs), and isolation is enforced in
+application code rather than by the database. These are the first hardening steps toward the target.

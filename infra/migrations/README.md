@@ -14,3 +14,5 @@ Current migrations:
 - `0005_governance.sql`: local users and workspace memberships.
 - `0006_policies.sql`: local policies.
 - `0007_permission_checks.sql`: permission check decision records.
+- `0008_agents.sql`: agent identities and scoped, expiring delegations.
+- `0009_audit_events.sql`: append-only, hash-chained audit log (insert-only by contract).

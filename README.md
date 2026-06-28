@@ -4,17 +4,19 @@ Atlas is a minimal operational ontology platform. The Personal Atlas v0 slice ad
 
 ## What Exists
 
-- `apps/api`: backend HTTP server with ontology nouns, actions, local governance/policy records, and personal endpoints.
+- `apps/api`: backend HTTP server with ontology nouns, actions, enforced policies, an append-only audit log, a governed agent gateway, and personal endpoints.
 - `apps/web`: server-rendered personal dashboard with API proxy.
-- `packages/ontology-core`: shared health/status types, object property validation, and BaseRecord validation.
+- `packages/ontology-core`: shared health/status types, object property validation, BaseRecord validation, and the audit hash-chain helpers.
 - `infra/migrations`: database migration artifacts.
 - `docs`: PRD, architecture, Codex rules, and task queue.
 
-The ontology nouns and links are implemented with in-memory API storage: `Workspace`, `ObjectType`, `ObjectInstance`, `LinkType`, `LinkInstance`, and `ObjectSet`. Generic `ActionType` and `ActionRun` records support declarative property-update effects. Local `User`, `WorkspaceMembership`, and `Policy` records model governance scaffolding without authentication or authorization enforcement. Personal Atlas seeds a Carbon Copy, Atlas self-hosting roadmap, task graph, and next-action selector.
+The ontology nouns and links are implemented with in-memory API storage: `Workspace`, `ObjectType`, `ObjectInstance`, `LinkType`, `LinkInstance`, and `ObjectSet`. Generic `ActionType` and `ActionRun` records support declarative property-update effects. Local `User`, `WorkspaceMembership`, and `Policy` records model governance, and policies are now **enforced on the action path**: in a workspace with at least one active policy, an action run must present a role permitted by an allow rule (deny-by-default), every decision is recorded as a `PermissionCheck`, and every state change is written to an append-only, **hash-chained audit log**. `Agent` identities plus scoped, expiring `AgentDelegation` tokens drive a discoverable **agent gateway** (`GET /agent/manifest`, `POST /agent/tools/:tool`) so any agent can operate a workspace under least privilege, with every tool call authorized and audited. Personal Atlas seeds a Carbon Copy, Atlas self-hosting roadmap, task graph, and next-action selector.
 
 The Capability Graph record foundation is implemented in `ontology-core`: `BaseRecord` validation, a declarative record type registry, table-driven Phase 2 specs, AAA-wedge fixtures, and record validation command support. Candidate records remain visible but non-authoritative; only approved operational records can drive future recommendations or state-changing behavior.
 
-Auth, policies, audit, database runtime wiring, and integrations are not implemented yet.
+State is held in memory by default and can be **persisted to disk** by setting `ATLAS_DATA_FILE` (a JSON snapshot written after each mutation and reloaded on boot).
+
+Still on the target-architecture roadmap (not yet implemented): real authentication (OAuth 2.0 / cryptographically signed JWT delegation), Postgres + Row-Level Security for multi-tenant isolation, sandboxed tool execution, and external integrations. Delegation tokens are currently local scoped bearers, not signed JWTs.
 
 ## Requirements
 
@@ -303,7 +305,23 @@ curl -X POST http://localhost:4000/workspaces/workspace_game_studio/policies \
   }'
 ```
 
-Policies are stored and rule-validated, but they are not enforced until the PermissionCheck phase.
+Policies are enforced before action execution. Once a workspace has at least one active policy, an
+action run must present a `role` permitted by an allow rule (and not matched by a deny rule);
+otherwise the API responds `403 policy_denied`, the target object is not mutated, and the denial is
+recorded as both a `PermissionCheck` and an audit event. Workspaces with no active policy stay open
+(legacy behavior). You can also pre-check a decision without acting:
+
+```sh
+curl -X POST http://localhost:4000/workspaces/workspace_game_studio/authorize \
+  -H 'content-type: application/json' \
+  -d '{
+    "principal_type": "agent",
+    "principal_id": "agent_coder",
+    "role": "viewer",
+    "action": "run_action",
+    "resource_type": "object_type_bug"
+  }'
+```
 
 Patch an object instance directly:
 
@@ -318,8 +336,82 @@ curl -X PATCH http://localhost:4000/workspaces/workspace_game_studio/objects/obj
   }'
 ```
 
+## Agent Gateway (usable by any agent)
+
+The agent gateway is the governed surface an autonomous agent uses to operate a workspace. Every
+call is authorized against a scoped, expiring delegation and recorded in the hash-chained audit log,
+following this verification order: resolve delegation -> check status/expiry -> check scope -> check
+tool allowlist -> evaluate policy (for actions) -> execute -> append audit event.
+
+See the whole loop run end-to-end (discover -> delegate -> read -> govern -> audit -> persist):
+
+```sh
+npm run smoke:agent
+```
+
+Discover the tool contract (no auth required for discovery):
+
+```sh
+curl http://localhost:4000/agent/manifest
+```
+
+Create an agent identity and mint a scoped, expiring delegation (the delegation `id` is the bearer
+token). Agents cannot mint or extend their own delegations:
+
+```sh
+curl -X POST http://localhost:4000/agents \
+  -H 'content-type: application/json' \
+  -d '{"display_name": "Coding Agent"}'
+
+curl -X POST http://localhost:4000/workspaces/workspace_game_studio/agent-delegations \
+  -H 'content-type: application/json' \
+  -d '{
+    "agent_id": "agent_001",
+    "role": "editor",
+    "scopes": ["atlas.read", "atlas.act"],
+    "allowed_tools": ["*"],
+    "ttl_seconds": 3600
+  }'
+```
+
+Call a read tool with the delegation as a bearer token:
+
+```sh
+curl -X POST http://localhost:4000/agent/tools/get_workspace_overview \
+  -H 'authorization: Bearer delegation_001' \
+  -H 'content-type: application/json' \
+  -d '{}'
+```
+
+Run a governed action through the gateway (subject to policy; denials are recorded, not silent):
+
+```sh
+curl -X POST http://localhost:4000/agent/tools/run_action \
+  -H 'authorization: Bearer delegation_001' \
+  -H 'content-type: application/json' \
+  -d '{
+    "action_type_id": "action_type_mark_bug_resolved",
+    "target_object_id": "object_bug_camera_clip",
+    "input_json": { "resolution_note": "Fixed collision mesh" }
+  }'
+```
+
+Available tools: `get_workspace_overview`, `query_object`, `list_objects`, `search_records`,
+`traverse_graph`, `get_available_actions`, `get_next_action`, `run_action`, `verify_audit_chain`.
+
+## Audit Log
+
+Every object create/update, action run, policy decision, delegation, and agent tool call appends a
+hash-chained audit event. The chain is tamper-evident and verifiable.
+
+```sh
+curl http://localhost:4000/audit/verify
+curl http://localhost:4000/workspaces/workspace_game_studio/audit-events
+```
+
 ## Environment Variables
 
 - `PORT`: override the port for whichever app is being started.
 - `HOST`: override the bind host. Defaults to `127.0.0.1`.
 - `ATLAS_API_URL`: API URL displayed by the web placeholder. Defaults to `http://localhost:4000`.
+- `ATLAS_DATA_FILE`: when set, the API persists its full state to this JSON file after each mutation and reloads it on boot. Unset means in-memory only (resets on restart).
