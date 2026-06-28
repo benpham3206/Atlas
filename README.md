@@ -336,6 +336,23 @@ See the whole loop run end-to-end (discover -> delegate -> read -> govern -> aud
 npm run smoke:agent
 ```
 
+Prove the GitHub PR boundary without calling GitHub (allowlist denial, dry-run artifact, audit chain):
+
+```sh
+npm run smoke:github-open-pr
+```
+
+Optional live GitHub proof (requires a narrowly scoped `GITHUB_TOKEN`, allowlists, and an existing remote branch):
+
+```sh
+GITHUB_LIVE_SMOKE=1 \
+GITHUB_TOKEN=... \
+GITHUB_ALLOWED_REPOSITORIES=benpham3206/Atlas \
+GITHUB_ALLOWED_BASE_BRANCHES=main \
+GITHUB_HEAD_BRANCH=codex/n4-n6-hardening-review-loop \
+npm run smoke:github-open-pr
+```
+
 Discover the tool contract (no auth required for discovery):
 
 ```sh
@@ -400,7 +417,8 @@ Every object create/update, action run, policy decision, delegation, and agent t
 hash-chained audit event. GitHub PR attempts also append `github.pull_request.open_attempted` for
 success, dry-run, allowlist denial, and client failure. Slack read attempts append
 `slack.conversation.info_attempted` for success, allowlist denial, and client failure. The chain is
-tamper-evident and verifiable.
+tamper-evident and verifiable. The web dashboard renders the latest local workspace audit timeline
+from the same API; it is process-local integrity evidence, not external compliance retention.
 
 ```sh
 curl http://localhost:4000/audit/verify

@@ -108,11 +108,16 @@ Storage is in-memory by default and can be snapshotted to a JSON file when `ATLA
 Owns the human-facing UI. Current behavior:
 
 - `GET /` proxies to the API `GET /personal/overview`. If the personal workspace is not bootstrapped, renders a bootstrap page with a form that posts to `POST /bootstrap`.
+- `GET /?workspace_id=:workspace_id` selects the workspace context used for the read-only ontology manager, review packets, PR artifacts, and audit timeline panels. Personal task completion remains bound to the Personal Atlas overview.
+- `GET /?workspace_id=:workspace_id&object_id=:object_id` additionally renders a read-only object detail panel with properties and one-hop inbound/outbound links.
+- `POST /workspaces/:workspace_id/object-types` parses the dashboard object type form, validates `schema_json` as JSON, proxies to the API object-type create route, and redirects back to the selected workspace context.
+- `POST /workspaces/:workspace_id/action-runs` parses the dashboard action runner form, validates `input_json` as JSON, proxies to the API ActionRun route, and redirects back to the target object detail context.
 - `POST /bootstrap` proxies to the API `POST /personal/bootstrap`, then redirects to `/`.
 - `POST /tasks/:task_id/complete` proxies to the API `POST /personal/tasks/:task_id/complete` with form fields `artifact_uri` and `evidence_note`, then redirects to `/` (errors surface via `?error=` query param).
 - `GET /health` returns frontend health.
 
 The web server does not embed personal state. It calls the API at `ATLAS_API_URL` (default `http://127.0.0.1:4000`) through `apps/web/src/api-client.js`.
+The dashboard renders next actions, a read-only workspace selector, selected-workspace object type inventory, object instance summaries, object detail, a dependency-free node/edge graph explorer, governed action runner, review packets, PR artifacts, and the latest local hash-chained audit events.
 
 ### `packages/ontology-core`
 

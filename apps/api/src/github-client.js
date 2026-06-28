@@ -21,7 +21,8 @@ export function createGitHubClient({ token, fetchImpl = fetch } = {}) {
           title: input.title,
           body: input.body,
           head: input.head_branch,
-          base: input.base_branch
+          base: input.base_branch,
+          draft: input.draft !== false
         })
       });
 

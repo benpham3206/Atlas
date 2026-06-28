@@ -3,7 +3,17 @@ import { createHealthStatus } from "../../../packages/ontology-core/src/index.js
 import {
   bootstrapPersonalAtlas,
   completePersonalTask,
+  createWorkspaceActionRun,
+  createWorkspaceObjectType,
   fetchPersonalOverview,
+  fetchWorkspaces,
+  fetchWorkspaceActionTypes,
+  fetchWorkspaceAuditEvents,
+  fetchWorkspaceObject,
+  fetchWorkspaceObjectLinks,
+  fetchWorkspaceObjectTypes,
+  fetchWorkspaceObjects,
+  fetchWorkspaceLinks,
   fetchWorkspacePullRequestArtifacts,
   fetchWorkspaceReviewPackets
 } from "./api-client.js";
@@ -16,8 +26,18 @@ export function createWebServer(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const apiUrl = options.apiUrl ?? process.env.ATLAS_API_URL ?? "http://127.0.0.1:4000";
   const fetchOverview = options.fetchPersonalOverview ?? fetchPersonalOverview;
+  const fetchWorkspaceList = options.fetchWorkspaces ?? fetchWorkspaces;
   const fetchReviewPackets = options.fetchWorkspaceReviewPackets ?? fetchWorkspaceReviewPackets;
   const fetchPullRequestArtifacts = options.fetchWorkspacePullRequestArtifacts ?? fetchWorkspacePullRequestArtifacts;
+  const fetchAuditEvents = options.fetchWorkspaceAuditEvents ?? fetchWorkspaceAuditEvents;
+  const fetchObjectTypes = options.fetchWorkspaceObjectTypes ?? fetchWorkspaceObjectTypes;
+  const fetchObjects = options.fetchWorkspaceObjects ?? fetchWorkspaceObjects;
+  const fetchObject = options.fetchWorkspaceObject ?? fetchWorkspaceObject;
+  const fetchObjectLinks = options.fetchWorkspaceObjectLinks ?? fetchWorkspaceObjectLinks;
+  const fetchLinks = options.fetchWorkspaceLinks ?? fetchWorkspaceLinks;
+  const fetchActionTypes = options.fetchWorkspaceActionTypes ?? fetchWorkspaceActionTypes;
+  const createActionRun = options.createWorkspaceActionRun ?? createWorkspaceActionRun;
+  const createObjectType = options.createWorkspaceObjectType ?? createWorkspaceObjectType;
   const bootstrapAtlas = options.bootstrapPersonalAtlas ?? bootstrapPersonalAtlas;
   const completeTask = options.completePersonalTask ?? completePersonalTask;
 
@@ -28,8 +48,18 @@ export function createWebServer(options = {}) {
       now,
       apiUrl,
       fetchOverview,
+      fetchWorkspaceList,
       fetchReviewPackets,
       fetchPullRequestArtifacts,
+      fetchAuditEvents,
+      fetchObjectTypes,
+      fetchObjects,
+      fetchObject,
+      fetchObjectLinks,
+      fetchLinks,
+      fetchActionTypes,
+      createActionRun,
+      createObjectType,
       bootstrapAtlas,
       completeTask
     }).catch((error) => {
@@ -53,8 +83,18 @@ async function handleRequest({
   now,
   apiUrl,
   fetchOverview,
+  fetchWorkspaceList,
   fetchReviewPackets,
   fetchPullRequestArtifacts,
+  fetchAuditEvents,
+  fetchObjectTypes,
+  fetchObjects,
+  fetchObject,
+  fetchObjectLinks,
+  fetchLinks,
+  fetchActionTypes,
+  createActionRun,
+  createObjectType,
   bootstrapAtlas,
   completeTask
 }) {
@@ -104,14 +144,57 @@ async function handleRequest({
     }
 
     const workspaceId = overviewResult.data.workspace_id ?? overviewResult.data.workspace?.id;
+    const requestedWorkspaceId = url.searchParams.get("workspace_id");
+    const requestedObjectId = url.searchParams.get("object_id");
+    let workspaces = [];
+    let selectedWorkspaceId = workspaceId;
     let reviewPackets = [];
     let pullRequestArtifacts = [];
+    let auditEvents = [];
+    let objectTypes = [];
+    let objects = [];
+    let links = [];
+    let actionTypes = [];
+    let selectedObject = null;
+    let selectedObjectLinks = null;
+    let workspaceSelectorError = null;
     let reviewInboxError = null;
+    let auditTimelineError = null;
+    let ontologyManagerError = null;
+    let objectListError = null;
+    let objectDetailError = null;
+    let graphExplorerError = null;
+    let actionRunnerError = null;
+
+    const workspacesResult = await fetchWorkspaceList(apiUrl);
+    if (workspacesResult.ok) {
+      workspaces = workspacesResult.data ?? [];
+      if (requestedWorkspaceId && workspaces.some((workspace) => workspace.id === requestedWorkspaceId)) {
+        selectedWorkspaceId = requestedWorkspaceId;
+      } else if (requestedWorkspaceId && requestedWorkspaceId !== workspaceId) {
+        workspaceSelectorError = `Workspace ${requestedWorkspaceId} is unavailable`;
+      }
+    } else {
+      workspaceSelectorError = workspacesResult.error?.message ?? "Failed to load workspaces";
+    }
 
     if (workspaceId) {
-      const [reviewPacketsResult, pullRequestArtifactsResult] = await Promise.all([
-        fetchReviewPackets(apiUrl, workspaceId),
-        fetchPullRequestArtifacts(apiUrl, workspaceId)
+      const [
+        reviewPacketsResult,
+        pullRequestArtifactsResult,
+        auditEventsResult,
+        objectTypesResult,
+        objectsResult,
+        linksResult,
+        actionTypesResult
+      ] = await Promise.all([
+        fetchReviewPackets(apiUrl, selectedWorkspaceId),
+        fetchPullRequestArtifacts(apiUrl, selectedWorkspaceId),
+        fetchAuditEvents(apiUrl, selectedWorkspaceId),
+        fetchObjectTypes(apiUrl, selectedWorkspaceId),
+        fetchObjects(apiUrl, selectedWorkspaceId),
+        fetchLinks(apiUrl, selectedWorkspaceId),
+        fetchActionTypes(apiUrl, selectedWorkspaceId)
       ]);
 
       if (reviewPacketsResult.ok) {
@@ -125,6 +208,55 @@ async function handleRequest({
       } else {
         reviewInboxError = pullRequestArtifactsResult.error?.message ?? reviewInboxError ?? "Failed to load PR artifacts";
       }
+
+      if (auditEventsResult.ok) {
+        auditEvents = auditEventsResult.data ?? [];
+      } else {
+        auditTimelineError = auditEventsResult.error?.message ?? "Failed to load audit events";
+      }
+
+      if (objectTypesResult.ok) {
+        objectTypes = objectTypesResult.data ?? [];
+      } else {
+        ontologyManagerError = objectTypesResult.error?.message ?? "Failed to load object types";
+      }
+
+      if (objectsResult.ok) {
+        objects = objectsResult.data ?? [];
+      } else {
+        objectListError = objectsResult.error?.message ?? "Failed to load objects";
+      }
+
+      if (linksResult.ok) {
+        links = linksResult.data ?? [];
+      } else {
+        graphExplorerError = linksResult.error?.message ?? "Failed to load links";
+      }
+
+      if (actionTypesResult.ok) {
+        actionTypes = actionTypesResult.data ?? [];
+      } else {
+        actionRunnerError = actionTypesResult.error?.message ?? "Failed to load action types";
+      }
+
+      if (requestedObjectId) {
+        const [objectResult, objectLinksResult] = await Promise.all([
+          fetchObject(apiUrl, selectedWorkspaceId, requestedObjectId),
+          fetchObjectLinks(apiUrl, selectedWorkspaceId, requestedObjectId)
+        ]);
+
+        if (objectResult.ok) {
+          selectedObject = objectResult.data;
+        } else {
+          objectDetailError = objectResult.error?.message ?? "Failed to load object";
+        }
+
+        if (objectLinksResult.ok) {
+          selectedObjectLinks = objectLinksResult.data;
+        } else {
+          objectDetailError = objectLinksResult.error?.message ?? objectDetailError ?? "Failed to load object links";
+        }
+      }
     }
 
     return sendHtml(
@@ -132,9 +264,25 @@ async function handleRequest({
       200,
       renderPersonalDashboard(overviewResult.data, {
         error: queryError,
+        workspaces,
+        selectedWorkspaceId,
+        workspaceSelectorError,
         reviewPackets,
         pullRequestArtifacts,
-        reviewInboxError
+        reviewInboxError,
+        auditEvents,
+        auditTimelineError,
+        objectTypes,
+        ontologyManagerError,
+        objects,
+        objectListError,
+        links,
+        graphExplorerError,
+        actionTypes,
+        actionRunnerError,
+        selectedObject,
+        selectedObjectLinks,
+        objectDetailError
       })
     );
   }
@@ -154,6 +302,98 @@ async function handleRequest({
 
     response.writeHead(303, {
       location: "/",
+      "cache-control": "no-store"
+    });
+    response.end();
+    return;
+  }
+
+  const createObjectTypeMatch = url.pathname.match(/^\/workspaces\/([^/]+)\/object-types$/);
+  if (request.method === "POST" && createObjectTypeMatch) {
+    const workspaceId = decodeURIComponent(createObjectTypeMatch[1]);
+    const body = await readBody(request);
+    const form = parseUrlEncoded(body);
+    const redirectPath = `/?workspace_id=${encodeURIComponent(workspaceId)}`;
+    let schemaJson;
+
+    try {
+      schemaJson = JSON.parse(form.schema_json ?? "");
+    } catch {
+      response.writeHead(303, {
+        location: `${redirectPath}&error=${encodeURIComponent("schema_json must be valid JSON")}`,
+        "cache-control": "no-store"
+      });
+      response.end();
+      return;
+    }
+
+    const createResult = await createObjectType(apiUrl, workspaceId, {
+      id: form.id || undefined,
+      name: form.name ?? "",
+      description: form.description ?? "",
+      schema_json: schemaJson
+    });
+
+    if (!createResult.ok) {
+      const message = encodeURIComponent(
+        createResult.error?.message ?? "Failed to create object type"
+      );
+      response.writeHead(303, {
+        location: `${redirectPath}&error=${message}`,
+        "cache-control": "no-store"
+      });
+      response.end();
+      return;
+    }
+
+    response.writeHead(303, {
+      location: redirectPath,
+      "cache-control": "no-store"
+    });
+    response.end();
+    return;
+  }
+
+  const createActionRunMatch = url.pathname.match(/^\/workspaces\/([^/]+)\/action-runs$/);
+  if (request.method === "POST" && createActionRunMatch) {
+    const workspaceId = decodeURIComponent(createActionRunMatch[1]);
+    const body = await readBody(request);
+    const form = parseUrlEncoded(body);
+    const redirectPath = `/?workspace_id=${encodeURIComponent(workspaceId)}`;
+    let inputJson;
+
+    try {
+      inputJson = JSON.parse(form.input_json ?? "{}");
+    } catch {
+      response.writeHead(303, {
+        location: `${redirectPath}&error=${encodeURIComponent("input_json must be valid JSON")}`,
+        "cache-control": "no-store"
+      });
+      response.end();
+      return;
+    }
+
+    const createResult = await createActionRun(apiUrl, workspaceId, {
+      action_type_id: form.action_type_id ?? "",
+      target_object_id: form.target_object_id ?? "",
+      actor: "atlas_web",
+      input_json: inputJson
+    });
+
+    if (!createResult.ok) {
+      const message = encodeURIComponent(
+        createResult.error?.message ?? "Failed to run action"
+      );
+      response.writeHead(303, {
+        location: `${redirectPath}&error=${message}`,
+        "cache-control": "no-store"
+      });
+      response.end();
+      return;
+    }
+
+    response.writeHead(303, {
+      location: `${redirectPath}&object_id=${encodeURIComponent(form.target_object_id ?? "")}`,
       "cache-control": "no-store"
     });
     response.end();
