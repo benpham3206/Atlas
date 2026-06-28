@@ -18,8 +18,8 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 | Phase 2: Capability Graph Records | Complete | `npm test`, `npm run validate:records` | Keep future schema additions registry-based |
 | Phase 3: Actions | Complete | `npm test`, `npm run verify:migrations` | Policy and audit still need to wrap action execution in later phases |
 | Phase 4: Governance | G4.7 enforce scope on every endpoint; G4.8 permission matrix | Cross-workspace + role/action/resource tests | G4.5/G4.6 done: PermissionCheck recorded and policy enforced before action execution |
-| Phase 5: Audit And Trust | T5.8 add audit UI view | Web render test for an audit timeline | T5.1–T5.7 done: append-only, hash-chained, tamper-evident, queryable audit log |
-| Phase 6: Human UI | U6.1 add web API client module | Web unit tests for URL building and JSON error handling | Current frontend is dependency-free and may strain under richer state |
+| Phase 5: Audit And Trust | Complete | `npm run test:web`, `npm run lint` | Keep audit UI honest: local hash-chain evidence, not external compliance retention |
+| Phase 6: Human UI | Complete | `npm test`, `npm run lint` | Keep richer UI additions dependency-free unless a stable backend contract requires otherwise |
 | Phase 7: Agent Layer | AG7.9 add artifact/evidence tools | Tests for evidence/artifact tool calls | AG7.1–AG7.8 + AG7.10 done: identity, scoped delegation, registry, governed gateway, manifest |
 | Persistence | Wire Postgres + RLS runtime | DB migration apply + isolation tests | File-backed snapshot persistence (`ATLAS_DATA_FILE`) now bridges restarts |
 | Phase 8: Domain Pack And Next Action | D8.1 seed game-development domain | Seed validation tests and fixture count checks | Content must drive concrete AAA next actions, not generic taxonomy |
@@ -44,7 +44,7 @@ Goal: a system any agent can actually drive and trust. Completed this turn (all 
 - End-to-end proof: `scripts/agent-smoke.js` walks discover -> delegate -> read -> govern -> audit -> persist.
 
 Deliberately deferred to hardening (target architecture, not yet implemented): signed JWT delegation,
-Postgres + Row-Level Security, OS-level tool sandboxing, classification propagation, audit UI.
+Postgres + Row-Level Security, OS-level tool sandboxing, classification propagation/redaction.
 
 ## What's Next (prioritized)
 
@@ -128,7 +128,7 @@ and destructive delete remain human-only boundaries; do not add merge tools or m
 ### Deferred hardening (do not start until N1 proves the loop)
 - Signed JWT delegation (replace unsigned local bearer).
 - Postgres + Row-Level Security runtime (replace app-level scope + file snapshot).
-- Sandboxed tool execution profiles; classification propagation/redaction; audit UI (T5.8).
+- Sandboxed tool execution profiles; classification propagation/redaction.
 - Why deferred: these harden guarantees that already exist in model form. By the algorithm, do not
   optimize/secure a part until N1 has proven the product loop is worth hardening.
 
@@ -366,9 +366,10 @@ and destructive delete remain human-only boundaries; do not add merge tools or m
   - Tests: list events by workspace and resource; verify chain.
   - Challenges: queries must respect permissions later.
   - Evidence: `apps/api/src/server.js` (`/audit/verify`, `/workspaces/:id/audit-events`).
-- [ ] T5.8 Add audit UI view.
+- [x] T5.8 Add audit UI view.
   - Tests: web render test shows audit event list.
   - Challenges: UI must not overstate trust before persistence exists.
+  - Evidence: `apps/web/src/api-client.js` (`fetchWorkspaceAuditEvents`), `apps/web/src/render.js` (`renderAuditTimeline`), `apps/web/src/server.js` dashboard fetch path, `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
 
 ## Phase 6: Human UI
 
@@ -381,36 +382,46 @@ and destructive delete remain human-only boundaries; do not add merge tools or m
 
 ### Next Atomic Tasks
 
-- [ ] U6.1 Add API client module in web app.
+- [x] U6.1 Add API client module in web app.
   - Tests: client builds URLs and handles JSON errors.
   - Challenges: current web app is dependency-free server-rendered HTML.
-- [ ] U6.2 Add workspace selector.
+  - Evidence: `apps/web/src/api-client.js`, `apps/web/test/dashboard.test.js` (`api client handles API errors without throwing`, network failure coverage), `npm run test:web`.
+- [x] U6.2 Add workspace selector.
   - Tests: render workspace list and selected state.
   - Challenges: state handling without a frontend framework may become awkward.
-- [ ] U6.3 Add ontology manager page.
+  - Evidence: `apps/web/src/api-client.js` (`fetchWorkspaces`), `apps/web/src/server.js` (`?workspace_id=` selection for workspace-scoped panels), `apps/web/src/render.js` (`renderWorkspaceSelector`), `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
+- [x] U6.3 Add ontology manager page.
   - Tests: render object types for a workspace.
   - Challenges: keep UI minimal until core model stabilizes.
-- [ ] U6.4 Add object type creation form.
+  - Evidence: `apps/web/src/api-client.js` (`fetchWorkspaceObjectTypes`), `apps/web/src/server.js` selected-workspace object type fetch, `apps/web/src/render.js` (`renderOntologyManager`), `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`.
+- [x] U6.4 Add object type creation form.
   - Tests: form posts valid schema and shows validation errors.
   - Challenges: JSON schema editing is error-prone.
-- [ ] U6.5 Add object instance list.
+  - Evidence: `apps/web/src/api-client.js` (`createWorkspaceObjectType`), `apps/web/src/server.js` object type POST proxy with local schema JSON validation, `apps/web/src/render.js` create form, `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
+- [x] U6.5 Add object instance list.
   - Tests: render objects scoped to workspace.
   - Challenges: properties are dynamic.
-- [ ] U6.6 Add object detail page.
+  - Evidence: `apps/web/src/api-client.js` (`fetchWorkspaceObjects`), `apps/web/src/server.js` selected-workspace object fetch, `apps/web/src/render.js` (`renderObjectList`), `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
+- [x] U6.6 Add object detail page.
   - Tests: render object, properties, and links.
   - Challenges: needs link traversal from Phase 1.
-- [ ] U6.7 Add graph explorer.
+  - Evidence: `apps/web/src/api-client.js` (`fetchWorkspaceObject`, `fetchWorkspaceObjectLinks`), `apps/web/src/server.js` selected `object_id` detail fetch, `apps/web/src/render.js` (`renderObjectDetail`), `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
+- [x] U6.7 Add graph explorer.
   - Tests: render nodes/edges from link data.
   - Challenges: visual graph library likely needs dependencies.
-- [ ] U6.8 Add action runner.
+  - Evidence: dependency-free node/edge explorer using existing object/link lists in `apps/web/src/render.js`, selected-workspace link fetch via `apps/web/src/api-client.js` and `apps/web/src/server.js`, `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
+- [x] U6.8 Add action runner.
   - Tests: run action and show result.
   - Challenges: depends on Phase 3/4.
-- [ ] U6.9 Add audit viewer.
+  - Evidence: `apps/web/src/api-client.js` (`fetchWorkspaceActionTypes`, `createWorkspaceActionRun`), `apps/web/src/server.js` governed ActionRun POST proxy with local `input_json` validation, `apps/web/src/render.js` (`renderActionRunner`), `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
+- [x] U6.9 Add audit viewer.
   - Tests: render audit timeline.
   - Challenges: depends on Phase 5.
-- [ ] U6.10 Add next-action dashboard.
+  - Evidence: `apps/web/src/render.js` (`renderAuditTimeline`), `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`.
+- [x] U6.10 Add next-action dashboard.
   - Tests: render recommended action and reason.
   - Challenges: depends on Phase 8.
+  - Evidence: `apps/web/src/render.js` (`renderPersonalDashboard` next-action section), `apps/web/test/render.test.js` (`dashboard renders next action, blockers, and complete form`), `apps/web/test/dashboard.test.js` (`server renders dashboard when overview is available`), `npm run test:web`.
 
 ## Phase 7: Agent Layer
 

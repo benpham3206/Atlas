@@ -139,7 +139,8 @@ function pageShell(title, body) {
         gap: 12px;
       }
 
-      .review-item {
+      .review-item,
+      .audit-item {
         padding: 14px 16px;
         border: 1px solid #e4e3db;
         border-radius: 10px;
@@ -157,6 +158,64 @@ function pageShell(title, body) {
         overflow-wrap: anywhere;
       }
 
+      .audit-list {
+        list-style: none;
+        padding: 0;
+        display: grid;
+        gap: 12px;
+      }
+
+      .ontology-list {
+        list-style: none;
+        padding: 0;
+        display: grid;
+        gap: 12px;
+      }
+
+      .ontology-item,
+      .object-item {
+        padding: 14px 16px;
+        border: 1px solid #e4e3db;
+        border-radius: 10px;
+        background: #fafaf8;
+      }
+
+      .graph-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+      }
+
+      .audit-hash {
+        font-size: 12px;
+        color: #66665c;
+        overflow-wrap: anywhere;
+      }
+
+      .workspace-selector {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .workspace-link {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 0 12px;
+        border: 1px solid #d4d3ca;
+        border-radius: 8px;
+        color: #171713;
+        text-decoration: none;
+        background: #fafaf8;
+      }
+
+      .workspace-link.is-selected {
+        border-color: #171713;
+        background: #171713;
+        color: #f7f7f4;
+      }
+
       form {
         display: grid;
         gap: 12px;
@@ -170,7 +229,7 @@ function pageShell(title, body) {
         color: #44443c;
       }
 
-      input, textarea {
+      input, select, textarea {
         font: inherit;
         padding: 10px 12px;
         border: 1px solid #cccbc3;
@@ -291,6 +350,311 @@ function formatInlineList(values) {
   return values.map((value) => escapeHtml(value)).join(", ");
 }
 
+function renderWorkspaceSelector({ workspaces = [], selectedWorkspaceId, error } = {}) {
+  const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+
+  if (workspaces.length === 0) {
+    return `<section>
+      <h2>Workspace context</h2>
+      ${errorHtml}
+      <p>No workspaces available.</p>
+    </section>`;
+  }
+
+  const items = workspaces.map((workspace) => {
+    const isSelected = workspace.id === selectedWorkspaceId;
+    const name = workspace.name ?? workspace.id;
+    const href = `/?workspace_id=${encodeURIComponent(workspace.id)}`;
+    return `<a class="workspace-link${isSelected ? " is-selected" : ""}" href="${escapeHtml(href)}" aria-current="${isSelected ? "page" : "false"}">
+      ${escapeHtml(name)}
+    </a>`;
+  });
+
+  return `<section>
+    <h2>Workspace context</h2>
+    ${errorHtml}
+    <div class="workspace-selector">
+      ${items.join("")}
+    </div>
+    <p class="muted">Controls workspace-scoped review and audit panels. Personal next-action completion remains bound to Personal Atlas.</p>
+  </section>`;
+}
+
+function schemaPropertyNames(schema) {
+  if (!schema || typeof schema !== "object" || !schema.properties) {
+    return [];
+  }
+
+  return Object.keys(schema.properties);
+}
+
+function renderObjectTypeForm(selectedWorkspaceId) {
+  if (!selectedWorkspaceId) {
+    return "";
+  }
+
+  const defaultSchema = JSON.stringify(
+    {
+      type: "object",
+      required: ["title"],
+      properties: {
+        title: { type: "string" }
+      }
+    },
+    null,
+    2
+  );
+  const workspacePathId = encodeURIComponent(selectedWorkspaceId);
+
+  return `<form method="post" action="/workspaces/${escapeHtml(workspacePathId)}/object-types">
+    <label>
+      Object type id
+      <input name="id" placeholder="object_type_bug">
+    </label>
+    <label>
+      Name
+      <input name="name" required placeholder="Bug">
+    </label>
+    <label>
+      Description
+      <input name="description" placeholder="A tracked ontology object type.">
+    </label>
+    <label>
+      Schema JSON
+      <textarea name="schema_json" required>${escapeHtml(defaultSchema)}</textarea>
+    </label>
+    <button type="submit">Create object type</button>
+  </form>`;
+}
+
+function renderOntologyManager({ objectTypes = [], selectedWorkspaceId, error } = {}) {
+  const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+
+  if (objectTypes.length === 0) {
+    return `<section>
+      <h2>Ontology manager</h2>
+      ${errorHtml}
+      <p>No object types defined for this workspace.</p>
+      ${renderObjectTypeForm(selectedWorkspaceId)}
+    </section>`;
+  }
+
+  const items = objectTypes.map((objectType) => {
+    const required = formatInlineList(objectType.schema_json?.required);
+    const propertyNames = formatInlineList(schemaPropertyNames(objectType.schema_json));
+
+    return `<li class="ontology-item">
+      <h3>${escapeHtml(objectType.name ?? objectType.id)}</h3>
+      <div class="task-meta">
+        <span>${escapeHtml(objectType.id)}</span>
+        <span>${escapeHtml(objectType.workspace_id ?? "")}</span>
+      </div>
+      <div class="review-grid">
+        <p><strong>Required:</strong> ${required}</p>
+        <p><strong>Properties:</strong> ${propertyNames}</p>
+      </div>
+    </li>`;
+  });
+
+  return `<section>
+    <h2>Ontology manager</h2>
+    ${errorHtml}
+    <p class="muted">Read-only object type inventory for the selected workspace.</p>
+    <ul class="ontology-list">
+      ${items.join("")}
+    </ul>
+    ${renderObjectTypeForm(selectedWorkspaceId)}
+  </section>`;
+}
+
+function summarizeProperties(properties) {
+  if (!properties || typeof properties !== "object") {
+    return "None";
+  }
+
+  const pairs = Object.entries(properties).slice(0, 6);
+  if (pairs.length === 0) {
+    return "None";
+  }
+
+  return pairs
+    .map(([key, value]) => `${key}: ${typeof value === "object" ? JSON.stringify(value) : String(value)}`)
+    .join("; ");
+}
+
+function renderObjectList({ objects = [], selectedWorkspaceId, error } = {}) {
+  const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+
+  if (objects.length === 0) {
+    return `<section>
+      <h2>Objects</h2>
+      ${errorHtml}
+      <p>No object instances defined for this workspace.</p>
+    </section>`;
+  }
+
+  const items = objects.map((object) => {
+    const href = selectedWorkspaceId
+      ? `/?workspace_id=${encodeURIComponent(selectedWorkspaceId)}&object_id=${encodeURIComponent(object.id)}`
+      : null;
+    const title = href
+      ? `<a class="review-link" href="${escapeHtml(href)}">${escapeHtml(object.id)}</a>`
+      : escapeHtml(object.id);
+
+    return `<li class="object-item">
+    <h3>${title}</h3>
+    <div class="task-meta">
+      <span class="badge">${escapeHtml(object.object_type_id ?? "unknown_type")}</span>
+      <span>${escapeHtml(object.external_id ?? "no_external_id")}</span>
+    </div>
+    <p>${escapeHtml(summarizeProperties(object.properties_json))}</p>
+  </li>`;
+  });
+
+  return `<section>
+    <h2>Objects</h2>
+    ${errorHtml}
+    <ul class="ontology-list">
+      ${items.join("")}
+    </ul>
+  </section>`;
+}
+
+function renderLinkItems(links) {
+  if (!Array.isArray(links) || links.length === 0) {
+    return "<li><p>None</p></li>";
+  }
+
+  return links.map((link) => `<li>
+    <p><strong>${escapeHtml(link.link_type_id)}</strong>: ${escapeHtml(link.from_object_id)} -> ${escapeHtml(link.to_object_id)}</p>
+  </li>`).join("");
+}
+
+function renderObjectDetail({ object, links, error } = {}) {
+  if (!object && !error) {
+    return "";
+  }
+
+  const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+
+  if (!object) {
+    return `<section>
+      <h2>Object detail</h2>
+      ${errorHtml}
+      <p>No object selected.</p>
+    </section>`;
+  }
+
+  return `<section>
+    <h2>Object detail</h2>
+    ${errorHtml}
+    <h3>${escapeHtml(object.id)}</h3>
+    <div class="task-meta">
+      <span class="badge">${escapeHtml(object.object_type_id ?? "unknown_type")}</span>
+      <span>${escapeHtml(object.external_id ?? "no_external_id")}</span>
+    </div>
+    <div class="review-grid">
+      <p><strong>Properties:</strong> ${escapeHtml(summarizeProperties(object.properties_json))}</p>
+      <div>
+        <h3>Outbound links</h3>
+        <ul>${renderLinkItems(links?.outbound)}</ul>
+      </div>
+      <div>
+        <h3>Inbound links</h3>
+        <ul>${renderLinkItems(links?.inbound)}</ul>
+      </div>
+    </div>
+  </section>`;
+}
+
+function renderGraphExplorer({ objects = [], links = [], selectedWorkspaceId, error } = {}) {
+  const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+  const nodeItems = objects.length === 0
+    ? "<li><p>No nodes.</p></li>"
+    : objects.map((object) => {
+        const href = selectedWorkspaceId
+          ? `/?workspace_id=${encodeURIComponent(selectedWorkspaceId)}&object_id=${encodeURIComponent(object.id)}`
+          : null;
+        const title = href
+          ? `<a class="review-link" href="${escapeHtml(href)}">${escapeHtml(object.id)}</a>`
+          : escapeHtml(object.id);
+        return `<li><p>${title} <span class="badge">${escapeHtml(object.object_type_id ?? "unknown_type")}</span></p></li>`;
+      }).join("");
+  const edgeItems = links.length === 0
+    ? "<li><p>No edges.</p></li>"
+    : links.map((link) => `<li>
+        <p><strong>${escapeHtml(link.link_type_id)}</strong>: ${escapeHtml(link.from_object_id)} -> ${escapeHtml(link.to_object_id)}</p>
+      </li>`).join("");
+
+  return `<section>
+    <h2>Graph explorer</h2>
+    ${errorHtml}
+    <div class="graph-grid">
+      <div>
+        <h3>Nodes</h3>
+        <ul>${nodeItems}</ul>
+      </div>
+      <div>
+        <h3>Edges</h3>
+        <ul>${edgeItems}</ul>
+      </div>
+    </div>
+  </section>`;
+}
+
+function renderSelectOptions(records, valueKey, labelKey) {
+  if (!Array.isArray(records) || records.length === 0) {
+    return "";
+  }
+
+  return records.map((record) => {
+    const value = record[valueKey];
+    const label = record[labelKey] ?? value;
+    return `<option value="${escapeHtml(value)}">${escapeHtml(label)} (${escapeHtml(value)})</option>`;
+  }).join("");
+}
+
+function renderActionRunner({ actionTypes = [], objects = [], selectedWorkspaceId, error } = {}) {
+  const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+
+  if (!selectedWorkspaceId) {
+    return "";
+  }
+
+  if (actionTypes.length === 0 || objects.length === 0) {
+    return `<section>
+      <h2>Action runner</h2>
+      ${errorHtml}
+      <p>Action runner needs at least one ActionType and one target object in this workspace.</p>
+    </section>`;
+  }
+
+  return `<section>
+    <h2>Action runner</h2>
+    ${errorHtml}
+    <p class="muted">Runs unsigned local ActionRun requests; governed workspaces require server-side authority.</p>
+    <form method="post" action="/workspaces/${escapeHtml(encodeURIComponent(selectedWorkspaceId))}/action-runs">
+      <label>
+        Action type
+        <select name="action_type_id" required>
+          ${renderSelectOptions(actionTypes, "id", "name")}
+        </select>
+      </label>
+      <label>
+        Target object
+        <select name="target_object_id" required>
+          ${renderSelectOptions(objects, "id", "id")}
+        </select>
+      </label>
+      <label>
+        Input JSON
+        <textarea name="input_json">{}</textarea>
+      </label>
+      <button type="submit">Run action</button>
+    </form>
+  </section>`;
+}
+
 function renderReviewInbox({ reviewPackets = [], pullRequestArtifacts = [], error } = {}) {
   const artifactById = new Map(pullRequestArtifacts.map((artifact) => [artifact.id, artifact]));
   const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
@@ -345,6 +709,46 @@ function renderReviewInbox({ reviewPackets = [], pullRequestArtifacts = [], erro
   </section>`;
 }
 
+function renderAuditTimeline({ auditEvents = [], error } = {}) {
+  const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+  const events = [...auditEvents]
+    .sort((left, right) => (right.sequence ?? 0) - (left.sequence ?? 0))
+    .slice(0, 12);
+
+  if (events.length === 0) {
+    return `<section>
+      <h2>Audit timeline</h2>
+      ${errorHtml}
+      <p>No audit events recorded for this workspace.</p>
+      <p class="muted">Audit is local and hash-chained; it is not external compliance retention.</p>
+    </section>`;
+  }
+
+  const items = events.map((event) => `<li class="audit-item">
+    <h3>${escapeHtml(event.event_type ?? event.id)}</h3>
+    <div class="task-meta">
+      <span class="badge">${escapeHtml(event.decision ?? "not_applicable")}</span>
+      <span>${escapeHtml(event.actor ?? "system")}</span>
+      <span>${escapeHtml(event.created_at ?? "")}</span>
+    </div>
+    <div class="review-grid">
+      <p><strong>Resource:</strong> ${escapeHtml(event.resource_type ?? "none")} ${escapeHtml(event.resource_id ?? "")}</p>
+      <p><strong>Sequence:</strong> ${escapeHtml(event.sequence ?? "unknown")}</p>
+      <p class="audit-hash"><strong>Hash:</strong> ${escapeHtml(event.event_hash ?? "not available")}</p>
+      <p class="audit-hash"><strong>Previous:</strong> ${escapeHtml(event.previous_event_hash ?? "genesis")}</p>
+    </div>
+  </li>`);
+
+  return `<section>
+    <h2>Audit timeline</h2>
+    ${errorHtml}
+    <p class="muted">Latest local hash-chained events. This proves process-local integrity, not external retention.</p>
+    <ul class="audit-list">
+      ${items.join("")}
+    </ul>
+  </section>`;
+}
+
 export function renderBootstrapPage(options = {}) {
   const errorBanner = renderErrorBanner(options.error);
   const securityBoundary =
@@ -377,10 +781,47 @@ export function renderPersonalDashboard(overview, options = {}) {
   const project = overview.project ?? {};
   const tasks = overview.tasks ?? [];
   const blockersMap = overview.blockers ?? {};
+  const workspaceSelector = {
+    workspaces: options.workspaces ?? [],
+    selectedWorkspaceId:
+      options.selectedWorkspaceId ?? overview.workspace_id ?? overview.workspace?.id,
+    error: options.workspaceSelectorError
+  };
   const reviewInbox = {
     reviewPackets: options.reviewPackets ?? [],
     pullRequestArtifacts: options.pullRequestArtifacts ?? [],
     error: options.reviewInboxError
+  };
+  const ontologyManager = {
+    objectTypes: options.objectTypes ?? [],
+    selectedWorkspaceId: workspaceSelector.selectedWorkspaceId,
+    error: options.ontologyManagerError
+  };
+  const objectList = {
+    objects: options.objects ?? [],
+    selectedWorkspaceId: workspaceSelector.selectedWorkspaceId,
+    error: options.objectListError
+  };
+  const objectDetail = {
+    object: options.selectedObject,
+    links: options.selectedObjectLinks,
+    error: options.objectDetailError
+  };
+  const graphExplorer = {
+    objects: options.objects ?? [],
+    links: options.links ?? [],
+    selectedWorkspaceId: workspaceSelector.selectedWorkspaceId,
+    error: options.graphExplorerError
+  };
+  const actionRunner = {
+    actionTypes: options.actionTypes ?? [],
+    objects: options.objects ?? [],
+    selectedWorkspaceId: workspaceSelector.selectedWorkspaceId,
+    error: options.actionRunnerError
+  };
+  const auditTimeline = {
+    auditEvents: options.auditEvents ?? [],
+    error: options.auditTimelineError
   };
   const resolvedNextAction = resolveNextAction(overview.next_action);
   const nextActionId = resolvedNextAction?.id;
@@ -462,6 +903,7 @@ export function renderPersonalDashboard(overview, options = {}) {
         <h2>Security boundary</h2>
         <p>${escapeHtml(securityBoundary)}</p>
       </section>
+      ${renderWorkspaceSelector(workspaceSelector)}
       <section>
         <h2>Carbon Copy</h2>
         <p><strong>Goal:</strong> ${escapeHtml(carbonGoal)}</p>
@@ -472,6 +914,11 @@ export function renderPersonalDashboard(overview, options = {}) {
         <p><strong>${escapeHtml(projectName)}</strong></p>
         <p>${escapeHtml(projectGoal)}</p>
       </section>
+      ${renderOntologyManager(ontologyManager)}
+      ${renderObjectList(objectList)}
+      ${renderObjectDetail(objectDetail)}
+      ${renderGraphExplorer(graphExplorer)}
+      ${renderActionRunner(actionRunner)}
       <section>
         <h2>Tasks</h2>
         <ul class="task-list">
@@ -479,6 +926,7 @@ export function renderPersonalDashboard(overview, options = {}) {
         </ul>
       </section>
       ${renderReviewInbox(reviewInbox)}
+      ${renderAuditTimeline(auditTimeline)}
       ${nextActionSection}`
   );
 }

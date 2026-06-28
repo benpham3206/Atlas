@@ -897,3 +897,202 @@ Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> pe
 - Then begin hardening: signed JWT delegation, then Postgres + RLS wiring (migrations `0005`–`0009` already define the schema).
 
 ---
+
+## Turn 13: Audit UI Completion (2026-06-28)
+**Target:** close T5.8/U6.9 without expanding the authority surface.
+
+### Completed Actions
+- [x] Added `fetchWorkspaceAuditEvents` to the dependency-free web API client.
+- [x] Loaded audit events alongside review packets and PR artifacts in the dashboard server path.
+- [x] Rendered a compact audit timeline sorted by latest sequence, showing event type, actor, decision, resource, sequence, hash, and previous hash.
+- [x] Kept trust wording bounded to local hash-chain evidence; no external compliance-retention claim.
+- [x] Marked T5.8, U6.1, and U6.9 complete in `TASKS.md`.
+
+### Verification
+```text
+npm run test:web
+tests 17
+pass 17
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue Phase 6 with U6.2 workspace selector.
+
+---
+
+## Turn 14: Workspace Selector Completion (2026-06-28)
+**Target:** close U6.2 as a read-only context selector without creating a general ontology UI early.
+
+### Completed Actions
+- [x] Added `fetchWorkspaces` to the web API client.
+- [x] Added `?workspace_id=` selection on the dashboard server route.
+- [x] Rendered workspace selector links with selected state.
+- [x] Bound selected workspace only to review packets, PR artifacts, and audit timeline panels; Personal Atlas next-action completion remains bound to the Personal overview.
+
+### Verification
+```text
+npm run test:web
+tests 19
+pass 19
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue Phase 6 with U6.3 ontology manager page.
+
+---
+
+## Turn 15: Read-Only Ontology Manager Completion (2026-06-28)
+**Target:** close U6.3 without prematurely adding ontology mutation UI.
+
+### Completed Actions
+- [x] Added `fetchWorkspaceObjectTypes` to the web API client.
+- [x] Loaded object types for the selected workspace context on the dashboard route.
+- [x] Rendered a read-only object type inventory with type id, workspace id, required fields, and schema property names.
+- [x] Kept creation/editing out of this slice; U6.4 remains the object type creation form.
+
+### Verification
+```text
+npm run test:web
+tests 21
+pass 21
+fail 0
+```
+
+### Next Action
+- Continue Phase 6 with U6.4 object type creation form.
+
+---
+
+## Turn 16: Object Type Creation Form Completion (2026-06-28)
+**Target:** close U6.4 with the smallest mutation path that preserves API authority.
+
+### Completed Actions
+- [x] Added `createWorkspaceObjectType` to the web API client.
+- [x] Added a selected-workspace object type creation form to the ontology manager section.
+- [x] Added a web POST proxy at `/workspaces/:workspace_id/object-types`.
+- [x] Validated `schema_json` as JSON before calling the API and redirected API/validation errors back into the dashboard error path.
+
+### Verification
+```text
+npm run test:web
+tests 23
+pass 23
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue Phase 6 with U6.5 object instance list.
+
+---
+
+## Turn 17: Object Instance List Completion (2026-06-28)
+**Target:** close U6.5 as a selected-workspace, read-only object summary list.
+
+### Completed Actions
+- [x] Added `fetchWorkspaceObjects` to the web API client.
+- [x] Loaded object instances for the selected workspace context on the dashboard route.
+- [x] Rendered object id, object type id, external id, and a compact dynamic property summary.
+- [x] Avoided a generic editable table; U6.6 remains the detail page.
+
+### Verification
+```text
+npm run test:web
+tests 25
+pass 25
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue Phase 6 with U6.6 object detail page.
+
+---
+
+## Turn 18: Object Detail Completion (2026-06-28)
+**Target:** close U6.6 with a read-only selected-object panel and one-hop links.
+
+### Completed Actions
+- [x] Added `fetchWorkspaceObject` and `fetchWorkspaceObjectLinks` to the web API client.
+- [x] Added `object_id` dashboard selection under the selected workspace context.
+- [x] Rendered selected object id, type, external id, properties, outbound links, and inbound links.
+- [x] Linked object list rows into the selected-object detail panel.
+
+### Verification
+```text
+npm run test:web
+tests 27
+pass 27
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue Phase 6 with U6.7 graph explorer.
+
+---
+
+## Turn 19: Graph Explorer Completion (2026-06-28)
+**Target:** close U6.7 without adding frontend dependencies or a visual graph library.
+
+### Completed Actions
+- [x] Added `fetchWorkspaceLinks` to the web API client.
+- [x] Loaded selected-workspace links alongside object instances.
+- [x] Rendered a dependency-free Graph explorer with linked nodes and edge rows.
+- [x] Kept graph exploration read-only and scoped to the selected workspace.
+
+### Verification
+```text
+npm run test:web
+tests 29
+pass 29
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue Phase 6 with U6.8 action runner.
+
+---
+
+## Turn 20: Action Runner And Phase 6 Completion (2026-06-28)
+**Target:** close U6.8 and reconcile the already-implemented next-action dashboard task.
+
+### Completed Actions
+- [x] Added `fetchWorkspaceActionTypes` and `createWorkspaceActionRun` to the web API client.
+- [x] Loaded selected-workspace ActionTypes for the dashboard.
+- [x] Rendered an Action runner form with action type, target object, actor, principal type, principal id, role, and `input_json`.
+- [x] Added a web POST proxy at `/workspaces/:workspace_id/action-runs`, validating `input_json` locally before calling the API.
+- [x] Confirmed U6.10 was already satisfied by the existing next-action dashboard and marked it complete with evidence.
+
+### Verification
+```text
+npm run test:web
+tests 33
+pass 33
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue with Phase 7 remaining task AG7.9 artifact/evidence tools, then revisit Phase 4 G4.7/G4.8.
+
+---
