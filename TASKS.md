@@ -11,22 +11,13 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 - Keep scope boundaries explicit; do not add attractive but unverified product surface.
 - For each phase, complete tasks in order unless a dependency forces a different sequence.
 
-## Active Workflow Task
-
-| ID | Status | Branch | Spec | State | Log |
-|----|--------|--------|------|-------|-----|
-| TASK-2026-06-22-personal-atlas-composer-25 | REVIEW | not created yet | `100X/tasks/TASK-2026-06-22-personal-atlas-composer-25.md` | `100X/state/TASK-2026-06-22-personal-atlas-composer-25.md` | `100X/logs/TASK-2026-06-22-personal-atlas-composer-25.md` |
-| TASK-2026-06-15-100x-separation | DONE | cursor/separate-100x-workflow-8207 | `100X/tasks/TASK-2026-06-15-100x-separation.md` | `100X/state/TASK-2026-06-15-100x-separation.md` | `100X/logs/TASK-2026-06-15-100x-separation.md` |
-| TASK-2026-06-15-api-version-endpoint | PLAN | not created yet | `100X/tasks/TASK-2026-06-15-api-version-endpoint.md` | `100X/state/TASK-2026-06-15-api-version-endpoint.md` | `100X/logs/TASK-2026-06-15-api-version-endpoint.md` |
-| TASK-2026-06-15-100x-local-codex-hooks | REVIEW | local-main | `100X/tasks/TASK-2026-06-15-100x-local-codex-hooks.md` | `100X/state/TASK-2026-06-15-100x-local-codex-hooks.md` | `100X/logs/TASK-2026-06-15-100x-local-codex-hooks.md` |
-
 ## Upcoming Work Map
 
 | Phase | Next Atomic Task | Required Verification | Likely Challenges |
 |-------|------------------|-----------------------|-------------------|
 | Phase 2: Capability Graph Records | Complete | `npm test`, `npm run validate:records` | Keep future schema additions registry-based |
-| Phase 3: Actions | A3.1 implement `ActionType` storage/API | API tests for create/list/fetch and target validation | Actions must stay declarative before policy/audit are complete |
-| Phase 4: Governance | G4.1 add local `User` record | API tests for create/list/fetch and role fixtures | No real auth yet; prevent pretending route scoping is identity security |
+| Phase 3: Actions | Complete | `npm test`, `npm run verify:migrations` | Policy and audit still need to wrap action execution in later phases |
+| Phase 4: Governance | G4.5 add `PermissionCheck` | API tests for allowed/denied check records | Checks are auditable records first; enforcement comes next |
 | Phase 5: Audit And Trust | T5.1 add append-only `AuditEvent` | Unit/API tests that events cannot be mutated in place | In-memory storage can prove behavior, not durability |
 | Phase 6: Human UI | U6.1 add web API client module | Web unit tests for URL building and JSON error handling | Current frontend is dependency-free and may strain under richer state |
 | Phase 7: Agent Layer | AG7.1 add `AgentIdentity` | API tests for scoped agent identity records | Agents must default to least privilege and avoid tool overexposure |
@@ -167,27 +158,28 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 
 ### Next Atomic Tasks
 
-- [ ] A3.1 Implement `ActionType` storage and API.
+- [x] A3.1 Implement `ActionType` storage and API.
   - Tests: create/list/fetch action type.
   - Challenges: action type must reference valid workspace and target object type.
-- [ ] A3.2 Validate `ActionType.input_schema_json`.
+- [x] A3.2 Validate `ActionType.input_schema_json`.
   - Tests: reject invalid action schemas.
   - Challenges: reuse JSON schema subset without blocking future complexity.
-- [ ] A3.3 Implement `ActionRun` storage and API.
+- [x] A3.3 Implement `ActionRun` storage and API.
   - Tests: create action run record with actor, target, input, status.
   - Challenges: no real auth yet, so actor is supplied input for now.
-- [ ] A3.4 Implement simple property update effect.
+- [x] A3.4 Implement simple property update effect.
   - Tests: `MarkBugResolved` changes `Bug.status` from `open` to `resolved`.
   - Challenges: mutation must stay transactional once DB exists.
-- [ ] A3.5 Reject invalid action input.
+- [x] A3.5 Reject invalid action input.
   - Tests: wrong type, missing required, invalid enum.
   - Challenges: error details must be actionable.
-- [ ] A3.6 Reject action target type mismatch.
+- [x] A3.6 Reject action target type mismatch.
   - Tests: action type for `Bug` cannot run on `Build`.
   - Challenges: preserve workspace scoping.
-- [ ] A3.7 Add rollback metadata placeholder.
+- [x] A3.7 Add rollback metadata placeholder.
   - Tests: action run includes before/after enough for later audit/rollback.
   - Challenges: avoid implementing full rollback before audit exists.
+  - Evidence: `apps/api/test/actions.test.js`, `apps/api/test/ontology-store.test.js`, `infra/migrations/0004_actions.sql`, `npm test`.
 
 ## Phase 4: Governance
 
@@ -200,18 +192,20 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 
 ### Next Atomic Tasks
 
-- [ ] G4.1 Add `User`.
+- [x] G4.1 Add `User`.
   - Tests: create/list/fetch user.
   - Challenges: no auth provider yet; identity fields are local.
-- [ ] G4.2 Add `WorkspaceMembership`.
+- [x] G4.2 Add `WorkspaceMembership`.
   - Tests: assign user to workspace role.
   - Challenges: prevent cross-workspace membership leakage.
-- [ ] G4.3 Add roles: owner, admin, editor, viewer.
+- [x] G4.3 Add roles: owner, admin, editor, viewer.
   - Tests: role enum validation.
   - Challenges: role semantics must stay small and explicit.
-- [ ] G4.4 Add `Policy`.
+  - Evidence: `apps/api/test/governance.test.js`, `infra/migrations/0005_governance.sql`, `npm test`.
+- [x] G4.4 Add `Policy`.
   - Tests: create policy with action/resource rules.
   - Challenges: avoid premature full ABAC/ReBAC engine.
+  - Evidence: `apps/api/test/governance.test.js`, `infra/migrations/0006_policies.sql`, `npm run test:api`.
 - [ ] G4.5 Add `PermissionCheck`.
   - Tests: allowed and denied checks are recorded.
   - Challenges: checks must be auditable later.
@@ -511,7 +505,29 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 - Frontend: current web app is intentionally minimal and dependency-free; richer UI likely requires a framework decision.
 - Dependencies: network access is restricted, so adding packages may require approval and should be justified.
 
+## Dogfood Skill Pack
+
+- [x] Add project-local architecture skills under `.agent/skills`.
+  - Includes: `enterprise-architecture-prd`, `zero-trust-orchestration`, `system-tracer-cost-profile`, and `implementation-task-packaging`.
+  - Verification: `quick_validate.py` passed for every skill.
+- [x] Add project-local Atlas/MoO operational dogfooding skills under `.agent/skills`.
+  - Includes: `atlas-moo-dogfood-loop`, `atlas-ontology-delta-capture`, `moo-goal-contract-routing`, `moo-tool-execution-runbook`, `atlas-moo-verification-loop`, `approval-fatigue-filter`, `atlas-run-trace-audit`, and `workspace-transparency-blueprint`.
+  - Verification: `quick_validate.py` passed for every skill; `.agent/skills` has no template TODOs or legacy `100X` references.
+
 ## Current Turn Checklist
+
+- [x] Audit Phase 3 tracker state against current ActionType/ActionRun implementation.
+- [x] Mark Phase 3 actions complete based on existing code, migration, docs, and tests.
+- [x] Implement G4.1-G4.3 local governance records.
+- [x] Add `User` and `WorkspaceMembership` API routes.
+- [x] Add role enum validation for owner/admin/editor/viewer.
+- [x] Add governance migration and migration test expectation.
+- [x] Add API tests for user CRUD, membership CRUD, invalid roles, duplicate memberships, missing users, and cross-workspace membership non-leakage.
+- [x] Update architecture, security, README, and migration docs.
+- [x] Run lint, migration verification, record validation, focused API tests, and full test suite.
+- [x] Implement G4.4 local policy records.
+- [x] Add policy route tests for CRUD, rule validation, and workspace scoping.
+- [x] Add `0006_policies.sql` and update migration verification.
 
 - [x] Read current `TASKS.md`.
 - [x] Log Turn 5 intent before edits.

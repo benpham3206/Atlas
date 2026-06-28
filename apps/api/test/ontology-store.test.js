@@ -293,6 +293,80 @@ test("invalid action input does not mutate target object", () => {
   assert.equal(store.listActionRuns(workspace.id).length, 0);
 });
 
+test("duplicate action run id does not mutate target object", () => {
+  const store = createOntologyStore({
+    now: () => "2026-06-14T00:00:00.000Z"
+  });
+
+  const workspace = store.createWorkspace({ name: "Game Studio" });
+  const bugType = store.createObjectType(workspace.id, {
+    name: "Bug",
+    schema_json: {
+      type: "object",
+      required: ["title", "status"],
+      properties: {
+        title: { type: "string" },
+        status: { type: "string", enum: ["open", "resolved"] },
+        resolution_note: { type: "string" }
+      }
+    }
+  });
+  const actionType = store.createActionType(workspace.id, {
+    name: "Mark Bug Resolved",
+    target_object_type_id: bugType.id,
+    input_schema_json: {
+      type: "object",
+      properties: {
+        resolution_note: { type: "string" }
+      }
+    },
+    effect_json: {
+      type: "update_object_properties",
+      set_properties_json: {
+        status: "resolved"
+      },
+      copy_input_fields: ["resolution_note"]
+    }
+  });
+  const bug = store.createObjectInstance(workspace.id, {
+    object_type_id: bugType.id,
+    properties_json: {
+      title: "Camera clips through wall",
+      status: "open"
+    }
+  });
+
+  store.createActionRun(workspace.id, {
+    id: "action_run_duplicate",
+    action_type_id: actionType.id,
+    target_object_id: bug.id,
+    input_json: {
+      resolution_note: "First resolution"
+    }
+  });
+
+  assert.throws(
+    () => store.createActionRun(workspace.id, {
+      id: "action_run_duplicate",
+      action_type_id: actionType.id,
+      target_object_id: bug.id,
+      input_json: {
+        resolution_note: "Conflicting resolution"
+      }
+    }),
+    (error) => error.code === "action_run_conflict"
+  );
+
+  const unchangedBug = store.getObjectInstance(workspace.id, bug.id);
+
+  assert.deepEqual(unchangedBug.properties_json, {
+    title: "Camera clips through wall",
+    status: "resolved",
+    resolution_note: "First resolution"
+  });
+  assert.equal(store.listActionRuns(workspace.id).length, 1);
+});
+
 test("action run rejects target object type mismatch", () => {
   const store = createOntologyStore({
     now: () => "2026-06-14T00:00:00.000Z"

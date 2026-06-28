@@ -5,6 +5,7 @@ import {
   bootstrapPersonalAtlas,
   completePersonalTask,
   getPersonalOverview,
+  guardPersonalActionRun,
   guardPersonalObjectPatch,
   selectNextAction,
   PERSONAL_WORKSPACE_ID
@@ -69,6 +70,94 @@ async function handleRequest({ request, response, now, store }) {
     return sendJson(response, 200, {
       data: store.getWorkspace(segments[1])
     });
+  }
+
+  if (request.method === "GET" && url.pathname === "/users") {
+    return sendJson(response, 200, {
+      data: store.listUsers()
+    });
+  }
+
+  if (request.method === "POST" && url.pathname === "/users") {
+    const user = store.createUser(await readJsonBody(request));
+    return sendJson(response, 201, {
+      data: user
+    });
+  }
+
+  if (segments[0] === "users" && segments[1] && segments.length === 2 && request.method === "GET") {
+    return sendJson(response, 200, {
+      data: store.getUser(segments[1])
+    });
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "memberships") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listWorkspaceMemberships(workspaceId)
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const membership = store.createWorkspaceMembership(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: membership
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getWorkspaceMembership(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "policies") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listPolicies(workspaceId)
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const policy = store.createPolicy(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: policy
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getPolicy(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "permission-checks") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listPermissionChecks(workspaceId)
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const permissionCheck = store.createPermissionCheck(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: permissionCheck
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getPermissionCheck(workspaceId, segments[3])
+      });
+    }
   }
 
   if (segments[0] === "workspaces" && segments[1] && segments[2] === "object-types") {
@@ -219,7 +308,9 @@ async function handleRequest({ request, response, now, store }) {
     }
 
     if (segments.length === 3 && request.method === "POST") {
-      const actionRun = store.createActionRun(workspaceId, await readJsonBody(request));
+      const body = await readJsonBody(request);
+      guardPersonalActionRun(store, workspaceId, body);
+      const actionRun = store.createActionRun(workspaceId, body);
       return sendJson(response, 201, {
         data: actionRun
       });

@@ -4,25 +4,17 @@ Atlas is a minimal operational ontology platform. The Personal Atlas v0 slice ad
 
 ## What Exists
 
-- `apps/api`: backend HTTP server with ontology nouns, actions, and personal endpoints.
+- `apps/api`: backend HTTP server with ontology nouns, actions, local governance/policy records, and personal endpoints.
 - `apps/web`: server-rendered personal dashboard with API proxy.
 - `packages/ontology-core`: shared health/status types, object property validation, and BaseRecord validation.
 - `infra/migrations`: database migration artifacts.
 - `docs`: PRD, architecture, Codex rules, and task queue.
-- `100X`: Codex, Cursor Cloud Agents, and Poke workflow control plane.
 
-The ontology nouns and links are implemented with in-memory API storage: `Workspace`, `ObjectType`, `ObjectInstance`, `LinkType`, `LinkInstance`, and `ObjectSet`. Generic `ActionType` and `ActionRun` records support declarative property-update effects. Personal Atlas seeds a Carbon Copy, AAA vertical-slice project, task graph, and next-action selector.
+The ontology nouns and links are implemented with in-memory API storage: `Workspace`, `ObjectType`, `ObjectInstance`, `LinkType`, `LinkInstance`, and `ObjectSet`. Generic `ActionType` and `ActionRun` records support declarative property-update effects. Local `User`, `WorkspaceMembership`, and `Policy` records model governance scaffolding without authentication or authorization enforcement. Personal Atlas seeds a Carbon Copy, Atlas self-hosting roadmap, task graph, and next-action selector.
 
 The Capability Graph record foundation is implemented in `ontology-core`: `BaseRecord` validation, a declarative record type registry, table-driven Phase 2 specs, AAA-wedge fixtures, and record validation command support. Candidate records remain visible but non-authoritative; only approved operational records can drive future recommendations or state-changing behavior.
 
 Auth, policies, audit, database runtime wiring, and integrations are not implemented yet.
-
-## Agent Workflow
-
-The Codex, Cursor Cloud Agents, and Poke interaction workflow is separated under `100X/`. Start with
-`100X/README.md`, then read `100X/AGENTS.md` and `100X/docs/AGENT_WORKFLOW.md`. Root `TASKS.md`
-remains the Atlas implementation queue; workflow task specs and handoff evidence live under
-`100X/tasks/`, `100X/state/`, and `100X/logs/` when needed.
 
 ## Requirements
 
@@ -188,7 +180,7 @@ curl http://localhost:4000/workspaces/workspace_game_studio/object-sets/object_s
 
 ## Personal Atlas
 
-Personal Atlas v0 is a local, in-memory AAA vertical slice: bootstrap a personal workspace, view carbon copy / project / tasks, and complete tasks through a dependency-aware next-action flow.
+Personal Atlas v0 is a local, in-memory self-hosting cockpit: bootstrap a personal workspace, view the Carbon Copy / Atlas roadmap / tasks, and complete roadmap tasks through a dependency-aware next-action flow.
 
 **Run flow**
 
@@ -218,14 +210,14 @@ Get the current next action:
 curl http://localhost:4000/personal/next-action
 ```
 
-Complete a personal task (requires `artifact_uri` and `evidence_note`):
+Complete the first personal roadmap task (requires `artifact_uri` and `evidence_note`):
 
 ```sh
-curl -X POST http://localhost:4000/personal/tasks/object_task_movement/complete \
+curl -X POST http://localhost:4000/personal/tasks/object_task_harden_personal_loop/complete \
   -H 'content-type: application/json' \
   -d '{
-    "artifact_uri": "artifacts/movement-demo.md",
-    "evidence_note": "Movement prototype runs in test scene"
+    "artifact_uri": "evidence/personal-atlas-composer-25-review.md",
+    "evidence_note": "Personal Atlas review findings were fixed and verified"
   }'
 ```
 
@@ -267,6 +259,51 @@ curl -X POST http://localhost:4000/workspaces/workspace_game_studio/action-runs 
     }
   }'
 ```
+
+Create a local User record and add it to a workspace:
+
+```sh
+curl -X POST http://localhost:4000/users \
+  -H 'content-type: application/json' \
+  -d '{
+    "id": "user_lead_engineer",
+    "email": "lead@example.com",
+    "display_name": "Lead Engineer",
+    "identity_provider_subject": "idp|lead"
+  }'
+
+curl -X POST http://localhost:4000/workspaces/workspace_game_studio/memberships \
+  -H 'content-type: application/json' \
+  -d '{
+    "id": "membership_game_studio_owner",
+    "user_id": "user_lead_engineer",
+    "role": "owner"
+  }'
+```
+
+Local users and workspace memberships are governance scaffolding only. They do not authenticate
+requests or provide privacy protection.
+
+Create a local Policy record:
+
+```sh
+curl -X POST http://localhost:4000/workspaces/workspace_game_studio/policies \
+  -H 'content-type: application/json' \
+  -d '{
+    "id": "policy_editors_run_actions",
+    "name": "Editors can run actions",
+    "rules_json": [
+      {
+        "effect": "allow",
+        "action": "action_run:create",
+        "resource_type": "ActionRun",
+        "roles": ["owner", "editor"]
+      }
+    ]
+  }'
+```
+
+Policies are stored and rule-validated, but they are not enforced until the PermissionCheck phase.
 
 Patch an object instance directly:
 
