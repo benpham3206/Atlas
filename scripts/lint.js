@@ -5,7 +5,6 @@ import { join, relative } from "node:path";
 const ROOT = new URL("..", import.meta.url).pathname;
 const INCLUDED_DIRS = [
   ".cursor",
-  "100X",
   "apps",
   "docs",
   "infra",

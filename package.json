@@ -15,8 +15,6 @@
     "start:api": "node apps/api/src/server.js",
     "start:web": "node apps/web/src/server.js",
     "test": "node --test",
-    "100x:status": "node scripts/100x-loop.js status",
-    "100x:review-packet": "node scripts/100x-loop.js review-packet",
     "test:api": "node --test apps/api/test/*.test.js",
     "test:web": "node --test apps/web/test/*.test.js",
     "test:core": "node --test packages/ontology-core/test/*.test.js",

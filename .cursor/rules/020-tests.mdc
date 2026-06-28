@@ -16,7 +16,7 @@ Common commands:
 - `npm test`
 
 Use the narrowest relevant test command first. Run the broader suite when changes cross package,
-API, fixture, migration, or `100X/` workflow boundaries.
+API, fixture, or migration boundaries.
 
 Changed behavior should include tests. If a change is documentation/configuration only, add a
 lightweight integration test when the workflow contract should remain stable.
