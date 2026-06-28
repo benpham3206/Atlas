@@ -4,6 +4,7 @@ import { selectNextActionForWorkspace } from "./next-action.js";
 const SCOPE_READ = "atlas.read";
 const SCOPE_ACT = "atlas.act";
 const SCOPE_GITHUB_PR_CREATE = "github.pr:create";
+const SCOPE_SLACK_READ = "slack.read";
 const ALLOWED_PR_HEAD_BRANCH_PREFIXES = ["codex/", "agent/"];
 
 export const AGENT_TOOLS = Object.freeze([
@@ -113,7 +114,9 @@ export const AGENT_TOOLS = Object.freeze([
         title: { type: "string" },
         body: { type: "string" },
         head_branch: { type: "string" },
-        base_branch: { type: "string" }
+        base_branch: { type: "string" },
+        dry_run: { type: "boolean" },
+        draft: { type: "boolean" }
       }
     }
   },
@@ -133,6 +136,21 @@ export const AGENT_TOOLS = Object.freeze([
         verification_commands: { type: "array", items: { type: "string" } },
         critic_findings: { type: "array", items: { type: "string" } },
         safety_findings: { type: "array", items: { type: "string" } }
+      }
+    }
+  },
+  {
+    name: "slack.get_channel_info",
+    category: "external_read",
+    required_scope: SCOPE_SLACK_READ,
+    description:
+      "Read Slack conversation metadata for an explicitly allowlisted channel. This tool has no Slack write capability.",
+    input_schema: {
+      type: "object",
+      required: ["channel_id"],
+      properties: {
+        channel_id: { type: "string" },
+        include_num_members: { type: "boolean" }
       }
     }
   },
@@ -166,7 +184,7 @@ export function getAgentManifest() {
       header: "authorization: Bearer <delegation_id>",
       note: "Local scoped bearer (workspace + role + scopes + allowed_tools + expiry). Maps to a signed JWT delegation in the target architecture; not yet cryptographically signed."
     },
-    scopes: [SCOPE_READ, SCOPE_ACT, SCOPE_GITHUB_PR_CREATE],
+    scopes: [SCOPE_READ, SCOPE_ACT, SCOPE_GITHUB_PR_CREATE, SCOPE_SLACK_READ],
     verification_order: VERIFICATION_ORDER,
     tools: AGENT_TOOLS.map((tool) => ({
       name: tool.name,
@@ -291,24 +309,67 @@ const TOOL_IMPLEMENTATIONS = {
   },
 
   async "github.open_pr"(store, delegation, input, context) {
-    const githubClient = context.githubClient;
+    let request;
 
-    if (!githubClient || typeof githubClient.openPullRequest !== "function") {
-      throw new ApiError(503, "github_client_unconfigured", "GitHub client is not configured for github.open_pr");
+    try {
+      request = normalizeOpenPullRequestInput(input);
+      const policy = normalizeGitHubPolicy(context.githubPolicy);
+      assertGitHubTargetAllowed(request, policy);
+      const dryRun = policy.dry_run || input.dry_run === true;
+
+      if (dryRun) {
+        recordGitHubOpenAttempt(store, delegation, request, "allow", {
+          reason: "dry_run",
+          dry_run: true
+        });
+
+        return store.createPullRequestArtifact(delegation.workspace_id, {
+          ...request,
+          actor: delegation.agent_id,
+          goal_contract_id: delegation.goal_contract_id,
+          provider: "github",
+          external_id: "dry_run",
+          external_url: `dry-run://github/${request.repository}/${request.head_branch}-to-${request.base_branch}`,
+          state: "dry_run"
+        });
+      }
+
+      const githubClient = context.githubClient;
+
+      if (!githubClient || typeof githubClient.openPullRequest !== "function") {
+        throw new ApiError(503, "github_client_unconfigured", "GitHub client is not configured for github.open_pr");
+      }
+
+      const external = await githubClient.openPullRequest({
+        ...request,
+        draft: input.draft !== false
+      });
+
+      recordGitHubOpenAttempt(store, delegation, request, "allow", {
+        reason: "github_call_succeeded",
+        dry_run: false,
+        external_id: external.external_id ?? null,
+        external_url: external.url
+      });
+
+      return store.createPullRequestArtifact(delegation.workspace_id, {
+        ...request,
+        actor: delegation.agent_id,
+        goal_contract_id: delegation.goal_contract_id,
+        provider: external.provider ?? "github",
+        external_id: external.external_id ?? null,
+        external_url: external.url,
+        state: external.state ?? "open"
+      });
+    } catch (error) {
+      const apiError = normalizeGitHubOpenError(error);
+      recordGitHubOpenAttempt(store, delegation, request ?? input, "deny", {
+        reason: normalizeGitHubAuditReason(apiError.code),
+        dry_run: input.dry_run === true,
+        error_message: getErrorMessage(error, apiError.message)
+      });
+      throw apiError;
     }
-
-    const request = normalizeOpenPullRequestInput(input);
-    const external = await githubClient.openPullRequest(request);
-
-    return store.createPullRequestArtifact(delegation.workspace_id, {
-      ...request,
-      actor: delegation.agent_id,
-      goal_contract_id: delegation.goal_contract_id,
-      provider: external.provider ?? "github",
-      external_id: external.external_id ?? null,
-      external_url: external.url,
-      state: external.state ?? "open"
-    });
   },
 
   generate_review_packet(store, delegation, input) {
@@ -321,6 +382,34 @@ const TOOL_IMPLEMENTATIONS = {
       audit_event_ids: input.audit_event_ids ?? auditEventIds,
       pending_human_actions: input.pending_human_actions ?? ["protected_branch_merge"]
     });
+  },
+
+  async "slack.get_channel_info"(store, delegation, input, context) {
+    let request;
+
+    try {
+      request = normalizeSlackChannelInfoInput(input);
+      const policy = normalizeSlackPolicy(context.slackPolicy);
+      assertSlackChannelAllowed(request, policy);
+      const slackClient = context.slackClient;
+
+      if (!slackClient || typeof slackClient.getChannelInfo !== "function") {
+        throw new ApiError(503, "slack_client_unconfigured", "Slack client is not configured for slack.get_channel_info");
+      }
+
+      const result = await slackClient.getChannelInfo(request);
+      recordSlackChannelInfoAttempt(store, delegation, request, "allow", {
+        reason: "slack_call_succeeded"
+      });
+      return result;
+    } catch (error) {
+      const apiError = normalizeSlackReadError(error);
+      recordSlackChannelInfoAttempt(store, delegation, request ?? input, "deny", {
+        reason: normalizeSlackAuditReason(apiError.code),
+        error_message: getErrorMessage(error, apiError.message)
+      });
+      throw apiError;
+    }
   },
 
   verify_audit_chain(store) {
@@ -406,6 +495,135 @@ function normalizeOpenPullRequestInput(input) {
   };
 }
 
+function normalizeGitHubPolicy(policy = {}) {
+  return {
+    allowed_repositories: normalizeStringList(policy.allowed_repositories),
+    allowed_base_branches: normalizeStringList(policy.allowed_base_branches),
+    dry_run: policy.dry_run === true
+  };
+}
+
+function normalizeStringList(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item) => typeof item === "string" && item.trim() !== "").map((item) => item.trim());
+}
+
+function assertGitHubTargetAllowed(request, policy) {
+  if (!policy.allowed_repositories.includes(request.repository)) {
+    throw new ApiError(403, "github_repository_not_allowed", `Repository is not allowlisted for github.open_pr: ${request.repository}`);
+  }
+
+  if (!policy.allowed_base_branches.includes(request.base_branch)) {
+    throw new ApiError(403, "github_base_branch_not_allowed", `Base branch is not allowlisted for github.open_pr: ${request.base_branch}`);
+  }
+}
+
+function recordGitHubOpenAttempt(store, delegation, request, decision, metadata) {
+  const repository = typeof request.repository === "string" ? request.repository : null;
+  const headBranch = typeof request.head_branch === "string" ? request.head_branch : null;
+  const baseBranch = typeof request.base_branch === "string" ? request.base_branch : null;
+
+  store.recordIntegrationAuditEvent(delegation.workspace_id, {
+    actor: delegation.agent_id,
+    event_type: "github.pull_request.open_attempted",
+    resource_type: "github_repository",
+    resource_id: repository,
+    decision,
+    metadata: {
+      repository,
+      head_branch: headBranch,
+      base_branch: baseBranch,
+      goal_contract_id: delegation.goal_contract_id,
+      ...metadata
+    }
+  });
+}
+
+function normalizeGitHubOpenError(error) {
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  const message = error instanceof Error ? error.message : "unknown GitHub client error";
+  return new ApiError(502, "github_call_failed", `GitHub call failed: ${message}`);
+}
+
+function normalizeSlackChannelInfoInput(input) {
+  return {
+    channel_id: requireSlackChannelId(input.channel_id, "channel_id"),
+    include_num_members: input.include_num_members === true
+  };
+}
+
+function normalizeSlackPolicy(policy = {}) {
+  return {
+    allowed_channel_ids: normalizeStringList(policy.allowed_channel_ids)
+  };
+}
+
+function assertSlackChannelAllowed(request, policy) {
+  if (!policy.allowed_channel_ids.includes(request.channel_id)) {
+    throw new ApiError(403, "slack_channel_not_allowed", `Channel is not allowlisted for slack.get_channel_info: ${request.channel_id}`);
+  }
+}
+
+function recordSlackChannelInfoAttempt(store, delegation, request, decision, metadata) {
+  const channelId = typeof request.channel_id === "string" ? request.channel_id : null;
+
+  store.recordIntegrationAuditEvent(delegation.workspace_id, {
+    actor: delegation.agent_id,
+    event_type: "slack.conversation.info_attempted",
+    resource_type: "slack_channel",
+    resource_id: channelId,
+    decision,
+    metadata: {
+      channel_id: channelId,
+      goal_contract_id: delegation.goal_contract_id,
+      ...metadata
+    }
+  });
+}
+
+function normalizeSlackReadError(error) {
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  const message = error instanceof Error ? error.message : "unknown Slack client error";
+  return new ApiError(502, "slack_call_failed", `Slack call failed: ${message}`);
+}
+
+function normalizeGitHubAuditReason(code) {
+  if (code === "github_repository_not_allowed") {
+    return "repository_not_allowed";
+  }
+
+  if (code === "github_base_branch_not_allowed") {
+    return "base_branch_not_allowed";
+  }
+
+  return code;
+}
+
+function normalizeSlackAuditReason(code) {
+  if (code === "slack_channel_not_allowed") {
+    return "channel_not_allowed";
+  }
+
+  return code;
+}
+
+function getErrorMessage(error, fallback) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 function requireRepository(input, field) {
   const repository = requireField(input, field);
 
@@ -435,4 +653,14 @@ function requireBranchName(value, field) {
   }
 
   return branchName;
+}
+
+function requireSlackChannelId(value, field) {
+  const channelId = requireField({ [field]: value }, field);
+
+  if (!/^[CGD][A-Z0-9]+$/.test(channelId)) {
+    throw new ApiError(400, "invalid_request", `${field} must be a Slack conversation id`);
+  }
+
+  return channelId;
 }

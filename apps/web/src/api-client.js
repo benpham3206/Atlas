@@ -70,6 +70,14 @@ export async function fetchPersonalNextAction(apiBaseUrl) {
   return apiRequest(apiBaseUrl, "/personal/next-action");
 }
 
+export async function fetchWorkspaceReviewPackets(apiBaseUrl, workspaceId) {
+  return apiRequest(apiBaseUrl, `/workspaces/${encodeURIComponent(workspaceId)}/review-packets`);
+}
+
+export async function fetchWorkspacePullRequestArtifacts(apiBaseUrl, workspaceId) {
+  return apiRequest(apiBaseUrl, `/workspaces/${encodeURIComponent(workspaceId)}/pull-request-artifacts`);
+}
+
 export async function bootstrapPersonalAtlas(apiBaseUrl) {
   return apiRequest(apiBaseUrl, "/personal/bootstrap", {
     method: "POST",

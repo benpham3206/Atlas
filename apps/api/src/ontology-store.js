@@ -24,7 +24,7 @@ const PERMISSION_DECISIONS = ["allow", "deny"];
 const PRINCIPAL_TYPES = ["user", "agent", "service_account", "system"];
 const AGENT_STATUSES = ["active", "suspended"];
 const DELEGATION_STATUSES = ["active", "revoked"];
-const AGENT_SCOPES = ["atlas.read", "atlas.act", "github.pr:create"];
+const AGENT_SCOPES = ["atlas.read", "atlas.act", "github.pr:create", "slack.read"];
 const GOAL_CONTRACT_STATUSES = ["active", "completed", "cancelled"];
 const GOAL_RISK_CLASSES = ["low", "medium", "high", "unacceptable"];
 const REVIEW_PACKET_STATUSES = ["draft", "review_ready", "superseded"];
@@ -108,6 +108,23 @@ export function createOntologyStore(options = {}) {
 
   function verifyAuditChain() {
     return verifyAuditEventChain(auditEvents.map(clone));
+  }
+
+  function recordIntegrationAuditEvent(workspaceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "audit event");
+    const metadata = input.metadata ?? {};
+    assertPlainObject(metadata, "metadata");
+
+    return appendAuditEvent({
+      workspace_id: workspaceId,
+      actor: optionalString(input.actor, "actor") ?? "system",
+      event_type: requireString(input.event_type, "event_type"),
+      resource_type: optionalString(input.resource_type, "resource_type"),
+      resource_id: optionalString(input.resource_id, "resource_id"),
+      decision: input.decision ?? "not_applicable",
+      metadata
+    });
   }
 
   function createWorkspace(input) {
@@ -1713,6 +1730,7 @@ export function createOntologyStore(options = {}) {
     createReviewPacket,
     listReviewPackets,
     getReviewPacket,
+    recordIntegrationAuditEvent,
     createAgent,
     listAgents,
     getAgent,

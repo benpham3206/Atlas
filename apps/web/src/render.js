@@ -132,6 +132,31 @@ function pageShell(title, body) {
         letter-spacing: 0.03em;
       }
 
+      .review-list {
+        list-style: none;
+        padding: 0;
+        display: grid;
+        gap: 12px;
+      }
+
+      .review-item {
+        padding: 14px 16px;
+        border: 1px solid #e4e3db;
+        border-radius: 10px;
+        background: #fafaf8;
+      }
+
+      .review-grid {
+        display: grid;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .review-link {
+        color: #174f88;
+        overflow-wrap: anywhere;
+      }
+
       form {
         display: grid;
         gap: 12px;
@@ -258,6 +283,68 @@ function formatBlockers(blockers) {
   return `<ul>${items}</ul>`;
 }
 
+function formatInlineList(values) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return "None";
+  }
+
+  return values.map((value) => escapeHtml(value)).join(", ");
+}
+
+function renderReviewInbox({ reviewPackets = [], pullRequestArtifacts = [], error } = {}) {
+  const artifactById = new Map(pullRequestArtifacts.map((artifact) => [artifact.id, artifact]));
+  const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+
+  if (reviewPackets.length === 0 && pullRequestArtifacts.length === 0) {
+    return `<section>
+      <h2>Review inbox</h2>
+      ${errorHtml}
+      <p>No review packets are waiting.</p>
+    </section>`;
+  }
+
+  const packetItems = reviewPackets.map((packet) => {
+    const artifact = artifactById.get(packet.pull_request_artifact_id);
+    const artifactLink = artifact?.external_url
+      ? `<a class="review-link" href="${escapeHtml(artifact.external_url)}">${escapeHtml(artifact.external_url)}</a>`
+      : "No PR artifact";
+
+    return `<li class="review-item">
+      <h3>${escapeHtml(packet.summary ?? packet.id)}</h3>
+      <div class="task-meta">
+        <span class="badge">${escapeHtml(packet.status ?? "review_ready")}</span>
+        <span>${escapeHtml(packet.id)}</span>
+      </div>
+      <div class="review-grid">
+        <p><strong>PR:</strong> ${artifactLink}</p>
+        <p><strong>Pending human action:</strong> ${formatInlineList(packet.pending_human_actions)}</p>
+        <p><strong>Verification:</strong> ${formatInlineList(packet.verification_commands)}</p>
+        <p><strong>Critic findings:</strong> ${formatInlineList(packet.critic_findings)}</p>
+        <p><strong>Safety findings:</strong> ${formatInlineList(packet.safety_findings)}</p>
+      </div>
+    </li>`;
+  });
+
+  const orphanArtifacts = pullRequestArtifacts
+    .filter((artifact) => !reviewPackets.some((packet) => packet.pull_request_artifact_id === artifact.id))
+    .map((artifact) => `<li class="review-item">
+      <h3>${escapeHtml(artifact.title ?? artifact.id)}</h3>
+      <div class="task-meta">
+        <span class="badge">${escapeHtml(artifact.state ?? "open")}</span>
+        <span>${escapeHtml(artifact.repository)} ${escapeHtml(artifact.head_branch)} -> ${escapeHtml(artifact.base_branch)}</span>
+      </div>
+      <p><a class="review-link" href="${escapeHtml(artifact.external_url)}">${escapeHtml(artifact.external_url)}</a></p>
+    </li>`);
+
+  return `<section>
+    <h2>Review inbox</h2>
+    ${errorHtml}
+    <ul class="review-list">
+      ${[...packetItems, ...orphanArtifacts].join("")}
+    </ul>
+  </section>`;
+}
+
 export function renderBootstrapPage(options = {}) {
   const errorBanner = renderErrorBanner(options.error);
   const securityBoundary =
@@ -290,6 +377,11 @@ export function renderPersonalDashboard(overview, options = {}) {
   const project = overview.project ?? {};
   const tasks = overview.tasks ?? [];
   const blockersMap = overview.blockers ?? {};
+  const reviewInbox = {
+    reviewPackets: options.reviewPackets ?? [],
+    pullRequestArtifacts: options.pullRequestArtifacts ?? [],
+    error: options.reviewInboxError
+  };
   const resolvedNextAction = resolveNextAction(overview.next_action);
   const nextActionId = resolvedNextAction?.id;
 
@@ -386,6 +478,7 @@ export function renderPersonalDashboard(overview, options = {}) {
           ${taskItems || "<li><p>No tasks found.</p></li>"}
         </ul>
       </section>
+      ${renderReviewInbox(reviewInbox)}
       ${nextActionSection}`
   );
 }

@@ -53,3 +53,22 @@ export function createGitHubClientFromEnv(env = process.env) {
 
   return createGitHubClient({ token: env.GITHUB_TOKEN });
 }
+
+export function createGitHubPolicyFromEnv(env = process.env) {
+  return {
+    allowed_repositories: parseCsv(env.GITHUB_ALLOWED_REPOSITORIES),
+    allowed_base_branches: parseCsv(env.GITHUB_ALLOWED_BASE_BRANCHES),
+    dry_run: env.GITHUB_DRY_RUN === "1" || env.GITHUB_DRY_RUN === "true"
+  };
+}
+
+function parseCsv(value) {
+  if (typeof value !== "string" || value.trim() === "") {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}

@@ -5,7 +5,9 @@ import {
   bootstrapPersonalAtlas,
   completePersonalTask,
   fetchPersonalNextAction,
-  fetchPersonalOverview
+  fetchPersonalOverview,
+  fetchWorkspacePullRequestArtifacts,
+  fetchWorkspaceReviewPackets
 } from "../src/api-client.js";
 
 const sampleOverview = {
@@ -68,6 +70,12 @@ test("api client handles API errors without throwing", async () => {
 
     const nextAction = await fetchPersonalNextAction("http://api.example.test");
     assert.equal(nextAction.ok, false);
+
+    const reviewPackets = await fetchWorkspaceReviewPackets("http://api.example.test", "workspace_personal");
+    assert.equal(reviewPackets.ok, false);
+
+    const pullRequestArtifacts = await fetchWorkspacePullRequestArtifacts("http://api.example.test", "workspace_personal");
+    assert.equal(pullRequestArtifacts.ok, false);
 
     const bootstrap = await bootstrapPersonalAtlas("http://api.example.test");
     assert.equal(bootstrap.ok, false);
@@ -133,6 +141,63 @@ test("server renders dashboard when overview is available", async (t) => {
   assert.match(html, /Next action/);
   assert.match(html, /Read endpoints are side-effect free/);
   assert.match(html, /action="\/tasks\/object_task_harden_personal_loop\/complete"/);
+});
+
+test("server renders review inbox when packets are available", async (t) => {
+  const baseUrl = await startServer(t, {
+    fetchPersonalOverview: async () => ({
+      ok: true,
+      data: {
+        ...sampleOverview,
+        workspace_id: "workspace_personal",
+        workspace: { id: "workspace_personal", name: "Personal Atlas" }
+      },
+      error: null
+    }),
+    fetchWorkspaceReviewPackets: async (_apiUrl, workspaceId) => ({
+      ok: true,
+      data: [
+        {
+          id: "review_packet_001",
+          workspace_id: workspaceId,
+          pull_request_artifact_id: "pull_request_artifact_001",
+          summary: "Agent loop ready for review",
+          status: "review_ready",
+          verification_commands: ["npm test"],
+          critic_findings: ["No merge tool exposed"],
+          safety_findings: ["Protected branch merge is pending"],
+          pending_human_actions: ["protected_branch_merge"]
+        }
+      ],
+      error: null
+    }),
+    fetchWorkspacePullRequestArtifacts: async (_apiUrl, workspaceId) => ({
+      ok: true,
+      data: [
+        {
+          id: "pull_request_artifact_001",
+          workspace_id: workspaceId,
+          repository: "benpham3206/Atlas",
+          title: "Agent loop PR",
+          head_branch: "codex/n4",
+          base_branch: "main",
+          external_url: "https://github.com/benpham3206/Atlas/pull/99",
+          state: "open"
+        }
+      ],
+      error: null
+    })
+  });
+
+  const response = await fetch(`${baseUrl}/`);
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(html, /Review inbox/);
+  assert.match(html, /Agent loop ready for review/);
+  assert.match(html, /https:\/\/github.com\/benpham3206\/Atlas\/pull\/99/);
+  assert.match(html, /protected_branch_merge/);
+  assert.match(html, /No merge tool exposed/);
 });
 
 test("server handles API errors gracefully on bootstrap", async (t) => {

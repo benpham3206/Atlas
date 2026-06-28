@@ -80,6 +80,20 @@ function delegate(store, workspaceId, overrides = {}) {
   });
 }
 
+function githubPolicy(overrides = {}) {
+  return {
+    allowed_repositories: overrides.allowed_repositories ?? ["benpham3206/Atlas"],
+    allowed_base_branches: overrides.allowed_base_branches ?? ["main"],
+    dry_run: overrides.dry_run ?? false
+  };
+}
+
+function slackPolicy(overrides = {}) {
+  return {
+    allowed_channel_ids: overrides.allowed_channel_ids ?? ["C0123456789"]
+  };
+}
+
 test("manifest advertises tools, scopes, and verification order", () => {
   const manifest = getAgentManifest();
   assert.equal(manifest.tools.length, AGENT_TOOLS.length);
@@ -95,7 +109,9 @@ test("manifest exposes github.open_pr but no merge capability", () => {
 
   assert.ok(toolNames.includes("github.open_pr"));
   assert.ok(toolNames.includes("generate_review_packet"));
+  assert.ok(toolNames.includes("slack.get_channel_info"));
   assert.ok(manifest.scopes.includes("github.pr:create"));
+  assert.ok(manifest.scopes.includes("slack.read"));
   assert.equal(toolNames.some((toolName) => toolName.includes("merge")), false);
   assert.equal(manifest.scopes.some((scope) => scope.includes("merge")), false);
 });
@@ -341,7 +357,7 @@ test("github.open_pr records a pull request artifact, rejects branch escape, and
         base_branch: "main"
       }
     },
-    { githubClient }
+    { githubClient, githubPolicy: githubPolicy() }
   );
 
   assert.equal(calls.length, 1);
@@ -370,7 +386,7 @@ test("github.open_pr records a pull request artifact, rejects branch escape, and
             base_branch: "main"
           }
         },
-        { githubClient }
+        { githubClient, githubPolicy: githubPolicy() }
       ),
     (error) => {
       assert.equal(error.statusCode, 400);
@@ -417,7 +433,7 @@ test("generate_review_packet bundles audit refs, critic findings, and the human-
         base_branch: "main"
       }
     },
-    { githubClient }
+    { githubClient, githubPolicy: githubPolicy() }
   );
   const packet = await dispatchAgentTool(store, {
     delegationId: delegation.id,
@@ -439,4 +455,287 @@ test("generate_review_packet bundles audit refs, critic findings, and the human-
   assert.ok(packet.result.critic_findings.includes("No merge tool is exposed."));
   assert.equal(store.listReviewPackets(workspace.id).length, 1);
   assert.equal(store.verifyAuditChain().valid, true);
+});
+
+test("github.open_pr requires repository and base branch allowlist", async () => {
+  const store = createOntologyStore({ now: () => "2026-06-14T00:00:00.000Z" });
+  const { workspace } = seedWorkspace(store);
+  const goalContract = store.createGoalContract(workspace.id, {
+    objective: "Open only allowlisted PRs",
+    allowed_actions: ["github.open_pr"],
+    blocked_actions: ["github.merge_pr"],
+    done_definition: "Disallowed GitHub target is denied and audited"
+  });
+  const delegation = delegate(store, workspace.id, {
+    scopes: ["github.pr:create"],
+    goal_contract_id: goalContract.id
+  });
+  let calls = 0;
+  const githubClient = {
+    async openPullRequest() {
+      calls += 1;
+      return { provider: "github", external_id: "44", url: "https://github.com/other/repo/pull/44", state: "open" };
+    }
+  };
+
+  await assert.rejects(
+    async () =>
+      dispatchAgentTool(
+        store,
+        {
+          delegationId: delegation.id,
+          toolName: "github.open_pr",
+          input: {
+            repository: "other/repo",
+            title: "Blocked target",
+            body: "Should not call GitHub.",
+            head_branch: "codex/blocked",
+            base_branch: "develop"
+          }
+        },
+        { githubClient, githubPolicy: githubPolicy() }
+      ),
+    (error) => {
+      assert.equal(error.statusCode, 403);
+      assert.equal(error.code, "github_repository_not_allowed");
+      return true;
+    }
+  );
+
+  assert.equal(calls, 0);
+  const attempts = store.listAuditEvents(workspace.id, { event_type: "github.pull_request.open_attempted" });
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0].decision, "deny");
+  assert.equal(attempts[0].metadata.reason, "repository_not_allowed");
+  assert.equal(store.verifyAuditChain().valid, true);
+});
+
+test("github.open_pr dry-run records artifact and audit without calling GitHub", async () => {
+  const store = createOntologyStore({ now: () => "2026-06-14T00:00:00.000Z" });
+  const { workspace } = seedWorkspace(store);
+  const goalContract = store.createGoalContract(workspace.id, {
+    objective: "Dry-run PR path",
+    allowed_actions: ["github.open_pr"],
+    blocked_actions: ["github.merge_pr"],
+    done_definition: "Dry-run PR artifact exists"
+  });
+  const delegation = delegate(store, workspace.id, {
+    scopes: ["github.pr:create"],
+    goal_contract_id: goalContract.id
+  });
+  let calls = 0;
+  const githubClient = {
+    async openPullRequest() {
+      calls += 1;
+      throw new Error("dry-run should not call client");
+    }
+  };
+
+  const result = await dispatchAgentTool(
+    store,
+    {
+      delegationId: delegation.id,
+      toolName: "github.open_pr",
+      input: {
+        repository: "benpham3206/Atlas",
+        title: "Dry run",
+        body: "No live GitHub call.",
+        head_branch: "codex/dry-run",
+        base_branch: "main",
+        dry_run: true
+      }
+    },
+    { githubClient, githubPolicy: githubPolicy() }
+  );
+
+  assert.equal(calls, 0);
+  assert.equal(result.result.state, "dry_run");
+  assert.equal(result.result.external_id, "dry_run");
+  assert.equal(result.result.external_url, "dry-run://github/benpham3206/Atlas/codex/dry-run-to-main");
+  const attempts = store.listAuditEvents(workspace.id, { event_type: "github.pull_request.open_attempted" });
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0].decision, "allow");
+  assert.equal(attempts[0].metadata.dry_run, true);
+});
+
+test("github.open_pr audits GitHub client failure", async () => {
+  const store = createOntologyStore({ now: () => "2026-06-14T00:00:00.000Z" });
+  const { workspace } = seedWorkspace(store);
+  const goalContract = store.createGoalContract(workspace.id, {
+    objective: "Audit failed GitHub calls",
+    allowed_actions: ["github.open_pr"],
+    blocked_actions: ["github.merge_pr"],
+    done_definition: "Failure is visible in audit"
+  });
+  const delegation = delegate(store, workspace.id, {
+    scopes: ["github.pr:create"],
+    goal_contract_id: goalContract.id
+  });
+  const githubClient = {
+    async openPullRequest() {
+      throw new Error("network down");
+    }
+  };
+
+  await assert.rejects(
+    async () =>
+      dispatchAgentTool(
+        store,
+        {
+          delegationId: delegation.id,
+          toolName: "github.open_pr",
+          input: {
+            repository: "benpham3206/Atlas",
+            title: "Failure",
+            body: "GitHub call fails.",
+            head_branch: "codex/failure",
+            base_branch: "main"
+          }
+        },
+        { githubClient, githubPolicy: githubPolicy() }
+      ),
+    (error) => {
+      assert.equal(error.statusCode, 502);
+      assert.equal(error.code, "github_call_failed");
+      return true;
+    }
+  );
+
+  const attempts = store.listAuditEvents(workspace.id, { event_type: "github.pull_request.open_attempted" });
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0].decision, "deny");
+  assert.equal(attempts[0].metadata.reason, "github_call_failed");
+  assert.equal(attempts[0].metadata.error_message, "network down");
+  assert.equal(store.listPullRequestArtifacts(workspace.id).length, 0);
+});
+
+test("slack.get_channel_info reads allowlisted channel metadata and audits success", async () => {
+  const store = createOntologyStore({ now: () => "2026-06-14T00:00:00.000Z" });
+  const { workspace } = seedWorkspace(store);
+  const goalContract = store.createGoalContract(workspace.id, {
+    objective: "Read one Slack channel",
+    allowed_actions: ["slack.get_channel_info"],
+    blocked_actions: ["chat.postMessage"],
+    done_definition: "Channel metadata is read and audited"
+  });
+  const delegation = delegate(store, workspace.id, {
+    scopes: ["slack.read"],
+    goal_contract_id: goalContract.id
+  });
+  const calls = [];
+  const slackClient = {
+    async getChannelInfo(input) {
+      calls.push(input);
+      return {
+        provider: "slack",
+        channel: { id: input.channel_id, name: "atlas-review", is_channel: true }
+      };
+    }
+  };
+
+  const result = await dispatchAgentTool(
+    store,
+    {
+      delegationId: delegation.id,
+      toolName: "slack.get_channel_info",
+      input: { channel_id: "C0123456789", include_num_members: true }
+    },
+    { slackClient, slackPolicy: slackPolicy() }
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].include_num_members, true);
+  assert.equal(result.result.channel.name, "atlas-review");
+  const attempts = store.listAuditEvents(workspace.id, { event_type: "slack.conversation.info_attempted" });
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0].decision, "allow");
+  assert.equal(attempts[0].metadata.reason, "slack_call_succeeded");
+});
+
+test("slack.get_channel_info requires channel allowlist before client call", async () => {
+  const store = createOntologyStore({ now: () => "2026-06-14T00:00:00.000Z" });
+  const { workspace } = seedWorkspace(store);
+  const goalContract = store.createGoalContract(workspace.id, {
+    objective: "Reject non-allowlisted Slack channels",
+    allowed_actions: ["slack.get_channel_info"],
+    done_definition: "Non-allowlisted channel is denied and audited"
+  });
+  const delegation = delegate(store, workspace.id, {
+    scopes: ["slack.read"],
+    goal_contract_id: goalContract.id
+  });
+  let calls = 0;
+  const slackClient = {
+    async getChannelInfo() {
+      calls += 1;
+      return { provider: "slack", channel: { id: "C9999999999" } };
+    }
+  };
+
+  await assert.rejects(
+    async () =>
+      dispatchAgentTool(
+        store,
+        {
+          delegationId: delegation.id,
+          toolName: "slack.get_channel_info",
+          input: { channel_id: "C9999999999" }
+        },
+        { slackClient, slackPolicy: slackPolicy() }
+      ),
+    (error) => {
+      assert.equal(error.statusCode, 403);
+      assert.equal(error.code, "slack_channel_not_allowed");
+      return true;
+    }
+  );
+
+  assert.equal(calls, 0);
+  const attempts = store.listAuditEvents(workspace.id, { event_type: "slack.conversation.info_attempted" });
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0].decision, "deny");
+  assert.equal(attempts[0].metadata.reason, "channel_not_allowed");
+});
+
+test("slack.get_channel_info audits client failure", async () => {
+  const store = createOntologyStore({ now: () => "2026-06-14T00:00:00.000Z" });
+  const { workspace } = seedWorkspace(store);
+  const goalContract = store.createGoalContract(workspace.id, {
+    objective: "Audit Slack read failures",
+    allowed_actions: ["slack.get_channel_info"],
+    done_definition: "Failure is visible in audit"
+  });
+  const delegation = delegate(store, workspace.id, {
+    scopes: ["slack.read"],
+    goal_contract_id: goalContract.id
+  });
+  const slackClient = {
+    async getChannelInfo() {
+      throw new Error("slack unavailable");
+    }
+  };
+
+  await assert.rejects(
+    async () =>
+      dispatchAgentTool(
+        store,
+        {
+          delegationId: delegation.id,
+          toolName: "slack.get_channel_info",
+          input: { channel_id: "C0123456789" }
+        },
+        { slackClient, slackPolicy: slackPolicy() }
+      ),
+    (error) => {
+      assert.equal(error.statusCode, 502);
+      assert.equal(error.code, "slack_call_failed");
+      return true;
+    }
+  );
+
+  const attempts = store.listAuditEvents(workspace.id, { event_type: "slack.conversation.info_attempted" });
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0].decision, "deny");
+  assert.equal(attempts[0].metadata.reason, "slack_call_failed");
+  assert.equal(attempts[0].metadata.error_message, "slack unavailable");
 });
