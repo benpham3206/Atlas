@@ -10,13 +10,13 @@ Atlas is a minimal operational ontology platform. The Personal Atlas v0 slice ad
 - `infra/migrations`: database migration artifacts.
 - `docs`: PRD, architecture, Codex rules, and task queue.
 
-The ontology nouns and links are implemented with in-memory API storage: `Workspace`, `ObjectType`, `ObjectInstance`, `LinkType`, `LinkInstance`, and `ObjectSet`. Generic `ActionType` and `ActionRun` records support declarative property-update effects. Local `User`, `WorkspaceMembership`, and `Policy` records model governance, and policies are now **enforced on the action path**: in a workspace with at least one active policy, an action run must present a role permitted by an allow rule (deny-by-default), every decision is recorded as a `PermissionCheck`, and every state change is written to an append-only, **hash-chained audit log**. `Agent` identities plus scoped, expiring `AgentDelegation` tokens drive a discoverable **agent gateway** (`GET /agent/manifest`, `POST /agent/tools/:tool`) so any agent can operate a workspace under least privilege, with every tool call authorized and audited. Personal Atlas seeds a Carbon Copy, Atlas self-hosting roadmap, task graph, and next-action selector.
+The ontology nouns and links are implemented with in-memory API storage: `Workspace`, `ObjectType`, `ObjectInstance`, `LinkType`, `LinkInstance`, and `ObjectSet`. Generic `ActionType` and `ActionRun` records support declarative property-update effects. Local `User`, `WorkspaceMembership`, and `Policy` records model governance, and policies are now **enforced on the action path**: in a workspace with at least one active policy, an action run must present a role permitted by an allow rule (deny-by-default), every decision is recorded as a `PermissionCheck`, and every state change is written to an append-only, **hash-chained audit log**. `GoalContract` records constrain agent work before execution. `Agent` identities plus scoped, expiring `AgentDelegation` tokens drive a discoverable **agent gateway** (`GET /agent/manifest`, `POST /agent/tools/:tool`) so any agent can operate a workspace under least privilege, with every tool call authorized and audited. The gateway can open a GitHub PR from an agent branch namespace and produce a `ReviewPacket`, but it exposes no merge tool or merge scope. Personal Atlas seeds a Carbon Copy, Atlas self-hosting roadmap, task graph, and next-action selector.
 
 The Capability Graph record foundation is implemented in `ontology-core`: `BaseRecord` validation, a declarative record type registry, table-driven Phase 2 specs, AAA-wedge fixtures, and record validation command support. Candidate records remain visible but non-authoritative; only approved operational records can drive future recommendations or state-changing behavior.
 
 State is held in memory by default and can be **persisted to disk** by setting `ATLAS_DATA_FILE` (a JSON snapshot written after each mutation and reloaded on boot).
 
-Still on the target-architecture roadmap (not yet implemented): real authentication (OAuth 2.0 / cryptographically signed JWT delegation), Postgres + Row-Level Security for multi-tenant isolation, sandboxed tool execution, and external integrations. Delegation tokens are currently local scoped bearers, not signed JWTs.
+Still on the target-architecture roadmap (not yet implemented): real authentication (OAuth 2.0 / cryptographically signed JWT delegation), Postgres + Row-Level Security for multi-tenant isolation, and sandboxed tool execution. Delegation tokens are currently local scoped bearers, not signed JWTs. The GitHub PR adapter uses `GITHUB_TOKEN` when configured; tests use an injected client rather than making live network calls.
 
 ## Requirements
 
@@ -341,7 +341,8 @@ curl -X PATCH http://localhost:4000/workspaces/workspace_game_studio/objects/obj
 The agent gateway is the governed surface an autonomous agent uses to operate a workspace. Every
 call is authorized against a scoped, expiring delegation and recorded in the hash-chained audit log,
 following this verification order: resolve delegation -> check status/expiry -> check scope -> check
-tool allowlist -> evaluate policy (for actions) -> execute -> append audit event.
+tool allowlist -> check GoalContract actions -> evaluate policy (for actions) -> execute -> append
+audit event.
 
 See the whole loop run end-to-end (discover -> delegate -> read -> govern -> audit -> persist):
 
@@ -368,8 +369,9 @@ curl -X POST http://localhost:4000/workspaces/workspace_game_studio/agent-delega
   -d '{
     "agent_id": "agent_001",
     "role": "editor",
-    "scopes": ["atlas.read", "atlas.act"],
+    "scopes": ["atlas.read", "atlas.act", "github.pr:create"],
     "allowed_tools": ["*"],
+    "goal_contract_id": "goal_contract_001",
     "ttl_seconds": 3600
   }'
 ```
@@ -397,7 +399,12 @@ curl -X POST http://localhost:4000/agent/tools/run_action \
 ```
 
 Available tools: `get_workspace_overview`, `query_object`, `list_objects`, `search_records`,
-`traverse_graph`, `get_available_actions`, `get_next_action`, `run_action`, `verify_audit_chain`.
+`traverse_graph`, `get_available_actions`, `get_next_action`, `run_action`, `github.open_pr`,
+`generate_review_packet`, `verify_audit_chain`. There is intentionally no merge tool.
+
+Open a PR through the GitHub tool only after setting `GITHUB_TOKEN` for the API process. The
+`head_branch` must start with `codex/` or `agent/`; protected-branch merge remains a human-only
+boundary.
 
 ## Audit Log
 
@@ -415,3 +422,4 @@ curl http://localhost:4000/workspaces/workspace_game_studio/audit-events
 - `HOST`: override the bind host. Defaults to `127.0.0.1`.
 - `ATLAS_API_URL`: API URL displayed by the web placeholder. Defaults to `http://localhost:4000`.
 - `ATLAS_DATA_FILE`: when set, the API persists its full state to this JSON file after each mutation and reloads it on boot. Unset means in-memory only (resets on restart).
+- `GITHUB_TOKEN`: optional token used by the API GitHub client for `github.open_pr`. Use a narrowly scoped token that can create pull requests but cannot merge protected branches.

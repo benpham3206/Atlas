@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { createHealthStatus } from "../../../packages/ontology-core/src/index.js";
 import { ApiError, createOntologyStore } from "./ontology-store.js";
 import { dispatchAgentTool, getAgentManifest } from "./agent-gateway.js";
+import { createGitHubClientFromEnv } from "./github-client.js";
 import { createFilePersistence } from "./persistence.js";
 import {
   bootstrapPersonalAtlas,
@@ -20,6 +21,7 @@ export function createApiServer(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const store = options.store ?? createOntologyStore({ now });
   const persistence = options.persistence ?? null;
+  const githubClient = options.githubClient ?? null;
 
   if (persistence) {
     const snapshot = persistence.load();
@@ -30,7 +32,7 @@ export function createApiServer(options = {}) {
   }
 
   return createServer((request, response) => {
-    handleRequest({ request, response, now, store })
+    handleRequest({ request, response, now, store, githubClient })
       .then(() => {
         if (persistence && request.method && request.method !== "GET") {
           try {
@@ -58,7 +60,7 @@ export function createApiServer(options = {}) {
   });
 }
 
-async function handleRequest({ request, response, now, store }) {
+async function handleRequest({ request, response, now, store, githubClient }) {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
   const segments = url.pathname.split("/").filter(Boolean);
 
@@ -121,11 +123,11 @@ async function handleRequest({ request, response, now, store }) {
   if (segments[0] === "agent" && segments[1] === "tools" && segments[2] && request.method === "POST") {
     const body = await readJsonBody(request);
     const delegationId = extractDelegationToken(request, body);
-    const result = dispatchAgentTool(store, {
+    const result = await dispatchAgentTool(store, {
       delegationId,
       toolName: segments[2],
       input: body.input ?? body
-    });
+    }, { githubClient });
     return sendJson(response, 200, {
       data: result
     });
@@ -169,6 +171,68 @@ async function handleRequest({ request, response, now, store }) {
     if (segments.length === 4 && request.method === "GET") {
       return sendJson(response, 200, {
         data: store.getAgentDelegation(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "goal-contracts") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listGoalContracts(workspaceId)
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const goalContract = store.createGoalContract(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: goalContract
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getGoalContract(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "pull-request-artifacts") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listPullRequestArtifacts(workspaceId)
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getPullRequestArtifact(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "review-packets") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listReviewPackets(workspaceId)
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const reviewPacket = store.createReviewPacket(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: reviewPacket
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getReviewPacket(workspaceId, segments[3])
       });
     }
   }
@@ -558,7 +622,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number.parseInt(process.env.PORT ?? `${DEFAULT_PORT}`, 10);
   const dataFile = process.env.ATLAS_DATA_FILE;
   const persistence = dataFile ? createFilePersistence(dataFile) : null;
-  const server = createApiServer({ persistence });
+  const githubClient = createGitHubClientFromEnv();
+  const server = createApiServer({ persistence, githubClient });
 
   server.listen(port, host, () => {
     console.log(`Atlas API listening at http://${host}:${port}`);

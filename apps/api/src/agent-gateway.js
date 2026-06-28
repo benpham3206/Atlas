@@ -3,6 +3,8 @@ import { selectNextActionForWorkspace } from "./next-action.js";
 
 const SCOPE_READ = "atlas.read";
 const SCOPE_ACT = "atlas.act";
+const SCOPE_GITHUB_PR_CREATE = "github.pr:create";
+const ALLOWED_PR_HEAD_BRANCH_PREFIXES = ["codex/", "agent/"];
 
 export const AGENT_TOOLS = Object.freeze([
   {
@@ -98,6 +100,43 @@ export const AGENT_TOOLS = Object.freeze([
     }
   },
   {
+    name: "github.open_pr",
+    category: "external_action",
+    required_scope: SCOPE_GITHUB_PR_CREATE,
+    description:
+      "Open a GitHub pull request from an agent-owned branch namespace. No merge, force-push, or protected-branch write capability exists in this tool surface.",
+    input_schema: {
+      type: "object",
+      required: ["repository", "title", "body", "head_branch"],
+      properties: {
+        repository: { type: "string" },
+        title: { type: "string" },
+        body: { type: "string" },
+        head_branch: { type: "string" },
+        base_branch: { type: "string" }
+      }
+    }
+  },
+  {
+    name: "generate_review_packet",
+    category: "action",
+    required_scope: SCOPE_ACT,
+    description:
+      "Bundle changed files, verification commands, critic/safety findings, audit refs, and the pending human-only action for review.",
+    input_schema: {
+      type: "object",
+      required: ["summary"],
+      properties: {
+        summary: { type: "string" },
+        pull_request_artifact_id: { type: "string" },
+        changed_files: { type: "array", items: { type: "string" } },
+        verification_commands: { type: "array", items: { type: "string" } },
+        critic_findings: { type: "array", items: { type: "string" } },
+        safety_findings: { type: "array", items: { type: "string" } }
+      }
+    }
+  },
+  {
     name: "verify_audit_chain",
     category: "read",
     required_scope: SCOPE_READ,
@@ -111,6 +150,7 @@ const VERIFICATION_ORDER = Object.freeze([
   "verify_delegation_status_and_expiry",
   "check_scope_grant",
   "check_tool_allowlist",
+  "check_goal_contract_actions",
   "evaluate_workspace_policy_for_actions",
   "execute_tool_in_workspace_scope",
   "append_audit_event"
@@ -126,7 +166,7 @@ export function getAgentManifest() {
       header: "authorization: Bearer <delegation_id>",
       note: "Local scoped bearer (workspace + role + scopes + allowed_tools + expiry). Maps to a signed JWT delegation in the target architecture; not yet cryptographically signed."
     },
-    scopes: [SCOPE_READ, SCOPE_ACT],
+    scopes: [SCOPE_READ, SCOPE_ACT, SCOPE_GITHUB_PR_CREATE],
     verification_order: VERIFICATION_ORDER,
     tools: AGENT_TOOLS.map((tool) => ({
       name: tool.name,
@@ -227,12 +267,14 @@ const TOOL_IMPLEMENTATIONS = {
   },
 
   get_next_action(store, delegation, input) {
+    const nextActionInput = resolveNextActionInput(store, delegation, input);
+
     return selectNextActionForWorkspace(store, delegation.workspace_id, {
-      taskObjectTypeId: requireField(input, "task_object_type_id"),
-      blocksLinkTypeId: requireField(input, "blocks_link_type_id"),
-      statusProperty: input.status_property,
-      doneValue: input.done_value,
-      priorityProperty: input.priority_property
+      taskObjectTypeId: requireField(nextActionInput, "task_object_type_id"),
+      blocksLinkTypeId: requireField(nextActionInput, "blocks_link_type_id"),
+      statusProperty: nextActionInput.status_property,
+      doneValue: nextActionInput.done_value,
+      priorityProperty: nextActionInput.priority_property
     });
   },
 
@@ -248,12 +290,45 @@ const TOOL_IMPLEMENTATIONS = {
     });
   },
 
+  async "github.open_pr"(store, delegation, input, context) {
+    const githubClient = context.githubClient;
+
+    if (!githubClient || typeof githubClient.openPullRequest !== "function") {
+      throw new ApiError(503, "github_client_unconfigured", "GitHub client is not configured for github.open_pr");
+    }
+
+    const request = normalizeOpenPullRequestInput(input);
+    const external = await githubClient.openPullRequest(request);
+
+    return store.createPullRequestArtifact(delegation.workspace_id, {
+      ...request,
+      actor: delegation.agent_id,
+      goal_contract_id: delegation.goal_contract_id,
+      provider: external.provider ?? "github",
+      external_id: external.external_id ?? null,
+      external_url: external.url,
+      state: external.state ?? "open"
+    });
+  },
+
+  generate_review_packet(store, delegation, input) {
+    const auditEventIds = store.listAuditEvents(delegation.workspace_id).map((event) => event.id);
+
+    return store.createReviewPacket(delegation.workspace_id, {
+      ...input,
+      actor: delegation.agent_id,
+      goal_contract_id: input.goal_contract_id ?? delegation.goal_contract_id,
+      audit_event_ids: input.audit_event_ids ?? auditEventIds,
+      pending_human_actions: input.pending_human_actions ?? ["protected_branch_merge"]
+    });
+  },
+
   verify_audit_chain(store) {
     return store.verifyAuditChain();
   }
 };
 
-export function dispatchAgentTool(store, { delegationId, toolName, input }) {
+export async function dispatchAgentTool(store, { delegationId, toolName, input }, context = {}) {
   const tool = AGENT_TOOLS.find((candidate) => candidate.name === toolName);
 
   if (!tool) {
@@ -267,12 +342,13 @@ export function dispatchAgentTool(store, { delegationId, toolName, input }) {
     required_scope: tool.required_scope
   });
 
-  const result = TOOL_IMPLEMENTATIONS[tool.name](store, delegation, input ?? {});
+  const result = await TOOL_IMPLEMENTATIONS[tool.name](store, delegation, input ?? {}, context);
 
   return {
     tool: tool.name,
     agent_id: delegation.agent_id,
     workspace_id: delegation.workspace_id,
+    goal_contract_id: delegation.goal_contract_id,
     role: delegation.role,
     decision: "allow",
     result
@@ -287,4 +363,76 @@ function requireField(input, field) {
   }
 
   return value.trim();
+}
+
+function resolveNextActionInput(store, delegation, input) {
+  if (input.task_object_type_id && input.blocks_link_type_id) {
+    return input;
+  }
+
+  if (!delegation.goal_contract_id) {
+    return input;
+  }
+
+  const goalContract = store.getGoalContract(delegation.workspace_id, delegation.goal_contract_id);
+
+  if (!goalContract.next_action_json) {
+    return input;
+  }
+
+  return {
+    ...goalContract.next_action_json,
+    ...input
+  };
+}
+
+function normalizeOpenPullRequestInput(input) {
+  const repository = requireRepository(input, "repository");
+  const title = requireField(input, "title");
+  const body = requireField(input, "body");
+  const headBranch = requireBranchName(input.head_branch, "head_branch");
+  const baseBranch = requireBranchName(input.base_branch ?? "main", "base_branch");
+
+  if (!ALLOWED_PR_HEAD_BRANCH_PREFIXES.some((prefix) => headBranch.startsWith(prefix))) {
+    throw new ApiError(400, "branch_namespace_denied", `head_branch must start with one of: ${ALLOWED_PR_HEAD_BRANCH_PREFIXES.join(", ")}`);
+  }
+
+  return {
+    repository,
+    title,
+    body,
+    head_branch: headBranch,
+    base_branch: baseBranch
+  };
+}
+
+function requireRepository(input, field) {
+  const repository = requireField(input, field);
+
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
+    throw new ApiError(400, "invalid_request", `${field} must use owner/repo format`);
+  }
+
+  return repository;
+}
+
+function requireBranchName(value, field) {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new ApiError(400, "invalid_request", `${field} is required`);
+  }
+
+  const branchName = value.trim();
+
+  if (
+    branchName.includes("..") ||
+    branchName.startsWith("/") ||
+    branchName.endsWith("/") ||
+    branchName.endsWith(".") ||
+    /[\x00-\x20\x7f]/.test(branchName) ||
+    /[~^:?*\[\]\\]/.test(branchName)
+  ) {
+    throw new ApiError(400, "invalid_request", `${field} is not a valid branch name`);
+  }
+
+  return branchName;
 }

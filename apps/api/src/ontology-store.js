@@ -24,7 +24,11 @@ const PERMISSION_DECISIONS = ["allow", "deny"];
 const PRINCIPAL_TYPES = ["user", "agent", "service_account", "system"];
 const AGENT_STATUSES = ["active", "suspended"];
 const DELEGATION_STATUSES = ["active", "revoked"];
-const AGENT_SCOPES = ["atlas.read", "atlas.act"];
+const AGENT_SCOPES = ["atlas.read", "atlas.act", "github.pr:create"];
+const GOAL_CONTRACT_STATUSES = ["active", "completed", "cancelled"];
+const GOAL_RISK_CLASSES = ["low", "medium", "high", "unacceptable"];
+const REVIEW_PACKET_STATUSES = ["draft", "review_ready", "superseded"];
+const ALLOWED_PR_HEAD_BRANCH_PREFIXES = ["codex/", "agent/"];
 const DEFAULT_DELEGATION_TTL_SECONDS = 3600;
 
 export function createOntologyStore(options = {}) {
@@ -52,6 +56,9 @@ export function createOntologyStore(options = {}) {
   const actionRuns = new Map();
   const agents = new Map();
   const agentDelegations = new Map();
+  const goalContracts = new Map();
+  const pullRequestArtifacts = new Map();
+  const reviewPackets = new Map();
   const auditEvents = [];
   const auditEventsById = new Map();
 
@@ -459,6 +466,283 @@ export function createOntologyStore(options = {}) {
     return { ...evaluation, permission_check_id: permissionCheck.id };
   }
 
+  function createGoalContract(workspaceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    assertWorkspaceBody(input, workspaceId);
+
+    const objective = requireString(input.objective, "objective");
+    const status = input.status ?? "active";
+    assertEnum(status, "status", GOAL_CONTRACT_STATUSES);
+    const riskClass = input.risk_class ?? "low";
+    assertEnum(riskClass, "risk_class", GOAL_RISK_CLASSES);
+
+    const constraints = normalizeStringArray(input.constraints ?? [], "constraints");
+    const allowedActions = normalizeStringArray(input.allowed_actions ?? [], "allowed_actions");
+    const blockedActions = normalizeStringArray(input.blocked_actions ?? [], "blocked_actions");
+    const acceptanceCriteria = normalizeStringArray(input.acceptance_criteria ?? [], "acceptance_criteria");
+    const approvalBoundaries = normalizeStringArray(input.approval_boundaries ?? [], "approval_boundaries");
+    const doneDefinition = requireString(input.done_definition, "done_definition");
+    const budgetJson = input.budget_json ?? input.budget ?? {};
+    assertPlainObject(budgetJson, "budget_json");
+    const nextActionJson = input.next_action_json ?? null;
+
+    if (nextActionJson !== null) {
+      assertPlainObject(nextActionJson, "next_action_json");
+    }
+
+    const timestamp = now();
+    const goalContract = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("goal_contract"),
+      workspace_id: workspaceId,
+      objective,
+      constraints,
+      allowed_actions: allowedActions,
+      blocked_actions: blockedActions,
+      acceptance_criteria: acceptanceCriteria,
+      approval_boundaries: approvalBoundaries,
+      risk_class: riskClass,
+      budget_json: clone(budgetJson),
+      done_definition: doneDefinition,
+      next_action_json: nextActionJson ? clone(nextActionJson) : null,
+      status,
+      created_at: timestamp,
+      updated_at: timestamp
+    };
+
+    if (goalContracts.has(goalContract.id)) {
+      throw new ApiError(409, "goal_contract_conflict", "GoalContract already exists");
+    }
+
+    goalContracts.set(goalContract.id, goalContract);
+    appendAuditEvent({
+      workspace_id: workspaceId,
+      actor: optionalString(input.actor, "actor") ?? "local_user",
+      event_type: "goal_contract.created",
+      resource_type: "goal_contract",
+      resource_id: goalContract.id,
+      decision: "allow",
+      after: {
+        objective,
+        allowed_actions: allowedActions,
+        blocked_actions: blockedActions,
+        risk_class: riskClass,
+        status
+      }
+    });
+    return clone(goalContract);
+  }
+
+  function listGoalContracts(workspaceId) {
+    assertWorkspaceExists(workspaceId);
+
+    return [...goalContracts.values()]
+      .filter((goalContract) => goalContract.workspace_id === workspaceId)
+      .map(clone);
+  }
+
+  function getGoalContract(workspaceId, goalContractId) {
+    assertWorkspaceExists(workspaceId);
+    const goalContract = goalContracts.get(goalContractId);
+
+    if (!goalContract || goalContract.workspace_id !== workspaceId) {
+      throw new ApiError(404, "goal_contract_not_found", "GoalContract not found in workspace");
+    }
+
+    return clone(goalContract);
+  }
+
+  function createPullRequestArtifact(workspaceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    assertWorkspaceBody(input, workspaceId);
+
+    const repository = requireRepository(input.repository, "repository");
+    const title = requireString(input.title, "title");
+    const body = requireString(input.body, "body");
+    const headBranch = requireBranchName(input.head_branch, "head_branch");
+    const baseBranch = requireBranchName(input.base_branch ?? "main", "base_branch");
+
+    if (!ALLOWED_PR_HEAD_BRANCH_PREFIXES.some((prefix) => headBranch.startsWith(prefix))) {
+      throw new ApiError(400, "branch_namespace_denied", `head_branch must start with one of: ${ALLOWED_PR_HEAD_BRANCH_PREFIXES.join(", ")}`);
+    }
+
+    const provider = optionalString(input.provider, "provider") ?? "github";
+    const externalUrl = requireString(input.external_url, "external_url");
+    const externalId = optionalString(input.external_id, "external_id");
+    const state = optionalString(input.state, "state") ?? "open";
+    const goalContractId = optionalString(input.goal_contract_id, "goal_contract_id");
+
+    if (goalContractId) {
+      getGoalContract(workspaceId, goalContractId);
+    }
+
+    const timestamp = now();
+    const artifact = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("pull_request_artifact"),
+      workspace_id: workspaceId,
+      goal_contract_id: goalContractId,
+      provider,
+      repository,
+      title,
+      body,
+      head_branch: headBranch,
+      base_branch: baseBranch,
+      external_id: externalId,
+      external_url: externalUrl,
+      state,
+      merge_capability: "absent",
+      created_at: timestamp,
+      updated_at: timestamp
+    };
+
+    if (pullRequestArtifacts.has(artifact.id)) {
+      throw new ApiError(409, "pull_request_artifact_conflict", "PullRequestArtifact already exists");
+    }
+
+    pullRequestArtifacts.set(artifact.id, artifact);
+    appendAuditEvent({
+      workspace_id: workspaceId,
+      actor: optionalString(input.actor, "actor") ?? "system",
+      event_type: "github.pull_request.opened",
+      resource_type: "pull_request_artifact",
+      resource_id: artifact.id,
+      decision: "allow",
+      after: {
+        repository,
+        head_branch: headBranch,
+        base_branch: baseBranch,
+        external_url: externalUrl,
+        merge_capability: "absent"
+      },
+      metadata: {
+        goal_contract_id: goalContractId,
+        provider,
+        external_id: externalId
+      }
+    });
+    return clone(artifact);
+  }
+
+  function listPullRequestArtifacts(workspaceId) {
+    assertWorkspaceExists(workspaceId);
+
+    return [...pullRequestArtifacts.values()]
+      .filter((artifact) => artifact.workspace_id === workspaceId)
+      .map(clone);
+  }
+
+  function getPullRequestArtifact(workspaceId, artifactId) {
+    assertWorkspaceExists(workspaceId);
+    const artifact = pullRequestArtifacts.get(artifactId);
+
+    if (!artifact || artifact.workspace_id !== workspaceId) {
+      throw new ApiError(404, "pull_request_artifact_not_found", "PullRequestArtifact not found in workspace");
+    }
+
+    return clone(artifact);
+  }
+
+  function createReviewPacket(workspaceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    assertWorkspaceBody(input, workspaceId);
+
+    const summary = requireString(input.summary, "summary");
+    const goalContractId = optionalString(input.goal_contract_id, "goal_contract_id");
+    const pullRequestArtifactId = optionalString(input.pull_request_artifact_id, "pull_request_artifact_id");
+
+    if (goalContractId) {
+      getGoalContract(workspaceId, goalContractId);
+    }
+
+    if (pullRequestArtifactId) {
+      getPullRequestArtifact(workspaceId, pullRequestArtifactId);
+    }
+
+    const status = input.status ?? "review_ready";
+    assertEnum(status, "status", REVIEW_PACKET_STATUSES);
+    const changedFiles = normalizeStringArray(input.changed_files ?? [], "changed_files");
+    const verificationCommands = normalizeStringArray(input.verification_commands ?? [], "verification_commands");
+    const criticFindings = normalizeStringArray(input.critic_findings ?? [], "critic_findings");
+    const safetyFindings = normalizeStringArray(input.safety_findings ?? [], "safety_findings");
+    const auditEventIds = normalizeStringArray(input.audit_event_ids ?? [], "audit_event_ids");
+    const pendingHumanActions = normalizeStringArray(
+      input.pending_human_actions ?? ["protected_branch_merge"],
+      "pending_human_actions"
+    );
+
+    for (const eventId of auditEventIds) {
+      const event = getAuditEvent(eventId);
+
+      if (event.workspace_id !== workspaceId) {
+        throw new ApiError(404, "audit_event_not_found", "AuditEvent not found in workspace");
+      }
+    }
+
+    const timestamp = now();
+    const reviewPacket = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("review_packet"),
+      workspace_id: workspaceId,
+      goal_contract_id: goalContractId,
+      pull_request_artifact_id: pullRequestArtifactId,
+      summary,
+      changed_files: changedFiles,
+      verification_commands: verificationCommands,
+      critic_findings: criticFindings,
+      safety_findings: safetyFindings,
+      audit_event_ids: auditEventIds,
+      pending_human_actions: pendingHumanActions,
+      status,
+      created_at: timestamp,
+      updated_at: timestamp
+    };
+
+    if (reviewPackets.has(reviewPacket.id)) {
+      throw new ApiError(409, "review_packet_conflict", "ReviewPacket already exists");
+    }
+
+    reviewPackets.set(reviewPacket.id, reviewPacket);
+    appendAuditEvent({
+      workspace_id: workspaceId,
+      actor: optionalString(input.actor, "actor") ?? "system",
+      event_type: "review_packet.created",
+      resource_type: "review_packet",
+      resource_id: reviewPacket.id,
+      decision: "allow",
+      after: {
+        summary,
+        pending_human_actions: pendingHumanActions,
+        status
+      },
+      metadata: {
+        goal_contract_id: goalContractId,
+        pull_request_artifact_id: pullRequestArtifactId,
+        audit_event_ids: auditEventIds
+      }
+    });
+    return clone(reviewPacket);
+  }
+
+  function listReviewPackets(workspaceId) {
+    assertWorkspaceExists(workspaceId);
+
+    return [...reviewPackets.values()]
+      .filter((reviewPacket) => reviewPacket.workspace_id === workspaceId)
+      .map(clone);
+  }
+
+  function getReviewPacket(workspaceId, reviewPacketId) {
+    assertWorkspaceExists(workspaceId);
+    const reviewPacket = reviewPackets.get(reviewPacketId);
+
+    if (!reviewPacket || reviewPacket.workspace_id !== workspaceId) {
+      throw new ApiError(404, "review_packet_not_found", "ReviewPacket not found in workspace");
+    }
+
+    return clone(reviewPacket);
+  }
+
   function createAgent(input) {
     assertPlainObject(input, "request body");
 
@@ -525,6 +809,15 @@ export function createOntologyStore(options = {}) {
 
     const allowedTools = input.allowed_tools ?? ["*"];
     assertStringArray(allowedTools, "allowed_tools");
+    const goalContractId = optionalString(input.goal_contract_id, "goal_contract_id");
+
+    if (goalContractId) {
+      const goalContract = getGoalContract(workspaceId, goalContractId);
+
+      if (goalContract.status !== "active") {
+        throw new ApiError(409, "goal_contract_not_active", "GoalContract must be active to bind a delegation");
+      }
+    }
 
     const issuedAt = now();
     let expiresAt;
@@ -552,6 +845,7 @@ export function createOntologyStore(options = {}) {
       role,
       scopes: [...scopes],
       allowed_tools: [...allowedTools],
+      goal_contract_id: goalContractId,
       status: "active",
       issued_at: issuedAt,
       expires_at: expiresAt,
@@ -575,6 +869,7 @@ export function createOntologyStore(options = {}) {
         role,
         scopes: delegation.scopes,
         allowed_tools: delegation.allowed_tools,
+        goal_contract_id: goalContractId,
         expires_at: expiresAt
       }
     });
@@ -622,6 +917,7 @@ export function createOntologyStore(options = {}) {
         metadata: {
           tool,
           delegation_id: delegation.id,
+          goal_contract_id: delegation.goal_contract_id,
           role: delegation.role,
           required_scope: requiredScope,
           reason
@@ -646,6 +942,30 @@ export function createOntologyStore(options = {}) {
       denyAndThrow(403, "tool_not_allowed", `tool_not_allowed:${tool}`);
     }
 
+    if (delegation.goal_contract_id) {
+      const goalContract = goalContracts.get(delegation.goal_contract_id);
+
+      if (!goalContract || goalContract.workspace_id !== delegation.workspace_id) {
+        denyAndThrow(403, "goal_contract_not_found", "goal_contract_not_found");
+      }
+
+      if (goalContract.status !== "active") {
+        denyAndThrow(403, "goal_contract_not_active", "goal_contract_not_active");
+      }
+
+      if (goalContract.blocked_actions.includes("*") || goalContract.blocked_actions.includes(tool)) {
+        denyAndThrow(403, "goal_contract_action_blocked", `goal_contract_action_blocked:${tool}`);
+      }
+
+      if (
+        goalContract.allowed_actions.length > 0 &&
+        !goalContract.allowed_actions.includes("*") &&
+        !goalContract.allowed_actions.includes(tool)
+      ) {
+        denyAndThrow(403, "goal_contract_action_not_allowed", `goal_contract_action_not_allowed:${tool}`);
+      }
+    }
+
     appendAuditEvent({
       workspace_id: delegation.workspace_id,
       actor: delegation.agent_id,
@@ -656,6 +976,7 @@ export function createOntologyStore(options = {}) {
       metadata: {
         tool,
         delegation_id: delegation.id,
+        goal_contract_id: delegation.goal_contract_id,
         role: delegation.role,
         required_scope: requiredScope,
         reason: "granted"
@@ -1312,7 +1633,10 @@ export function createOntologyStore(options = {}) {
     action_types: actionTypes,
     action_runs: actionRuns,
     agents,
-    agent_delegations: agentDelegations
+    agent_delegations: agentDelegations,
+    goal_contracts: goalContracts,
+    pull_request_artifacts: pullRequestArtifacts,
+    review_packets: reviewPackets
   };
 
   function snapshot() {
@@ -1380,6 +1704,15 @@ export function createOntologyStore(options = {}) {
     getPermissionCheck,
     evaluatePolicy,
     authorize,
+    createGoalContract,
+    listGoalContracts,
+    getGoalContract,
+    createPullRequestArtifact,
+    listPullRequestArtifacts,
+    getPullRequestArtifact,
+    createReviewPacket,
+    listReviewPackets,
+    getReviewPacket,
     createAgent,
     listAgents,
     getAgent,
@@ -1509,6 +1842,38 @@ function optionalString(value, field) {
   }
 
   return value.trim();
+}
+
+function normalizeStringArray(value, field) {
+  assertStringArray(value, field);
+  return value.map((item) => item.trim());
+}
+
+function requireRepository(value, field) {
+  const repository = requireString(value, field);
+
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
+    throw new ApiError(400, "invalid_request", `${field} must use owner/repo format`);
+  }
+
+  return repository;
+}
+
+function requireBranchName(value, field) {
+  const branchName = requireString(value, field);
+
+  if (
+    branchName.includes("..") ||
+    branchName.startsWith("/") ||
+    branchName.endsWith("/") ||
+    branchName.endsWith(".") ||
+    /[\x00-\x20\x7f]/.test(branchName) ||
+    /[~^:?*\[\]\\]/.test(branchName)
+  ) {
+    throw new ApiError(400, "invalid_request", `${field} is not a valid branch name`);
+  }
+
+  return branchName;
 }
 
 function requireIdentifier(value, field) {

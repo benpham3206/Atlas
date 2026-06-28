@@ -52,11 +52,18 @@ Apply `.agent/skills/the-algorithm` before each item: question the requirement, 
 safety-by-absence, build the smallest verifiable inch. Order reflects meaning-per-line, not the
 phase numbering above.
 
-### N0. Land the design-discipline docs (tiny, do first)
+Agent review and hardening boundary: Coding, Critic, red-team, and Safety-Verification agents may
+run inside the PR loop before human review, as scoped, audited, non-merge actors. They can prepare
+patches, run tests, record findings, harden the branch, open a PR, and produce a review packet. The
+protected-branch merge, production deploy, public export, permission change, secret/key operation,
+and destructive delete remain human-only boundaries; do not add merge tools or merge scopes.
+
+### N0. Land the design-discipline docs (tiny, do first) — Complete
 - Commit `the-algorithm` skill + `AGENTS.md` wiring (algorithm + MoO architecture references).
 - Why: this is the discipline that governs every item below; it should be in place before the next build.
+- Evidence: `.agent/skills/the-algorithm/SKILL.md`, `AGENTS.md`, PR #9, `npm run lint`, `npm test`.
 
-### N1. First real Tool Router integration — GitHub "open-PR-not-merge" (keystone)
+### N1. First real Tool Router integration — GitHub "open-PR-not-merge" (keystone) — Complete
 - Implement a scoped GitHub tool exposed through the agent gateway: open a PR / push to a branch
   namespace, with **no merge tool and no merge scope in any agent delegation**.
 - Verification: an `editor`-role agent can open a PR; there is no code path by which it can merge to a
@@ -66,21 +73,36 @@ phase numbering above.
   highest meaning-per-line increment in the repo. Everything else is plumbing for or polish on this.
 - Challenges: real network/credentials cross the sandbox boundary and need scoped tokens; keep the
   tool contract narrow (no merge, no force-push, branch namespace allowlist).
+- Evidence: `github.open_pr` in `apps/api/src/agent-gateway.js`, `github.pr:create` scope, `codex/`
+  and `agent/` head-branch namespace guard, `PullRequestArtifact`, `github.pull_request.opened`
+  audit event, `GITHUB_TOKEN` runtime adapter, and tests proving the manifest has no merge tool or
+  merge scope. Live GitHub calls require a scoped `GITHUB_TOKEN`; tests use an injected client.
 
-### N2. GoalContract object (front door)
+### N2. GoalContract object (front door) — Complete
 - Add a `GoalContract` ontology object: objective, constraints, allowed/blocked actions, risk class,
   budget, done-definition; route a vague goal into a bounded task graph.
 - Verification: a GoalContract drives next-action selection and constrains which actions are allowed.
 - Why second: it is the single human approval moment that makes this leadership, not autocomplete —
   but it is worth more once N1 lets a contract drive a real external action.
+- Evidence: `GoalContract` store/API support, delegations can bind `goal_contract_id`, authorization
+  checks `allowed_actions` / `blocked_actions`, and `get_next_action` can use `next_action_json` from
+  the bound contract.
 
-### N3. Review-ready packet / approval surface
+### N3. Review-ready packet / approval surface — Complete
 - Produce a bundled "what changed + evidence + audit refs + the one irreversible thing pending"
   artifact, surfaced once per loop (not per step).
 - Verification: a completed loop yields a packet listing changed objects, audit events, and the
   pending human-only action.
 - Why third: this is the "interrupt the human exactly once, at the boundary" payoff; it depends on
   N1 producing real artifacts worth reviewing.
+- Evidence: `generate_review_packet` agent tool creates `ReviewPacket` records with changed files,
+  verification commands, critic findings, safety findings, audit event ids, and default
+  `pending_human_actions: ["protected_branch_merge"]`.
+
+### N4. Next hardening after N1-N3
+- Add a live smoke path that uses a narrowly scoped `GITHUB_TOKEN` to open a real draft/test PR from
+  an agent branch, then verifies the review packet and confirms merge remains absent.
+- Add richer Critic/Safety-Verification records once the review packet has a real PR loop to consume.
 
 ### Deferred hardening (do not start until N1 proves the loop)
 - Signed JWT delegation (replace unsigned local bearer).
