@@ -1,0 +1,4 @@
+interface:
+  display_name: "Atlas MoO Dogfood Loop"
+  short_description: "Run Atlas/MoO work end to end"
+  default_prompt: "Use $atlas-moo-dogfood-loop to run this task through the Atlas + MoO dogfooding loop."

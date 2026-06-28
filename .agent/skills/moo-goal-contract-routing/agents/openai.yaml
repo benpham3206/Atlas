@@ -1,0 +1,4 @@
+interface:
+  display_name: "MoO Goal Routing"
+  short_description: "Create contracts and route strategy"
+  default_prompt: "Use $moo-goal-contract-routing to create the GoalContract and choose the orchestration strategy."

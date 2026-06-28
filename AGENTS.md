@@ -7,10 +7,17 @@ Atlas is a zero-dependency Node.js monorepo (npm workspaces: `apps/api`, `apps/w
 target. Standard commands (run/test/lint/verify) are documented in `README.md` and `package.json`
 `scripts` — use those; they are not duplicated here.
 
-## Agent workflow
+## Project-local agent skills
 
-The Codex, Cursor Cloud Agents, and Poke interaction workflow lives under `100X/`. For non-trivial
-agent work, also read `100X/AGENTS.md`, `100X/docs/AGENT_WORKFLOW.md`, and `100X/README.md`.
+Reusable Atlas/MoO operating instructions live under `.agent/skills`.
+
+For dogfooding Atlas + MoO on real tasks, start with
+`.agent/skills/atlas-moo-dogfood-loop/SKILL.md`, then load the companion skill that matches the
+active step: ontology delta capture, GoalContract routing, tool execution, verification, approval
+filtering, run trace/audit closure, or workspace transparency blueprints.
+
+Do not recreate legacy workflow directories for new agent instructions. Prefer `.agent/skills` for
+project-local skills unless the user explicitly requests a different location.
 
 Non-obvious notes for future agents:
 

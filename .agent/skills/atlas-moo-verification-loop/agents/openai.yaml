@@ -1,0 +1,4 @@
+interface:
+  display_name: "Atlas MoO Verification"
+  short_description: "Verify outputs with evidence"
+  default_prompt: "Use $atlas-moo-verification-loop to verify this Atlas/MoO output against its acceptance criteria."

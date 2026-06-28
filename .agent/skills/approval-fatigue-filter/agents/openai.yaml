@@ -1,0 +1,4 @@
+interface:
+  display_name: "Approval Fatigue Filter"
+  short_description: "Decide auto-run vs approval"
+  default_prompt: "Use $approval-fatigue-filter to decide whether this action can run autonomously or needs approval."

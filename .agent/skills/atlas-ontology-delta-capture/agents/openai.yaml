@@ -1,0 +1,4 @@
+interface:
+  display_name: "Atlas Ontology Delta"
+  short_description: "Capture tasks as Atlas records"
+  default_prompt: "Use $atlas-ontology-delta-capture to map this evidence into Atlas records and links."
