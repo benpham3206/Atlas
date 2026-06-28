@@ -1,10 +1,7 @@
----
 session_id: "atlas-enterprise-2026-06-14"
 started: "2026-06-14T00:00:00-07:00"
 project: "Atlas"
 workflow: ["prd-first", "enterprise-development", "rigorous-context"]
----
-
 # Context Log: Atlas
 
 ## Session Overview
@@ -686,5 +683,161 @@ Markdown/tracker files have no trailing whitespace
 
 - Phase 2 Capability Graph Records is complete as a registry-based milestone.
 - The remaining Atlas goal is not complete; the next best implementation slice is Phase 3 A3.1 `ActionType` storage and API.
+
+---
+
+## Turn 8: Intent (2026-06-22)
+**Target:** Personal Atlas self-hosting follow-up
+**Context:** User confirmed that Personal Atlas should be used to build the public and enterprise Atlas versions.
+
+### Planned Actions
+- [ ] Fix Personal Atlas read endpoints so they do not mutate state before bootstrap.
+- [ ] Prevent blocked or already-completed personal tasks from being completed through the governed action endpoint.
+- [ ] Convert seeded Personal Atlas content into an Atlas self-hosting roadmap with measurable done criteria.
+- [ ] Update API, web, tracker, and review evidence tests for the revised behavior.
+- [ ] Run `npm run lint`, `npm run validate:records`, `npm run verify:migrations`, and `npm test`.
+
+### Workspace Snapshot
+```json
+{
+  "branch": "cursor/personal-atlas-composer-25",
+  "risk_flags": [
+    "current PR branch has user-supplied untracked Atlas PRD Final copy.md",
+    "personal API and web tests depend on seeded fixture strings"
+  ]
+}
+```
+
+---
+
+## Turn 8: Outcome (2026-06-22)
+**Result:** Personal Atlas self-hosting follow-up implemented on `cursor/personal-atlas-composer-25`.
+
+### Completed Actions
+- [x] Personal read endpoints now require explicit bootstrap and do not create workspace state as a side effect.
+- [x] Personal task completion rejects blocked tasks and already-completed tasks.
+- [x] Generic ActionRun creation is guarded for `workspace_personal` task completion so it cannot bypass Personal Atlas blockers.
+- [x] Personal bootstrap now seeds an Atlas self-hosting roadmap for runtime, policy/audit, public publishing, and enterprise workspace layers.
+- [x] API, web, docs, 100X state/log, Poke summary, and review packet were updated.
+
+### Verification
+```text
+npm test
+tests 82
+pass 82
+fail 0
+
+npm run lint
+Lint passed
+
+npm run validate:records
+Validated 20 records
+
+npm run verify:migrations
+Verified 4 migration files
+```
+
+### Notes
+- `npm run test:api` and `npm run test:web` require unsandboxed local HTTP binding in this environment. `npm run test:web` passed when approved; focused API escalation was blocked by approval policy, and the final full `npm test` covered the API suite.
+- Review packet regenerated at `100X/review-packets/TASK-2026-06-22-personal-atlas-composer-25.md`.
+- Remaining gate before merge: rerun local Codex review and resolve any P0/P1 findings.
+
+---
+
+## Turn 9: Outcome (2026-06-23)
+**Target:** Public Atlas Dr. Stone fallback direction
+**Context:** User clarified the personal end goal: create a Public Atlas that can be used as a fallback in a Dr. Stone-style infrastructure-loss event.
+
+### Completed Actions
+- [x] Preserved PR #6 final review status in the task trackers.
+- [x] Regenerated the PR #6 review packet and reran verification.
+- [x] Created a new task package for the first Public Atlas civilization-recovery tech-tree seed.
+- [x] Kept the new Public Atlas task separate from PR #6 implementation scope.
+
+### Outcome
+- Personal Atlas PR #6 remains clean with 83 passing tests and no unresolved local Codex P0/P1 findings.
+- Added `TASK-2026-06-23-public-atlas-recovery-tech-tree` as the next planned task.
+- The next task converts the Dr. Stone fallback goal into a public, reviewed, machine-validated recovery tech-tree seed pack using existing Atlas record types.
+
+### Verification
+```text
+npm run lint
+Lint passed
+
+npm run validate:records
+Validated 20 records
+
+npm run verify:migrations
+Verified 4 migration files
+
+npm test
+tests 83
+pass 83
+fail 0
+```
+
+---
+
+## Turn 10: Outcome (2026-06-28)
+**Target:** Atlas + MoO dogfooding skill pack.
+
+### Completed Actions
+- [x] Added project-local `.agent/skills` instructions for enterprise architecture PRDs, zero-trust orchestration, system tracers, and implementation task packaging.
+- [x] Added operational dogfooding skills for the Atlas/MoO loop: ontology delta capture, GoalContract routing, tool execution discipline, verification, approval fatigue filtering, run trace/audit closure, and workspace transparency blueprints.
+- [x] Kept the skill pack under `.agent/skills` and avoided legacy workflow directory naming.
+
+### Verification
+```text
+quick_validate.py passed for all 12 .agent skills
+rg found no TODO or 100X references under .agent/skills
+```
+
+### Notes
+- These are local operating skills, not runtime enforcement features.
+- Current repository limitations still apply: in-memory storage, no real identity provider, no PostgreSQL RLS runtime, and no durable audit service yet.
+
+---
+
+## Turn 11: Outcome (2026-06-28)
+**Target:** Continue TASKS.md implementation using Personal Atlas as the working reference.
+
+### Completed Actions
+- [x] Reconciled stale Phase 3 task tracker state with the current ActionType/ActionRun implementation.
+- [x] Marked A3.1-A3.7 complete after verifying action storage, routes, migration, before/after snapshots, validation, and tests.
+- [x] Implemented G4.1-G4.3 local governance records:
+  - local `User` storage/API
+  - workspace-scoped `WorkspaceMembership` storage/API
+  - role enum validation for `owner`, `admin`, `editor`, and `viewer`
+- [x] Added `infra/migrations/0005_governance.sql`.
+- [x] Implemented G4.4 local `Policy` records with validated allow/deny rules.
+- [x] Added `infra/migrations/0006_policies.sql`.
+- [x] Updated architecture, security, README, migration docs, and `TASKS.md`.
+
+### Verification
+```text
+npm run test:api
+tests 51
+pass 51
+fail 0
+
+npm test
+tests 84
+pass 84
+fail 0
+
+npm run lint
+Lint passed
+
+npm run validate:records
+Validated 20 records
+
+npm run verify:migrations
+Verified 6 migration files
+```
+
+### Notes
+- API/full tests required unsandboxed local HTTP binding because the sandbox rejects `listen 127.0.0.1` with `EPERM`.
+- Local users, memberships, roles, and policies are governance scaffolding only. They do not authenticate requests or enforce permissions yet.
+- Next tracker task is G4.5: add `PermissionCheck` records.
 
 ---

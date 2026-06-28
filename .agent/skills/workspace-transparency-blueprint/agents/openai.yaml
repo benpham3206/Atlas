@@ -1,0 +1,4 @@
+interface:
+  display_name: "Workspace Blueprint"
+  short_description: "Write the visible run design file"
+  default_prompt: "Use $workspace-transparency-blueprint to create or update SYSTEM_DESIGN.md before this agent loop runs."

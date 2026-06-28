@@ -1,0 +1,4 @@
+interface:
+  display_name: "MoO Tool Runbook"
+  short_description: "Execute tools with policy discipline"
+  default_prompt: "Use $moo-tool-execution-runbook before executing file, shell, repository, or network tools."

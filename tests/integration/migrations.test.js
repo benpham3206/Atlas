@@ -10,6 +10,9 @@ test("migration files pass static verification", () => {
     "0001_ontology_nouns.sql",
     "0002_links.sql",
     "0003_object_sets.sql",
-    "0004_actions.sql"
+    "0004_actions.sql",
+    "0005_governance.sql",
+    "0006_policies.sql",
+    "0007_permission_checks.sql"
   ]);
 });

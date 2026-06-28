@@ -275,7 +275,7 @@ export function renderBootstrapPage(options = {}) {
       </section>
       <section>
         <h2>Bootstrap workspace</h2>
-        <p>No personal workspace is available yet. Bootstrap creates the AAA vertical-slice project and task graph.</p>
+        <p>No personal workspace is available yet. Bootstrap creates the Atlas self-hosting roadmap and task graph.</p>
         <form method="post" action="/bootstrap">
           <button type="submit">Bootstrap Personal Atlas</button>
         </form>
@@ -347,7 +347,7 @@ export function renderPersonalDashboard(overview, options = {}) {
         <form method="post" action="/tasks/${escapeHtml(nextActionId)}/complete">
           <label>
             Artifact URI
-            <input name="artifact_uri" required placeholder="artifacts/movement-demo.md">
+            <input name="artifact_uri" required placeholder="evidence/task-review.md">
           </label>
           <label>
             Evidence note

@@ -1,7 +1,7 @@
 # Atlas Security Model
 
 Status: Personal Atlas v0 slice
-Last updated: 2026-06-22
+Last updated: 2026-06-28
 
 ## Current Security Boundary
 
@@ -11,7 +11,7 @@ The current implementation has no authentication or authorization. Workspace iso
 /workspaces/:workspace_id/...
 ```
 
-An object type or object instance created in one workspace is not returned from another workspace route.
+An object type, object instance, action run, workspace membership, or policy created in one workspace is not returned from another workspace route. Local `User`, `WorkspaceMembership`, and `Policy` records are governance scaffolding only; they do not authenticate requests, prove caller identity, or enforce authorization yet.
 
 ## Required Future Rules
 
@@ -26,7 +26,7 @@ An object type or object instance created in one workspace is not returned from 
 
 Personal Atlas is **local in-memory personal state** for a single developer workflow demo. It is **not** real authentication or privacy protection.
 
-- No auth, users, memberships, or roles.
+- No auth; local users, memberships, roles, and policies are records only.
 - Route scoping (`/workspaces/:workspace_id/...`, `/personal/...`) organizes data paths; it does **not** provide identity security or multi-tenant isolation.
 - All personal workspace data lives in the API process memory and **resets on API restart**.
 - Personal overview includes an explicit `security_boundary` notice in API responses and the web dashboard.
@@ -37,9 +37,9 @@ Completing a personal task creates an ActionRun record in memory, but that is an
 ## Non-Goals For Current Slice
 
 - No auth.
-- No users or memberships.
-- No roles.
-- No policies.
+- No identity-backed users or memberships.
+- No enforced role permissions.
+- No enforced policies.
 - No audit log.
 - No tenant isolation.
 - No durable persistence (in-memory only; restart clears state).

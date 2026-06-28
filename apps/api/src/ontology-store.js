@@ -10,10 +10,21 @@ export class ApiError extends Error {
   }
 }
 
+const USER_STATUSES = ["active", "suspended", "deprovisioned"];
+const WORKSPACE_ROLES = ["owner", "admin", "editor", "viewer"];
+const POLICY_STATUSES = ["active", "disabled"];
+const POLICY_EFFECTS = ["allow", "deny"];
+const PERMISSION_DECISIONS = ["allow", "deny"];
+const PRINCIPAL_TYPES = ["user", "agent", "service_account", "system"];
+
 export function createOntologyStore(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const createId = options.createId ?? createIdFactory();
   const workspaces = new Map();
+  const users = new Map();
+  const workspaceMemberships = new Map();
+  const policies = new Map();
+  const permissionChecks = new Map();
   const objectTypes = new Map();
   const objectInstances = new Map();
   const linkTypes = new Map();
@@ -54,6 +65,235 @@ export function createOntologyStore(options = {}) {
     }
 
     return clone(workspace);
+  }
+
+  function createUser(input) {
+    assertPlainObject(input, "request body");
+
+    const email = requireString(input.email, "email").toLowerCase();
+    const displayName = requireString(input.display_name, "display_name");
+    const status = input.status ?? "active";
+    assertEnum(status, "status", USER_STATUSES);
+
+    const timestamp = now();
+    const user = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("user"),
+      email,
+      display_name: displayName,
+      status,
+      identity_provider_subject: optionalString(input.identity_provider_subject, "identity_provider_subject"),
+      created_at: timestamp,
+      updated_at: timestamp
+    };
+
+    if (!email.includes("@")) {
+      throw new ApiError(400, "invalid_user", "email must contain @");
+    }
+
+    const existingEmail = [...users.values()].find((existingUser) => existingUser.email === email);
+
+    if (users.has(user.id) || existingEmail) {
+      throw new ApiError(409, "user_conflict", "User already exists");
+    }
+
+    users.set(user.id, user);
+    return clone(user);
+  }
+
+  function listUsers() {
+    return [...users.values()].map(clone);
+  }
+
+  function getUser(userId) {
+    const user = users.get(userId);
+
+    if (!user) {
+      throw new ApiError(404, "user_not_found", "User not found");
+    }
+
+    return clone(user);
+  }
+
+  function createWorkspaceMembership(workspaceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    assertWorkspaceBody(input, workspaceId);
+
+    const userId = requireString(input.user_id, "user_id");
+    const user = users.get(userId);
+
+    if (!user) {
+      throw new ApiError(404, "user_not_found", "User not found");
+    }
+
+    const role = input.role ?? "viewer";
+    assertEnum(role, "role", WORKSPACE_ROLES);
+
+    const existingMembership = [...workspaceMemberships.values()].find((membership) => {
+      return membership.workspace_id === workspaceId && membership.user_id === userId;
+    });
+
+    if (existingMembership) {
+      throw new ApiError(409, "workspace_membership_conflict", "User is already a member of workspace");
+    }
+
+    const timestamp = now();
+    const membership = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("workspace_membership"),
+      workspace_id: workspaceId,
+      user_id: userId,
+      role,
+      created_at: timestamp,
+      updated_at: timestamp
+    };
+
+    if (workspaceMemberships.has(membership.id)) {
+      throw new ApiError(409, "workspace_membership_conflict", "WorkspaceMembership already exists");
+    }
+
+    workspaceMemberships.set(membership.id, membership);
+    return clone(membership);
+  }
+
+  function listWorkspaceMemberships(workspaceId) {
+    assertWorkspaceExists(workspaceId);
+
+    return [...workspaceMemberships.values()]
+      .filter((membership) => membership.workspace_id === workspaceId)
+      .map(clone);
+  }
+
+  function getWorkspaceMembership(workspaceId, membershipId) {
+    assertWorkspaceExists(workspaceId);
+    const membership = workspaceMemberships.get(membershipId);
+
+    if (!membership || membership.workspace_id !== workspaceId) {
+      throw new ApiError(404, "workspace_membership_not_found", "WorkspaceMembership not found in workspace");
+    }
+
+    return clone(membership);
+  }
+
+  function createPolicy(workspaceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    assertWorkspaceBody(input, workspaceId);
+
+    const name = requireString(input.name, "name");
+    const status = input.status ?? "active";
+    assertEnum(status, "status", POLICY_STATUSES);
+
+    const rules = normalizePolicyRules(input.rules_json ?? input.rules);
+    const timestamp = now();
+    const policy = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("policy"),
+      workspace_id: workspaceId,
+      name,
+      description: optionalString(input.description, "description") ?? "",
+      status,
+      rules_json: rules,
+      created_at: timestamp,
+      updated_at: timestamp
+    };
+
+    if (policies.has(policy.id)) {
+      throw new ApiError(409, "policy_conflict", "Policy already exists");
+    }
+
+    policies.set(policy.id, policy);
+    return clone(policy);
+  }
+
+  function listPolicies(workspaceId) {
+    assertWorkspaceExists(workspaceId);
+
+    return [...policies.values()]
+      .filter((policy) => policy.workspace_id === workspaceId)
+      .map(clone);
+  }
+
+  function getPolicy(workspaceId, policyId) {
+    assertWorkspaceExists(workspaceId);
+    const policy = policies.get(policyId);
+
+    if (!policy || policy.workspace_id !== workspaceId) {
+      throw new ApiError(404, "policy_not_found", "Policy not found in workspace");
+    }
+
+    return clone(policy);
+  }
+
+  function createPermissionCheck(workspaceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    assertWorkspaceBody(input, workspaceId);
+
+    const principalType = input.principal_type ?? "user";
+    assertEnum(principalType, "principal_type", PRINCIPAL_TYPES);
+
+    const principalId = requireString(input.principal_id, "principal_id");
+    const action = requireString(input.action, "action");
+    const resourceType = requireString(input.resource_type, "resource_type");
+    const decision = input.decision ?? input.result;
+    assertEnum(decision, "decision", PERMISSION_DECISIONS);
+
+    const policyId = optionalString(input.policy_id, "policy_id");
+
+    if (policyId) {
+      const policy = policies.get(policyId);
+
+      if (!policy || policy.workspace_id !== workspaceId) {
+        throw new ApiError(404, "policy_not_found", "Policy not found in workspace");
+      }
+    }
+
+    const role = optionalString(input.role, "role");
+
+    if (role) {
+      assertEnum(role, "role", WORKSPACE_ROLES);
+    }
+
+    const timestamp = now();
+    const permissionCheck = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("permission_check"),
+      workspace_id: workspaceId,
+      principal_type: principalType,
+      principal_id: principalId,
+      role,
+      action,
+      resource_type: resourceType,
+      resource_id: optionalString(input.resource_id, "resource_id"),
+      decision,
+      policy_id: policyId,
+      reason: optionalString(input.reason, "reason") ?? "",
+      created_at: timestamp
+    };
+
+    if (permissionChecks.has(permissionCheck.id)) {
+      throw new ApiError(409, "permission_check_conflict", "PermissionCheck already exists");
+    }
+
+    permissionChecks.set(permissionCheck.id, permissionCheck);
+    return clone(permissionCheck);
+  }
+
+  function listPermissionChecks(workspaceId) {
+    assertWorkspaceExists(workspaceId);
+
+    return [...permissionChecks.values()]
+      .filter((permissionCheck) => permissionCheck.workspace_id === workspaceId)
+      .map(clone);
+  }
+
+  function getPermissionCheck(workspaceId, permissionCheckId) {
+    assertWorkspaceExists(workspaceId);
+    const permissionCheck = permissionChecks.get(permissionCheckId);
+
+    if (!permissionCheck || permissionCheck.workspace_id !== workspaceId) {
+      throw new ApiError(404, "permission_check_not_found", "PermissionCheck not found in workspace");
+    }
+
+    return clone(permissionCheck);
   }
 
   function createObjectType(workspaceId, input) {
@@ -341,12 +581,18 @@ export function createOntologyStore(options = {}) {
       throw new ApiError(400, "action_effect_validation_failed", "Action effect would produce invalid object properties", outputValidation.errors);
     }
 
+    const actionRunId = input.id ? requireIdentifier(input.id, "id") : createId("action_run");
+
+    if (actionRuns.has(actionRunId)) {
+      throw new ApiError(409, "action_run_conflict", "ActionRun already exists");
+    }
+
     const timestamp = now();
     targetObject.properties_json = clone(mergedProperties);
     targetObject.updated_at = timestamp;
 
     const actionRun = {
-      id: input.id ? requireIdentifier(input.id, "id") : createId("action_run"),
+      id: actionRunId,
       workspace_id: workspaceId,
       action_type_id: actionTypeId,
       target_object_id: targetObjectId,
@@ -359,10 +605,6 @@ export function createOntologyStore(options = {}) {
       created_at: timestamp,
       updated_at: timestamp
     };
-
-    if (actionRuns.has(actionRun.id)) {
-      throw new ApiError(409, "action_run_conflict", "ActionRun already exists");
-    }
 
     actionRuns.set(actionRun.id, actionRun);
     return clone(actionRun);
@@ -635,6 +877,18 @@ export function createOntologyStore(options = {}) {
     createWorkspace,
     listWorkspaces,
     getWorkspace,
+    createUser,
+    listUsers,
+    getUser,
+    createWorkspaceMembership,
+    listWorkspaceMemberships,
+    getWorkspaceMembership,
+    createPolicy,
+    listPolicies,
+    getPolicy,
+    createPermissionCheck,
+    listPermissionChecks,
+    getPermissionCheck,
     createObjectType,
     listObjectTypes,
     getObjectType,
@@ -681,6 +935,40 @@ function normalizeObjectSetFilter(filterExpression) {
   };
 }
 
+function normalizePolicyRules(rules) {
+  if (!Array.isArray(rules)) {
+    throw new ApiError(400, "invalid_policy", "rules_json must be an array");
+  }
+
+  return rules.map((rule, index) => {
+    assertPlainObject(rule, `rules_json[${index}]`);
+
+    const effect = rule.effect ?? "allow";
+    assertEnum(effect, `rules_json[${index}].effect`, POLICY_EFFECTS);
+
+    const action = requireString(rule.action, `rules_json[${index}].action`);
+    const resourceType = requireString(rule.resource_type, `rules_json[${index}].resource_type`);
+    const roles = rule.roles ?? [];
+
+    assertStringArray(roles, `rules_json[${index}].roles`);
+
+    if (roles.length === 0) {
+      throw new ApiError(400, "invalid_policy", `rules_json[${index}].roles must include at least one role`);
+    }
+
+    for (const role of roles) {
+      assertEnum(role, `rules_json[${index}].roles`, WORKSPACE_ROLES);
+    }
+
+    return {
+      effect,
+      action,
+      resource_type: resourceType,
+      roles: [...roles]
+    };
+  });
+}
+
 function assertWorkspaceBody(input, workspaceId) {
   if (input.workspace_id && input.workspace_id !== workspaceId) {
     throw new ApiError(400, "workspace_mismatch", "Body workspace_id must match route workspace id");
@@ -696,6 +984,18 @@ function assertPlainObject(value, field) {
 function requireString(value, field) {
   if (typeof value !== "string" || value.trim() === "") {
     throw new ApiError(400, "invalid_request", `${field} is required`);
+  }
+
+  return value.trim();
+}
+
+function optionalString(value, field) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new ApiError(400, "invalid_request", `${field} must be a non-empty string when provided`);
   }
 
   return value.trim();

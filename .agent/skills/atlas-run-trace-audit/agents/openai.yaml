@@ -1,0 +1,4 @@
+interface:
+  display_name: "Atlas Run Trace Audit"
+  short_description: "Close runs with audit evidence"
+  default_prompt: "Use $atlas-run-trace-audit to produce the closure trace and audit-style evidence for this run."
