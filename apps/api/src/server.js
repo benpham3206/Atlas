@@ -1,6 +1,8 @@
 import { createServer } from "node:http";
 import { createHealthStatus } from "../../../packages/ontology-core/src/index.js";
 import { ApiError, createOntologyStore } from "./ontology-store.js";
+import { dispatchAgentTool, getAgentManifest } from "./agent-gateway.js";
+import { createFilePersistence } from "./persistence.js";
 import {
   bootstrapPersonalAtlas,
   completePersonalTask,
@@ -17,23 +19,42 @@ const DEFAULT_PORT = 4000;
 export function createApiServer(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const store = options.store ?? createOntologyStore({ now });
+  const persistence = options.persistence ?? null;
+
+  if (persistence) {
+    const snapshot = persistence.load();
+
+    if (snapshot) {
+      store.restore(snapshot);
+    }
+  }
 
   return createServer((request, response) => {
-    handleRequest({ request, response, now, store }).catch((error) => {
-      if (error instanceof ApiError) {
-        return sendJson(response, error.statusCode, {
-          error: error.code,
-          message: error.message,
-          details: error.details ?? []
-        });
-      }
+    handleRequest({ request, response, now, store })
+      .then(() => {
+        if (persistence && request.method && request.method !== "GET") {
+          try {
+            persistence.save(store.snapshot());
+          } catch (error) {
+            console.error("Failed to persist Atlas snapshot", error);
+          }
+        }
+      })
+      .catch((error) => {
+        if (error instanceof ApiError) {
+          return sendJson(response, error.statusCode, {
+            error: error.code,
+            message: error.message,
+            details: error.details ?? []
+          });
+        }
 
-      console.error(error);
-      return sendJson(response, 500, {
-        error: "internal_error",
-        message: "Internal server error"
+        console.error(error);
+        return sendJson(response, 500, {
+          error: "internal_error",
+          message: "Internal server error"
+        });
       });
-    });
   });
 }
 
@@ -89,6 +110,67 @@ async function handleRequest({ request, response, now, store }) {
     return sendJson(response, 200, {
       data: store.getUser(segments[1])
     });
+  }
+
+  if (request.method === "GET" && url.pathname === "/agent/manifest") {
+    return sendJson(response, 200, {
+      data: getAgentManifest()
+    });
+  }
+
+  if (segments[0] === "agent" && segments[1] === "tools" && segments[2] && request.method === "POST") {
+    const body = await readJsonBody(request);
+    const delegationId = extractDelegationToken(request, body);
+    const result = dispatchAgentTool(store, {
+      delegationId,
+      toolName: segments[2],
+      input: body.input ?? body
+    });
+    return sendJson(response, 200, {
+      data: result
+    });
+  }
+
+  if (request.method === "GET" && url.pathname === "/agents") {
+    return sendJson(response, 200, {
+      data: store.listAgents()
+    });
+  }
+
+  if (request.method === "POST" && url.pathname === "/agents") {
+    const agent = store.createAgent(await readJsonBody(request));
+    return sendJson(response, 201, {
+      data: agent
+    });
+  }
+
+  if (segments[0] === "agents" && segments[1] && segments.length === 2 && request.method === "GET") {
+    return sendJson(response, 200, {
+      data: store.getAgent(segments[1])
+    });
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "agent-delegations") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listAgentDelegations(workspaceId)
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const delegation = store.createAgentDelegation(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: delegation
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getAgentDelegation(workspaceId, segments[3])
+      });
+    }
   }
 
   if (segments[0] === "workspaces" && segments[1] && segments[2] === "memberships") {
@@ -156,6 +238,44 @@ async function handleRequest({ request, response, now, store }) {
     if (segments.length === 4 && request.method === "GET") {
       return sendJson(response, 200, {
         data: store.getPermissionCheck(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (
+    segments[0] === "workspaces" &&
+    segments[1] &&
+    segments[2] === "authorize" &&
+    segments.length === 3 &&
+    request.method === "POST"
+  ) {
+    return sendJson(response, 200, {
+      data: store.authorize(segments[1], await readJsonBody(request))
+    });
+  }
+
+  if (request.method === "GET" && url.pathname === "/audit/verify") {
+    return sendJson(response, 200, {
+      data: store.verifyAuditChain()
+    });
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "audit-events") {
+    const workspaceId = segments[1];
+    store.getWorkspace(workspaceId);
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listAuditEvents(workspaceId, {
+          resource_id: url.searchParams.get("resource_id"),
+          event_type: url.searchParams.get("event_type")
+        })
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getAuditEvent(segments[3])
       });
     }
   }
@@ -393,6 +513,26 @@ function sendJson(response, statusCode, body) {
   response.end(`${JSON.stringify(body)}\n`);
 }
 
+function extractDelegationToken(request, body) {
+  const header = request.headers.authorization;
+
+  if (typeof header === "string" && header.trim() !== "") {
+    const match = header.match(/^Bearer\s+(.+)$/i);
+
+    if (match) {
+      return match[1].trim();
+    }
+
+    return header.trim();
+  }
+
+  if (body && typeof body.delegation_id === "string") {
+    return body.delegation_id;
+  }
+
+  throw new ApiError(401, "missing_delegation", "Provide a delegation token via Authorization: Bearer header or delegation_id");
+}
+
 async function readJsonBody(request) {
   const chunks = [];
 
@@ -416,9 +556,17 @@ async function readJsonBody(request) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const host = process.env.HOST ?? DEFAULT_HOST;
   const port = Number.parseInt(process.env.PORT ?? `${DEFAULT_PORT}`, 10);
-  const server = createApiServer();
+  const dataFile = process.env.ATLAS_DATA_FILE;
+  const persistence = dataFile ? createFilePersistence(dataFile) : null;
+  const server = createApiServer({ persistence });
 
   server.listen(port, host, () => {
     console.log(`Atlas API listening at http://${host}:${port}`);
+
+    if (persistence) {
+      console.log(`Persisting state to ${dataFile}`);
+    } else {
+      console.log("In-memory mode (set ATLAS_DATA_FILE to persist across restarts)");
+    }
   });
 }

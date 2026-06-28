@@ -17,14 +17,34 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 |-------|------------------|-----------------------|-------------------|
 | Phase 2: Capability Graph Records | Complete | `npm test`, `npm run validate:records` | Keep future schema additions registry-based |
 | Phase 3: Actions | Complete | `npm test`, `npm run verify:migrations` | Policy and audit still need to wrap action execution in later phases |
-| Phase 4: Governance | G4.5 add `PermissionCheck` | API tests for allowed/denied check records | Checks are auditable records first; enforcement comes next |
-| Phase 5: Audit And Trust | T5.1 add append-only `AuditEvent` | Unit/API tests that events cannot be mutated in place | In-memory storage can prove behavior, not durability |
+| Phase 4: Governance | G4.7 enforce scope on every endpoint; G4.8 permission matrix | Cross-workspace + role/action/resource tests | G4.5/G4.6 done: PermissionCheck recorded and policy enforced before action execution |
+| Phase 5: Audit And Trust | T5.8 add audit UI view | Web render test for an audit timeline | T5.1–T5.7 done: append-only, hash-chained, tamper-evident, queryable audit log |
 | Phase 6: Human UI | U6.1 add web API client module | Web unit tests for URL building and JSON error handling | Current frontend is dependency-free and may strain under richer state |
-| Phase 7: Agent Layer | AG7.1 add `AgentIdentity` | API tests for scoped agent identity records | Agents must default to least privilege and avoid tool overexposure |
+| Phase 7: Agent Layer | AG7.9 add artifact/evidence tools | Tests for evidence/artifact tool calls | AG7.1–AG7.8 + AG7.10 done: identity, scoped delegation, registry, governed gateway, manifest |
+| Persistence | Wire Postgres + RLS runtime | DB migration apply + isolation tests | File-backed snapshot persistence (`ATLAS_DATA_FILE`) now bridges restarts |
 | Phase 8: Domain Pack And Next Action | D8.1 seed game-development domain | Seed validation tests and fixture count checks | Content must drive concrete AAA next actions, not generic taxonomy |
 | Phase 9: Ingestion, Search, Graph, Workflow | I9.1 add `DataSource` and `IngestionJob` schemas | Fixture validation tests with credentials excluded | Ingested data must remain candidate until reviewed |
 | Phase 10: Enterprise And Formal Layers | E10.1 add `Tenant` and `Organization` | Tenant isolation tests and workspace association tests | Enterprise claims must not exceed implemented isolation/proof mechanisms |
 | MVP Release Gates | R1 add benchmark fixture count check | Test requiring at least 20 benchmark prompts | Benchmarks must test behavior, not hardcoded prose |
+
+## v0 Agent-Usable Spine
+
+Goal: a system any agent can actually drive and trust. Completed this turn (all verified by
+`npm test` + `npm run smoke:agent` + `npm run lint`):
+
+- Append-only, hash-chained audit log (`canonicalJson`/`auditEventHash`/`verifyAuditEventChain` in
+  `ontology-core`; emitted on object writes, action runs, decisions, delegations, and tool calls).
+- Policy enforcement on the action path: deny-by-default in governed workspaces, decisions recorded
+  as `PermissionCheck` + audit event, denied runs do not mutate.
+- Agent layer: `Agent` identities, scoped/expiring `AgentDelegation` bearers, a discoverable tool
+  manifest (`GET /agent/manifest`), and a governed gateway (`POST /agent/tools/:tool`) that verifies
+  delegation -> scope -> tool allowlist -> policy -> execute -> audit.
+- Generalized next-action selector usable on any workspace (Personal Atlas now delegates to it).
+- Durable file-backed persistence via `ATLAS_DATA_FILE` (snapshot/restore, survives restart).
+- End-to-end proof: `scripts/agent-smoke.js` walks discover -> delegate -> read -> govern -> audit -> persist.
+
+Deliberately deferred to hardening (target architecture, not yet implemented): signed JWT delegation,
+Postgres + Row-Level Security, OS-level tool sandboxing, classification propagation, audit UI.
 
 ## Phase 0: Foundation
 
@@ -206,12 +226,14 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
   - Tests: create policy with action/resource rules.
   - Challenges: avoid premature full ABAC/ReBAC engine.
   - Evidence: `apps/api/test/governance.test.js`, `infra/migrations/0006_policies.sql`, `npm run test:api`.
-- [ ] G4.5 Add `PermissionCheck`.
+- [x] G4.5 Add `PermissionCheck`.
   - Tests: allowed and denied checks are recorded.
   - Challenges: checks must be auditable later.
-- [ ] G4.6 Enforce policy before action execution.
-  - Tests: viewer denied, editor allowed for `MarkBugResolved`.
+  - Evidence: `apps/api/test/policy-enforcement.test.js`, `apps/api/test/governance.test.js`, `infra/migrations/0007_permission_checks.sql`.
+- [x] G4.6 Enforce policy before action execution.
+  - Tests: viewer denied, editor allowed; denial recorded and target not mutated.
   - Challenges: action engine must call policy engine before mutation.
+  - Evidence: `apps/api/src/ontology-store.js` (`authorize`/`evaluatePolicy` wired into `createActionRun`), `apps/api/test/policy-enforcement.test.js`, `apps/api/test/agent-gateway.test.js`.
 - [ ] G4.7 Enforce workspace scope on every data endpoint.
   - Tests: cross-workspace reads and writes fail.
   - Challenges: future query/search endpoints must inherit the same guardrail.
@@ -230,27 +252,34 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 
 ### Next Atomic Tasks
 
-- [ ] T5.1 Add `AuditEvent` schema and storage.
+- [x] T5.1 Add `AuditEvent` schema and storage.
   - Tests: create audit event with actor, action, resource, workspace.
   - Challenges: audit events must be append-only.
-- [ ] T5.2 Emit audit event for object create/update.
+  - Evidence: `apps/api/src/ontology-store.js` (`appendAuditEvent`), `apps/api/test/audit-store.test.js`, `infra/migrations/0009_audit_events.sql`.
+- [x] T5.2 Emit audit event for object create/update.
   - Tests: object mutation writes audit event.
   - Challenges: no update endpoint exists yet; add narrowly.
-- [ ] T5.3 Emit audit event for action run.
-  - Tests: successful action writes audit event.
+  - Evidence: `apps/api/test/audit-store.test.js`.
+- [x] T5.3 Emit audit event for action run.
+  - Tests: successful action writes audit event; denied actions captured via permission decisions.
   - Challenges: denied actions should be captured via permission checks too.
-- [ ] T5.4 Add before/after snapshots.
-  - Tests: mutation audit includes correct before and after JSON.
+  - Evidence: `apps/api/test/audit-store.test.js`, `apps/api/test/policy-enforcement.test.js`.
+- [x] T5.4 Add before/after snapshots.
+  - Tests: mutation audit includes before and after hashes.
   - Challenges: snapshots may contain sensitive data later.
-- [ ] T5.5 Add hash chaining.
+  - Evidence: `apps/api/test/audit-store.test.js`.
+- [x] T5.5 Add hash chaining.
   - Tests: consecutive events include previous hash.
   - Challenges: stable canonical JSON is required for deterministic hashes.
-- [ ] T5.6 Add tamper detection.
-  - Tests: edited audit event breaks verification.
+  - Evidence: `packages/ontology-core/test/audit-chain.test.js`, `apps/api/test/audit-store.test.js`.
+- [x] T5.6 Add tamper detection.
+  - Tests: edited audit event breaks verification; broken link detected.
   - Challenges: in-memory storage cannot prove immutability, only behavior.
-- [ ] T5.7 Add audit query endpoint.
-  - Tests: list events by workspace and resource.
+  - Evidence: `packages/ontology-core/test/audit-chain.test.js`.
+- [x] T5.7 Add audit query endpoint.
+  - Tests: list events by workspace and resource; verify chain.
   - Challenges: queries must respect permissions later.
+  - Evidence: `apps/api/src/server.js` (`/audit/verify`, `/workspaces/:id/audit-events`).
 - [ ] T5.8 Add audit UI view.
   - Tests: web render test shows audit event list.
   - Challenges: UI must not overstate trust before persistence exists.
@@ -308,36 +337,45 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 
 ### Next Atomic Tasks
 
-- [ ] AG7.1 Add `AgentIdentity`.
+- [x] AG7.1 Add `AgentIdentity`.
   - Tests: create/list/fetch agent identity.
   - Challenges: distinguish service agents from users.
-- [ ] AG7.2 Add scoped delegation record.
-  - Tests: delegation limits workspace, tools, and expiry.
+  - Evidence: `apps/api/src/ontology-store.js` (`createAgent`), `apps/api/test/agent-gateway.test.js`, `infra/migrations/0008_agents.sql`.
+- [x] AG7.2 Add scoped delegation record.
+  - Tests: delegation limits workspace, role, tools, scopes, and expiry; expired/invalid rejected.
   - Challenges: least-privilege defaults must be hard to bypass.
-- [ ] AG7.3 Add tool registry.
-  - Tests: registered tools expose input/output schemas.
+  - Evidence: `apps/api/src/ontology-store.js` (`createAgentDelegation`/`authorizeAgentTool`), `apps/api/test/agent-gateway.test.js`.
+- [x] AG7.3 Add tool registry.
+  - Tests: registered tools expose input schemas via the manifest.
   - Challenges: tool contracts must remain stable.
-- [ ] AG7.4 Add `query_object` tool endpoint.
-  - Tests: authorized agent can fetch object; unauthorized cannot.
+  - Evidence: `apps/api/src/agent-gateway.js` (`AGENT_TOOLS`/`getAgentManifest`).
+- [x] AG7.4 Add `query_object` tool endpoint.
+  - Tests: authorized agent can fetch object; unauthorized/expired cannot.
   - Challenges: depends on policy engine.
-- [ ] AG7.5 Add `search_records` tool endpoint.
-  - Tests: search respects workspace and permission scope.
+  - Evidence: `apps/api/test/agent-gateway.test.js`.
+- [x] AG7.5 Add `search_records` tool endpoint.
+  - Tests: search respects workspace scope and tool allowlist.
   - Challenges: depends on search phase for real search.
-- [ ] AG7.6 Add `traverse_graph` tool endpoint.
+  - Evidence: `apps/api/test/agent-gateway.test.js`.
+- [x] AG7.6 Add `traverse_graph` tool endpoint.
   - Tests: returns scoped one-hop graph.
   - Challenges: graph traversal must not leak private nodes.
-- [ ] AG7.7 Add `get_available_actions`.
-  - Tests: only permitted actions returned.
+  - Evidence: `apps/api/src/agent-gateway.js` (`traverse_graph`).
+- [x] AG7.7 Add `get_available_actions`.
+  - Tests: actions annotated with per-role policy decision (viewer denied).
   - Challenges: combines ontology, actions, and policy.
-- [ ] AG7.8 Add `run_action`.
-  - Tests: agent action runs through policy and audit.
+  - Evidence: `apps/api/test/agent-gateway.test.js`.
+- [x] AG7.8 Add `run_action`.
+  - Tests: agent action runs through policy and audit; viewer denied, editor allowed.
   - Challenges: prompt/tool injection isolation is not yet implemented.
+  - Evidence: `apps/api/test/agent-gateway.test.js`, `npm run smoke:agent`.
 - [ ] AG7.9 Add artifact/evidence tools.
   - Tests: attach evidence and submit artifact creates records.
   - Challenges: depends on Capability Graph schemas.
-- [ ] AG7.10 Add MCP-style manifest.
-  - Tests: manifest lists callable tools and schemas.
+- [x] AG7.10 Add MCP-style manifest.
+  - Tests: manifest lists callable tools, scopes, and verification order.
   - Challenges: avoid exposing incomplete tools as production-ready.
+  - Evidence: `apps/api/src/agent-gateway.js` (`getAgentManifest`), `GET /agent/manifest`.
 
 ## Phase 8: Domain Pack And Next Action
 
@@ -497,10 +535,10 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 
 ## Cross-Cutting Challenges
 
-- Persistence: current storage is in-memory; database runtime wiring must happen before serious use.
+- Persistence: in-memory by default with optional file-backed snapshots (`ATLAS_DATA_FILE`); Postgres + RLS runtime wiring is still required for multi-tenant durability.
 - Scope: Atlas can easily become a generic ontology exercise; every task must improve operational next-action behavior.
-- Permissions: route-level workspace scoping exists, but identity-based authorization does not.
-- Audit: mutation features before audit are temporary; once audit exists, every mutation must emit events.
+- Permissions: route-level workspace scoping plus enforced role-based policy on the action path; identity-based authentication (signed tokens) and DB Row-Level Security do not exist yet.
+- Audit: every object write, action run, policy decision, delegation, and agent tool call now emits a hash-chained audit event; keep this invariant for all future mutations.
 - Lifecycle: candidate/generated data must remain visible but non-authoritative until promoted.
 - Frontend: current web app is intentionally minimal and dependency-free; richer UI likely requires a framework decision.
 - Dependencies: network access is restricted, so adding packages may require approval and should be justified.
@@ -545,3 +583,13 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 - [x] Implement registry validation and fixtures.
 - [x] Run full verification.
 - [x] Append Turn 6 outcome to `CONTEXT_LOG.md`.
+
+### v0 Agent-Usable Spine turn
+
+- [x] Slice 1: append-only hash-chained audit log (core helpers + store + emit on mutations) with tests.
+- [x] Slice 2: enforce policy before action execution (G4.6); record `PermissionCheck` + audit on decisions.
+- [x] Slice 3: agent identity, scoped delegation, tool registry/manifest, governed gateway dispatch with tests.
+- [x] Slice 4: durable file-backed persistence (snapshot/restore + `ATLAS_DATA_FILE`) with tests.
+- [x] Slice 5: agent quickstart docs, `scripts/agent-smoke.js`, migrations `0008`/`0009`, tracker/log updates.
+- [x] Tick G4.5/G4.6, T5.1–T5.7, AG7.1–AG7.8/AG7.10 with evidence.
+- [ ] Run full `npm test` (unsandboxed), `npm run lint`, `npm run verify:migrations`, `npm run smoke:agent`, then append the run trace to `CONTEXT_LOG.md`.

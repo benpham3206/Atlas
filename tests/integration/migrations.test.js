@@ -13,6 +13,8 @@ test("migration files pass static verification", () => {
     "0004_actions.sql",
     "0005_governance.sql",
     "0006_policies.sql",
-    "0007_permission_checks.sql"
+    "0007_permission_checks.sql",
+    "0008_agents.sql",
+    "0009_audit_events.sql"
   ]);
 });

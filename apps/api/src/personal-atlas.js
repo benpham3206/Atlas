@@ -1,4 +1,5 @@
 import { ApiError } from "./ontology-store.js";
+import { selectNextActionForWorkspace } from "./next-action.js";
 
 export const PERSONAL_WORKSPACE_ID = "workspace_personal";
 
@@ -379,46 +380,10 @@ function summarizePersonalAtlas(store, { already_existed, workspace }) {
 export function selectNextAction(store, workspaceId = PERSONAL_WORKSPACE_ID) {
   assertPersonalBootstrap(store);
 
-  const openTasks = getPersonalTasks(store, workspaceId).filter(
-    (task) => task.properties_json.status === "todo"
-  );
-
-  const candidates = [];
-
-  for (const task of openTasks) {
-    const blockers = getTaskBlockers(store, workspaceId, task.id);
-
-    if (blockers.length === 0) {
-      candidates.push({ task, blockers });
-    }
-  }
-
-  if (candidates.length === 0) {
-    return {
-      task: null,
-      acceptance_criteria: null,
-      explanation: "No unblocked open tasks remain.",
-      blockers: buildBlockersMap(store, workspaceId, getPersonalTasks(store, workspaceId))
-    };
-  }
-
-  candidates.sort(
-    (left, right) => left.task.properties_json.priority - right.task.properties_json.priority
-  );
-  const selected = candidates[0];
-  const priority = selected.task.properties_json.priority;
-
-  return {
-    task: selected.task,
-    acceptance_criteria: selected.task.properties_json.acceptance_criteria,
-    explanation: `Dependencies satisfied. Selected highest-priority unblocked task (priority ${priority}).`,
-    blockers: selected.blockers.map((blocker) => ({
-      id: blocker.id,
-      title: blocker.properties_json.title,
-      status: blocker.properties_json.status,
-      priority: blocker.properties_json.priority
-    }))
-  };
+  return selectNextActionForWorkspace(store, workspaceId, {
+    taskObjectTypeId: OBJECT_TYPE_PERSONAL_TASK,
+    blocksLinkTypeId: LINK_TYPE_TASK_BLOCKS_TASK
+  });
 }
 
 export function getPersonalOverview(store) {

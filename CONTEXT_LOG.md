@@ -841,3 +841,59 @@ Verified 6 migration files
 - Next tracker task is G4.5: add `PermissionCheck` records.
 
 ---
+
+## Turn 12: Outcome (2026-06-28)
+**Target:** Build the "v0 agent-usable spine" so Atlas + MoO is a system any agent can drive and trust, not just describe.
+
+### Run Trace (atlas-run-trace-audit)
+- **Objective:** make Atlas operable by an agent under least privilege with enforced policy, durable state, and a tamper-evident audit trail.
+- **Workspace/scope:** local worktree `/Users/benjaminpham/Documents/Atlas`; `apps/api`, `packages/ontology-core`, `infra/migrations`, `scripts`, docs.
+- **Source evidence:** `docs/UNIFIED_ATLAS_MOO_MASTER_PRD.md`, `.agent/skills` (dogfood loop, zero-trust-orchestration, tool-execution-runbook, verification-loop, run-trace-audit, approval-fatigue-filter), existing `ontology-store.js`/`personal-atlas.js`.
+- **Strategy:** `coding_critic_verifier` in five verifiable slices (audit -> enforcement -> agent layer -> persistence -> proof/docs).
+- **Allowed actions:** local code/test/doc edits, local verification commands (`routine_reversible`). **Blocked:** git push and any remote/irreversible action (deferred to human).
+
+### Completed Actions
+- [x] Slice 1 — Audit: added hash-chain helpers to `ontology-core` (`canonicalJson`, `sha256Hex`, `auditEventHash`, `verifyAuditEventChain`); built an append-only, hash-chained audit log in the store, emitted on object create/update, action runs, policy decisions, delegations, and agent tool calls; exposed `/audit/verify` and `/workspaces/:id/audit-events`.
+- [x] Slice 2 — Enforcement (G4.5/G4.6): `evaluatePolicy`/`authorize` with deny-by-default for governed workspaces, wired into `createActionRun`; denials recorded as `PermissionCheck` + audit event and do not mutate; added `POST /workspaces/:id/authorize`.
+- [x] Slice 3 — Agent layer (AG7.1–AG7.8, AG7.10): `Agent` identities, scoped/expiring `AgentDelegation` bearers, `agent-gateway.js` tool registry + `GET /agent/manifest`, and governed `POST /agent/tools/:tool` dispatch (resolve delegation -> status/expiry -> scope -> tool allowlist -> policy -> execute -> audit). Generalized the next-action selector (`next-action.js`); Personal Atlas now delegates to it.
+- [x] Slice 4 — Persistence: store `snapshot()`/`restore()` (including id counters), `persistence.js` file helper, server wiring via `ATLAS_DATA_FILE` (snapshot after each mutation, reload on boot).
+- [x] Slice 5 — Proof/docs: `scripts/agent-smoke.js` (`npm run smoke:agent`), migrations `0008_agents.sql` and `0009_audit_events.sql`, and README/ARCHITECTURE/SECURITY_MODEL/migrations docs + `TASKS.md` ticks.
+
+### Files Changed
+- Core/store: `packages/ontology-core/src/index.js` (+`.d.ts`), `apps/api/src/ontology-store.js`, `apps/api/src/next-action.js` (new), `apps/api/src/agent-gateway.js` (new), `apps/api/src/persistence.js` (new), `apps/api/src/personal-atlas.js`, `apps/api/src/server.js`.
+- Tests: `packages/ontology-core/test/audit-chain.test.js`, `apps/api/test/audit-store.test.js`, `apps/api/test/policy-enforcement.test.js`, `apps/api/test/agent-gateway.test.js`, `apps/api/test/persistence.test.js`, `tests/integration/migrations.test.js`.
+- Migrations/docs/scripts: `infra/migrations/0008_agents.sql`, `infra/migrations/0009_audit_events.sql`, `infra/migrations/README.md`, `README.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY_MODEL.md`, `scripts/agent-smoke.js`, `package.json`, `TASKS.md`.
+
+### Verification
+```text
+npm test
+tests 113
+pass 113
+fail 0
+
+npm run lint
+Lint passed
+
+npm run verify:migrations
+Verified 9 migration files
+
+npm run validate:records
+Validated 20 records
+
+npm run smoke:agent
+Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> persist
+(13 audit events; hash chain verifies; state survives restart; viewer run_action -> 403 policy_denied)
+```
+
+### Residual Risks / Not Implemented
+- Delegation bearers are unsigned local tokens, not signed JWTs; no real end-user authentication.
+- Isolation is enforced in application code, not database Row-Level Security; no Postgres runtime yet.
+- No OS-level tool sandboxing and no classification propagation/redaction for derived records.
+- Persistence is a full-file JSON snapshot written after each mutation (not transactional/concurrent-safe); fine for single-node v0.
+- Bug found and fixed mid-run: option-merge in the generalized next-action selector overwrote defaults with `undefined`, masking open tasks; covered by `agent-gateway.test.js`.
+
+### Next Action
+- Human decision: push the branch / open a PR (deferred per approval-fatigue-filter — irreversible/remote boundary).
+- Then begin hardening: signed JWT delegation, then Postgres + RLS wiring (migrations `0005`–`0009` already define the schema).
+
+---

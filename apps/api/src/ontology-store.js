@@ -1,4 +1,10 @@
-import { validateObjectProperties } from "../../../packages/ontology-core/src/index.js";
+import {
+  auditEventHash,
+  sha256Hex,
+  canonicalJson,
+  validateObjectProperties,
+  verifyAuditEventChain
+} from "../../../packages/ontology-core/src/index.js";
 
 export class ApiError extends Error {
   constructor(statusCode, code, message, details) {
@@ -16,10 +22,22 @@ const POLICY_STATUSES = ["active", "disabled"];
 const POLICY_EFFECTS = ["allow", "deny"];
 const PERMISSION_DECISIONS = ["allow", "deny"];
 const PRINCIPAL_TYPES = ["user", "agent", "service_account", "system"];
+const AGENT_STATUSES = ["active", "suspended"];
+const DELEGATION_STATUSES = ["active", "revoked"];
+const AGENT_SCOPES = ["atlas.read", "atlas.act"];
+const DEFAULT_DELEGATION_TTL_SECONDS = 3600;
 
 export function createOntologyStore(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
-  const createId = options.createId ?? createIdFactory();
+  const idCounters = new Map();
+  const createId = options.createId ?? defaultCreateId;
+
+  function defaultCreateId(prefix) {
+    const next = (idCounters.get(prefix) ?? 0) + 1;
+    idCounters.set(prefix, next);
+    return `${prefix}_${String(next).padStart(3, "0")}`;
+  }
+
   const workspaces = new Map();
   const users = new Map();
   const workspaceMemberships = new Map();
@@ -32,6 +50,58 @@ export function createOntologyStore(options = {}) {
   const objectSets = new Map();
   const actionTypes = new Map();
   const actionRuns = new Map();
+  const agents = new Map();
+  const agentDelegations = new Map();
+  const auditEvents = [];
+  const auditEventsById = new Map();
+
+  function appendAuditEvent(input) {
+    const previousEvent = auditEvents[auditEvents.length - 1];
+    const previousHash = previousEvent ? previousEvent.event_hash : null;
+
+    const event = {
+      id: createId("audit_event"),
+      sequence: auditEvents.length + 1,
+      workspace_id: input.workspace_id ?? null,
+      actor: input.actor ?? "system",
+      event_type: input.event_type,
+      resource_type: input.resource_type ?? null,
+      resource_id: input.resource_id ?? null,
+      decision: input.decision ?? "not_applicable",
+      before_hash: input.before === undefined ? null : hashJson(input.before),
+      after_hash: input.after === undefined ? null : hashJson(input.after),
+      metadata: input.metadata ? clone(input.metadata) : {},
+      previous_event_hash: previousHash,
+      created_at: now()
+    };
+
+    event.event_hash = auditEventHash(event);
+    auditEvents.push(event);
+    auditEventsById.set(event.id, event);
+    return clone(event);
+  }
+
+  function listAuditEvents(workspaceId, filters = {}) {
+    return auditEvents
+      .filter((event) => !workspaceId || event.workspace_id === workspaceId)
+      .filter((event) => !filters.resource_id || event.resource_id === filters.resource_id)
+      .filter((event) => !filters.event_type || event.event_type === filters.event_type)
+      .map(clone);
+  }
+
+  function getAuditEvent(eventId) {
+    const event = auditEventsById.get(eventId);
+
+    if (!event) {
+      throw new ApiError(404, "audit_event_not_found", "AuditEvent not found");
+    }
+
+    return clone(event);
+  }
+
+  function verifyAuditChain() {
+    return verifyAuditEventChain(auditEvents.map(clone));
+  }
 
   function createWorkspace(input) {
     assertPlainObject(input, "request body");
@@ -296,6 +366,305 @@ export function createOntologyStore(options = {}) {
     return clone(permissionCheck);
   }
 
+  function isWorkspaceGoverned(workspaceId) {
+    return [...policies.values()].some(
+      (policy) => policy.workspace_id === workspaceId && policy.status === "active"
+    );
+  }
+
+  function evaluatePolicy(workspaceId, request) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(request, "request");
+
+    const action = requireString(request.action, "action");
+    const resourceType = requireString(request.resource_type, "resource_type");
+    const role = request.role ?? null;
+
+    if (role !== null) {
+      assertEnum(role, "role", WORKSPACE_ROLES);
+    }
+
+    const rules = [...policies.values()]
+      .filter((policy) => policy.workspace_id === workspaceId && policy.status === "active")
+      .flatMap((policy) => policy.rules_json.map((rule) => ({ ...rule, policy_id: policy.id })));
+
+    if (rules.length === 0) {
+      return { decision: "allow", reason: "no_active_policy", policy_id: null };
+    }
+
+    if (role === null) {
+      return { decision: "deny", reason: "role_required_in_governed_workspace", policy_id: null };
+    }
+
+    const matches = rules.filter((rule) => policyRuleMatches(rule, { role, action, resourceType }));
+    const denyRule = matches.find((rule) => rule.effect === "deny");
+
+    if (denyRule) {
+      return { decision: "deny", reason: "denied_by_policy_rule", policy_id: denyRule.policy_id };
+    }
+
+    const allowRule = matches.find((rule) => rule.effect === "allow");
+
+    if (allowRule) {
+      return { decision: "allow", reason: "allowed_by_policy_rule", policy_id: allowRule.policy_id };
+    }
+
+    return { decision: "deny", reason: "no_matching_allow_rule", policy_id: null };
+  }
+
+  function authorize(workspaceId, request) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(request, "request");
+
+    const action = requireString(request.action, "action");
+    const resourceType = requireString(request.resource_type, "resource_type");
+    const role = request.role ?? null;
+    const principalType = request.principal_type ?? "user";
+    assertEnum(principalType, "principal_type", PRINCIPAL_TYPES);
+    const principalId = optionalString(request.principal_id, "principal_id")
+      ?? optionalString(request.actor, "actor")
+      ?? "local_user";
+
+    const evaluation = evaluatePolicy(workspaceId, { role, action, resource_type: resourceType });
+
+    const permissionCheck = createPermissionCheck(workspaceId, {
+      principal_type: principalType,
+      principal_id: principalId,
+      role: role ?? undefined,
+      action,
+      resource_type: resourceType,
+      resource_id: request.resource_id ?? undefined,
+      decision: evaluation.decision,
+      policy_id: evaluation.policy_id ?? undefined,
+      reason: evaluation.reason
+    });
+
+    appendAuditEvent({
+      workspace_id: workspaceId,
+      actor: principalId,
+      event_type: "permission.decision",
+      resource_type: resourceType,
+      resource_id: request.resource_id ?? null,
+      decision: evaluation.decision,
+      metadata: {
+        action,
+        reason: evaluation.reason,
+        policy_id: evaluation.policy_id,
+        role,
+        principal_type: principalType,
+        permission_check_id: permissionCheck.id
+      }
+    });
+
+    return { ...evaluation, permission_check_id: permissionCheck.id };
+  }
+
+  function createAgent(input) {
+    assertPlainObject(input, "request body");
+
+    const displayName = requireString(input.display_name, "display_name");
+    const status = input.status ?? "active";
+    assertEnum(status, "status", AGENT_STATUSES);
+
+    const timestamp = now();
+    const agent = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("agent"),
+      display_name: displayName,
+      status,
+      created_at: timestamp,
+      updated_at: timestamp
+    };
+
+    if (agents.has(agent.id)) {
+      throw new ApiError(409, "agent_conflict", "Agent already exists");
+    }
+
+    agents.set(agent.id, agent);
+    return clone(agent);
+  }
+
+  function listAgents() {
+    return [...agents.values()].map(clone);
+  }
+
+  function getAgent(agentId) {
+    const agent = agents.get(agentId);
+
+    if (!agent) {
+      throw new ApiError(404, "agent_not_found", "Agent not found");
+    }
+
+    return clone(agent);
+  }
+
+  function createAgentDelegation(workspaceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    assertWorkspaceBody(input, workspaceId);
+
+    const agentId = requireString(input.agent_id, "agent_id");
+    const agent = agents.get(agentId);
+
+    if (!agent) {
+      throw new ApiError(404, "agent_not_found", "Agent not found");
+    }
+
+    if (agent.status !== "active") {
+      throw new ApiError(409, "agent_not_active", "Agent must be active to receive a delegation");
+    }
+
+    const role = input.role ?? "viewer";
+    assertEnum(role, "role", WORKSPACE_ROLES);
+
+    const scopes = input.scopes ?? ["atlas.read"];
+    assertStringArray(scopes, "scopes");
+
+    for (const scope of scopes) {
+      assertEnum(scope, "scopes", AGENT_SCOPES);
+    }
+
+    const allowedTools = input.allowed_tools ?? ["*"];
+    assertStringArray(allowedTools, "allowed_tools");
+
+    const issuedAt = now();
+    let expiresAt;
+
+    if (input.expires_at !== undefined && input.expires_at !== null) {
+      expiresAt = requireString(input.expires_at, "expires_at");
+
+      if (Number.isNaN(Date.parse(expiresAt))) {
+        throw new ApiError(400, "invalid_request", "expires_at must be an ISO timestamp");
+      }
+    } else {
+      const ttlSeconds = input.ttl_seconds ?? DEFAULT_DELEGATION_TTL_SECONDS;
+
+      if (!Number.isInteger(ttlSeconds) || ttlSeconds <= 0) {
+        throw new ApiError(400, "invalid_request", "ttl_seconds must be a positive integer");
+      }
+
+      expiresAt = new Date(Date.parse(issuedAt) + ttlSeconds * 1000).toISOString();
+    }
+
+    const delegation = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("delegation"),
+      workspace_id: workspaceId,
+      agent_id: agentId,
+      role,
+      scopes: [...scopes],
+      allowed_tools: [...allowedTools],
+      status: "active",
+      issued_at: issuedAt,
+      expires_at: expiresAt,
+      created_at: issuedAt,
+      updated_at: issuedAt
+    };
+
+    if (agentDelegations.has(delegation.id)) {
+      throw new ApiError(409, "delegation_conflict", "AgentDelegation already exists");
+    }
+
+    agentDelegations.set(delegation.id, delegation);
+    appendAuditEvent({
+      workspace_id: workspaceId,
+      actor: agentId,
+      event_type: "agent.delegation_issued",
+      resource_type: "agent_delegation",
+      resource_id: delegation.id,
+      decision: "allow",
+      metadata: {
+        role,
+        scopes: delegation.scopes,
+        allowed_tools: delegation.allowed_tools,
+        expires_at: expiresAt
+      }
+    });
+    return clone(delegation);
+  }
+
+  function listAgentDelegations(workspaceId) {
+    assertWorkspaceExists(workspaceId);
+
+    return [...agentDelegations.values()]
+      .filter((delegation) => delegation.workspace_id === workspaceId)
+      .map(clone);
+  }
+
+  function getAgentDelegation(workspaceId, delegationId) {
+    assertWorkspaceExists(workspaceId);
+    const delegation = agentDelegations.get(delegationId);
+
+    if (!delegation || delegation.workspace_id !== workspaceId) {
+      throw new ApiError(404, "delegation_not_found", "AgentDelegation not found in workspace");
+    }
+
+    return clone(delegation);
+  }
+
+  function authorizeAgentTool(delegationId, request) {
+    assertPlainObject(request, "request");
+    const tool = requireString(request.tool, "tool");
+    const requiredScope = requireString(request.required_scope, "required_scope");
+
+    const delegation = agentDelegations.get(delegationId);
+
+    if (!delegation) {
+      throw new ApiError(401, "invalid_delegation", "Delegation token is not recognized");
+    }
+
+    const denyAndThrow = (statusCode, code, reason) => {
+      appendAuditEvent({
+        workspace_id: delegation.workspace_id,
+        actor: delegation.agent_id,
+        event_type: "agent.tool_call",
+        resource_type: "agent_tool",
+        resource_id: tool,
+        decision: "deny",
+        metadata: {
+          tool,
+          delegation_id: delegation.id,
+          role: delegation.role,
+          required_scope: requiredScope,
+          reason
+        }
+      });
+      throw new ApiError(statusCode, code, `Agent tool call denied: ${reason}`);
+    };
+
+    if (delegation.status !== "active") {
+      denyAndThrow(401, "delegation_revoked", "delegation_revoked");
+    }
+
+    if (Date.parse(delegation.expires_at) <= Date.parse(now())) {
+      denyAndThrow(401, "delegation_expired", "delegation_expired");
+    }
+
+    if (!delegation.scopes.includes(requiredScope)) {
+      denyAndThrow(403, "scope_not_granted", `scope_not_granted:${requiredScope}`);
+    }
+
+    if (!delegation.allowed_tools.includes("*") && !delegation.allowed_tools.includes(tool)) {
+      denyAndThrow(403, "tool_not_allowed", `tool_not_allowed:${tool}`);
+    }
+
+    appendAuditEvent({
+      workspace_id: delegation.workspace_id,
+      actor: delegation.agent_id,
+      event_type: "agent.tool_call",
+      resource_type: "agent_tool",
+      resource_id: tool,
+      decision: "allow",
+      metadata: {
+        tool,
+        delegation_id: delegation.id,
+        role: delegation.role,
+        required_scope: requiredScope,
+        reason: "granted"
+      }
+    });
+
+    return clone(delegation);
+  }
+
   function createObjectType(workspaceId, input) {
     assertWorkspaceExists(workspaceId);
     assertPlainObject(input, "request body");
@@ -378,6 +747,15 @@ export function createOntologyStore(options = {}) {
     }
 
     objectInstances.set(objectInstance.id, objectInstance);
+    appendAuditEvent({
+      workspace_id: workspaceId,
+      actor: optionalString(input.actor, "actor") ?? "local_user",
+      event_type: "object_instance.created",
+      resource_type: "object_instance",
+      resource_id: objectInstance.id,
+      decision: "allow",
+      after: objectInstance.properties_json
+    });
     return clone(objectInstance);
   }
 
@@ -436,9 +814,20 @@ export function createOntologyStore(options = {}) {
       throw new ApiError(400, "object_validation_failed", "ObjectInstance properties do not match ObjectType schema", validation.errors);
     }
 
+    const beforeProperties = clone(objectInstance.properties_json);
     const timestamp = now();
     objectInstance.properties_json = clone(mergedProperties);
     objectInstance.updated_at = timestamp;
+    appendAuditEvent({
+      workspace_id: workspaceId,
+      actor: optionalString(input.actor, "actor") ?? "local_user",
+      event_type: "object_instance.updated",
+      resource_type: "object_instance",
+      resource_id: objectInstance.id,
+      decision: "allow",
+      before: beforeProperties,
+      after: objectInstance.properties_json
+    });
     return clone(objectInstance);
   }
 
@@ -587,6 +976,28 @@ export function createOntologyStore(options = {}) {
       throw new ApiError(409, "action_run_conflict", "ActionRun already exists");
     }
 
+    if (input.enforce_policy !== false && isWorkspaceGoverned(workspaceId)) {
+      const decision = authorize(workspaceId, {
+        principal_type: input.principal_type,
+        principal_id: input.principal_id,
+        actor: actor.trim(),
+        role: input.role,
+        action: "run_action",
+        resource_type: targetObject.object_type_id,
+        resource_id: targetObjectId
+      });
+
+      if (decision.decision === "deny") {
+        throw new ApiError(403, "policy_denied", `Action denied by policy: ${decision.reason}`, [
+          {
+            reason: decision.reason,
+            policy_id: decision.policy_id,
+            permission_check_id: decision.permission_check_id
+          }
+        ]);
+      }
+    }
+
     const timestamp = now();
     targetObject.properties_json = clone(mergedProperties);
     targetObject.updated_at = timestamp;
@@ -607,6 +1018,20 @@ export function createOntologyStore(options = {}) {
     };
 
     actionRuns.set(actionRun.id, actionRun);
+    appendAuditEvent({
+      workspace_id: workspaceId,
+      actor: actionRun.actor,
+      event_type: "action_run.completed",
+      resource_type: "object_instance",
+      resource_id: targetObjectId,
+      decision: "allow",
+      before: beforePropertiesJson,
+      after: actionRun.after_properties_json,
+      metadata: {
+        action_type_id: actionTypeId,
+        action_run_id: actionRun.id
+      }
+    });
     return clone(actionRun);
   }
 
@@ -873,6 +1298,70 @@ export function createOntologyStore(options = {}) {
     }
   }
 
+  const COLLECTIONS = {
+    workspaces,
+    users,
+    workspace_memberships: workspaceMemberships,
+    policies,
+    permission_checks: permissionChecks,
+    object_types: objectTypes,
+    object_instances: objectInstances,
+    link_types: linkTypes,
+    link_instances: linkInstances,
+    object_sets: objectSets,
+    action_types: actionTypes,
+    action_runs: actionRuns,
+    agents,
+    agent_delegations: agentDelegations
+  };
+
+  function snapshot() {
+    const data = {
+      version: 1,
+      id_counters: Object.fromEntries(idCounters),
+      audit_events: auditEvents.map(clone)
+    };
+
+    for (const [key, map] of Object.entries(COLLECTIONS)) {
+      data[key] = [...map.values()].map(clone);
+    }
+
+    return data;
+  }
+
+  function restore(state) {
+    assertPlainObject(state, "snapshot");
+
+    for (const map of Object.values(COLLECTIONS)) {
+      map.clear();
+    }
+
+    for (const [key, map] of Object.entries(COLLECTIONS)) {
+      const rows = Array.isArray(state[key]) ? state[key] : [];
+
+      for (const row of rows) {
+        map.set(row.id, clone(row));
+      }
+    }
+
+    auditEvents.length = 0;
+    auditEventsById.clear();
+
+    for (const event of Array.isArray(state.audit_events) ? state.audit_events : []) {
+      const cloned = clone(event);
+      auditEvents.push(cloned);
+      auditEventsById.set(cloned.id, cloned);
+    }
+
+    idCounters.clear();
+
+    for (const [prefix, value] of Object.entries(state.id_counters ?? {})) {
+      idCounters.set(prefix, value);
+    }
+
+    return snapshot();
+  }
+
   return {
     createWorkspace,
     listWorkspaces,
@@ -889,6 +1378,15 @@ export function createOntologyStore(options = {}) {
     createPermissionCheck,
     listPermissionChecks,
     getPermissionCheck,
+    evaluatePolicy,
+    authorize,
+    createAgent,
+    listAgents,
+    getAgent,
+    createAgentDelegation,
+    listAgentDelegations,
+    getAgentDelegation,
+    authorizeAgentTool,
     createObjectType,
     listObjectTypes,
     getObjectType,
@@ -912,7 +1410,12 @@ export function createOntologyStore(options = {}) {
     createObjectSet,
     listObjectSets,
     getObjectSet,
-    listObjectSetObjects
+    listObjectSetObjects,
+    listAuditEvents,
+    getAuditEvent,
+    verifyAuditChain,
+    snapshot,
+    restore
   };
 }
 
@@ -967,6 +1470,13 @@ function normalizePolicyRules(rules) {
       roles: [...roles]
     };
   });
+}
+
+function policyRuleMatches(rule, { role, action, resourceType }) {
+  const actionMatch = rule.action === "*" || rule.action === action;
+  const resourceMatch = rule.resource_type === "*" || rule.resource_type === resourceType;
+  const roleMatch = rule.roles.includes(role);
+  return actionMatch && resourceMatch && roleMatch;
 }
 
 function assertWorkspaceBody(input, workspaceId) {
@@ -1029,18 +1539,12 @@ function assertStringArray(value, field) {
   }
 }
 
-function createIdFactory() {
-  const counters = new Map();
-
-  return (prefix) => {
-    const next = (counters.get(prefix) ?? 0) + 1;
-    counters.set(prefix, next);
-    return `${prefix}_${String(next).padStart(3, "0")}`;
-  };
-}
-
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function hashJson(value) {
+  return sha256Hex(canonicalJson(value));
 }
 
 function deepEqual(left, right) {
