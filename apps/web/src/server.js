@@ -3,7 +3,9 @@ import { createHealthStatus } from "../../../packages/ontology-core/src/index.js
 import {
   bootstrapPersonalAtlas,
   completePersonalTask,
-  fetchPersonalOverview
+  fetchPersonalOverview,
+  fetchWorkspacePullRequestArtifacts,
+  fetchWorkspaceReviewPackets
 } from "./api-client.js";
 import { renderBootstrapPage, renderPersonalDashboard } from "./render.js";
 
@@ -14,6 +16,8 @@ export function createWebServer(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const apiUrl = options.apiUrl ?? process.env.ATLAS_API_URL ?? "http://127.0.0.1:4000";
   const fetchOverview = options.fetchPersonalOverview ?? fetchPersonalOverview;
+  const fetchReviewPackets = options.fetchWorkspaceReviewPackets ?? fetchWorkspaceReviewPackets;
+  const fetchPullRequestArtifacts = options.fetchWorkspacePullRequestArtifacts ?? fetchWorkspacePullRequestArtifacts;
   const bootstrapAtlas = options.bootstrapPersonalAtlas ?? bootstrapPersonalAtlas;
   const completeTask = options.completePersonalTask ?? completePersonalTask;
 
@@ -24,6 +28,8 @@ export function createWebServer(options = {}) {
       now,
       apiUrl,
       fetchOverview,
+      fetchReviewPackets,
+      fetchPullRequestArtifacts,
       bootstrapAtlas,
       completeTask
     }).catch((error) => {
@@ -47,6 +53,8 @@ async function handleRequest({
   now,
   apiUrl,
   fetchOverview,
+  fetchReviewPackets,
+  fetchPullRequestArtifacts,
   bootstrapAtlas,
   completeTask
 }) {
@@ -95,11 +103,38 @@ async function handleRequest({
       );
     }
 
+    const workspaceId = overviewResult.data.workspace_id ?? overviewResult.data.workspace?.id;
+    let reviewPackets = [];
+    let pullRequestArtifacts = [];
+    let reviewInboxError = null;
+
+    if (workspaceId) {
+      const [reviewPacketsResult, pullRequestArtifactsResult] = await Promise.all([
+        fetchReviewPackets(apiUrl, workspaceId),
+        fetchPullRequestArtifacts(apiUrl, workspaceId)
+      ]);
+
+      if (reviewPacketsResult.ok) {
+        reviewPackets = reviewPacketsResult.data ?? [];
+      } else {
+        reviewInboxError = reviewPacketsResult.error?.message ?? "Failed to load review packets";
+      }
+
+      if (pullRequestArtifactsResult.ok) {
+        pullRequestArtifacts = pullRequestArtifactsResult.data ?? [];
+      } else {
+        reviewInboxError = pullRequestArtifactsResult.error?.message ?? reviewInboxError ?? "Failed to load PR artifacts";
+      }
+    }
+
     return sendHtml(
       response,
       200,
       renderPersonalDashboard(overviewResult.data, {
-        error: queryError
+        error: queryError,
+        reviewPackets,
+        pullRequestArtifacts,
+        reviewInboxError
       })
     );
   }

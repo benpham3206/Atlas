@@ -2,22 +2,6 @@
 
 Atlas is a minimal operational ontology platform. The Personal Atlas v0 slice adds governed actions, a next-action dashboard, and an in-memory personal workspace.
 
-## What Exists
-
-- `apps/api`: backend HTTP server with ontology nouns, actions, enforced policies, an append-only audit log, a governed agent gateway, and personal endpoints.
-- `apps/web`: server-rendered personal dashboard with API proxy.
-- `packages/ontology-core`: shared health/status types, object property validation, BaseRecord validation, and the audit hash-chain helpers.
-- `infra/migrations`: database migration artifacts.
-- `docs`: PRD, architecture, Codex rules, and task queue.
-
-The ontology nouns and links are implemented with in-memory API storage: `Workspace`, `ObjectType`, `ObjectInstance`, `LinkType`, `LinkInstance`, and `ObjectSet`. Generic `ActionType` and `ActionRun` records support declarative property-update effects. Local `User`, `WorkspaceMembership`, and `Policy` records model governance, and policies are now **enforced on the action path**: in a workspace with at least one active policy, an action run must present a role permitted by an allow rule (deny-by-default), every decision is recorded as a `PermissionCheck`, and every state change is written to an append-only, **hash-chained audit log**. `GoalContract` records constrain agent work before execution. `Agent` identities plus scoped, expiring `AgentDelegation` tokens drive a discoverable **agent gateway** (`GET /agent/manifest`, `POST /agent/tools/:tool`) so any agent can operate a workspace under least privilege, with every tool call authorized and audited. The gateway can open a GitHub PR from an agent branch namespace and produce a `ReviewPacket`, but it exposes no merge tool or merge scope. Personal Atlas seeds a Carbon Copy, Atlas self-hosting roadmap, task graph, and next-action selector.
-
-The Capability Graph record foundation is implemented in `ontology-core`: `BaseRecord` validation, a declarative record type registry, table-driven Phase 2 specs, AAA-wedge fixtures, and record validation command support. Candidate records remain visible but non-authoritative; only approved operational records can drive future recommendations or state-changing behavior.
-
-State is held in memory by default and can be **persisted to disk** by setting `ATLAS_DATA_FILE` (a JSON snapshot written after each mutation and reloaded on boot).
-
-Still on the target-architecture roadmap (not yet implemented): real authentication (OAuth 2.0 / cryptographically signed JWT delegation), Postgres + Row-Level Security for multi-tenant isolation, and sandboxed tool execution. Delegation tokens are currently local scoped bearers, not signed JWTs. The GitHub PR adapter uses `GITHUB_TOKEN` when configured; tests use an injected client rather than making live network calls.
-
 ## Requirements
 
 - Node.js 18.17 or newer.
@@ -54,6 +38,8 @@ npm run dev:web
 ```
 
 The web app listens on `http://localhost:3000` by default.
+When review packets exist for the current workspace, the dashboard includes a Review inbox with the
+PR artifact, verification commands, critic/safety findings, and the pending human-only action.
 
 ## Tests
 
@@ -400,16 +386,21 @@ curl -X POST http://localhost:4000/agent/tools/run_action \
 
 Available tools: `get_workspace_overview`, `query_object`, `list_objects`, `search_records`,
 `traverse_graph`, `get_available_actions`, `get_next_action`, `run_action`, `github.open_pr`,
-`generate_review_packet`, `verify_audit_chain`. There is intentionally no merge tool.
+`generate_review_packet`, `slack.get_channel_info`, `verify_audit_chain`. There is intentionally no
+merge tool and no Slack write tool.
 
-Open a PR through the GitHub tool only after setting `GITHUB_TOKEN` for the API process. The
+Open a PR through the GitHub tool only after setting `GITHUB_TOKEN`,
+`GITHUB_ALLOWED_REPOSITORIES`, and `GITHUB_ALLOWED_BASE_BRANCHES` for the API process. The
 `head_branch` must start with `codex/` or `agent/`; protected-branch merge remains a human-only
-boundary.
+boundary. Set `GITHUB_DRY_RUN=1` to exercise the same gateway/audit path without calling GitHub.
 
 ## Audit Log
 
 Every object create/update, action run, policy decision, delegation, and agent tool call appends a
-hash-chained audit event. The chain is tamper-evident and verifiable.
+hash-chained audit event. GitHub PR attempts also append `github.pull_request.open_attempted` for
+success, dry-run, allowlist denial, and client failure. Slack read attempts append
+`slack.conversation.info_attempted` for success, allowlist denial, and client failure. The chain is
+tamper-evident and verifiable.
 
 ```sh
 curl http://localhost:4000/audit/verify
@@ -423,3 +414,8 @@ curl http://localhost:4000/workspaces/workspace_game_studio/audit-events
 - `ATLAS_API_URL`: API URL displayed by the web placeholder. Defaults to `http://localhost:4000`.
 - `ATLAS_DATA_FILE`: when set, the API persists its full state to this JSON file after each mutation and reloads it on boot. Unset means in-memory only (resets on restart).
 - `GITHUB_TOKEN`: optional token used by the API GitHub client for `github.open_pr`. Use a narrowly scoped token that can create pull requests but cannot merge protected branches.
+- `GITHUB_ALLOWED_REPOSITORIES`: comma-separated repository allowlist for `github.open_pr`, for example `benpham3206/Atlas`.
+- `GITHUB_ALLOWED_BASE_BRANCHES`: comma-separated base-branch allowlist for `github.open_pr`, for example `main`.
+- `GITHUB_DRY_RUN`: set to `1` or `true` to force `github.open_pr` to create a dry-run artifact and audit event without calling GitHub.
+- `SLACK_TOKEN`: optional token used by the API Slack client for read-only Slack tools.
+- `SLACK_ALLOWED_CHANNELS`: comma-separated channel-id allowlist for `slack.get_channel_info`, for example `C0123456789`.

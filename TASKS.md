@@ -99,10 +99,31 @@ and destructive delete remain human-only boundaries; do not add merge tools or m
   verification commands, critic findings, safety findings, audit event ids, and default
   `pending_human_actions: ["protected_branch_merge"]`.
 
-### N4. Next hardening after N1-N3
-- Add a live smoke path that uses a narrowly scoped `GITHUB_TOKEN` to open a real draft/test PR from
-  an agent branch, then verifies the review packet and confirms merge remains absent.
-- Add richer Critic/Safety-Verification records once the review packet has a real PR loop to consume.
+### N4. Prove and harden the GitHub PR boundary — Implemented; live smoke pending
+- Add repository and base-branch allowlists for `github.open_pr`, so a delegation cannot open PRs
+  against arbitrary repositories or protected branches.
+- Add dry-run mode for the same gateway/audit path without calling GitHub.
+- Audit every GitHub PR attempt, including success, dry-run, allowlist denial, and client failure.
+- Evidence: `github.open_pr` requires `githubPolicy.allowed_repositories` and
+  `githubPolicy.allowed_base_branches`, runtime env supports `GITHUB_ALLOWED_REPOSITORIES`,
+  `GITHUB_ALLOWED_BASE_BRANCHES`, and `GITHUB_DRY_RUN`, and tests cover allowlist denial, dry-run
+  without client call, and client failure audit. The remaining proof is a live network smoke against
+  an existing remote branch with a narrowly scoped `GITHUB_TOKEN`.
+
+### N5. Second Tool Router integration — read-only Slack — Complete
+- Add one read-only external tool to prove the gateway pattern is not GitHub-specific.
+- Start with no write side effects, explicit resource allowlist, and audit on success/failure.
+- Evidence: `slack.get_channel_info` uses the Slack `conversations.info` read path behind
+  `slack.read`, requires `SLACK_ALLOWED_CHANNELS` / `slackPolicy.allowed_channel_ids`, exposes no
+  Slack write tool, and tests cover allowlisted success, channel denial before client call, and
+  client failure audit.
+
+### N6. Minimal review inbox UI — Complete
+- Surface review packets and PR artifacts in the web app so a human can see what the agent did and
+  the one pending human-only action.
+- Evidence: web API client fetches `review-packets` and `pull-request-artifacts`, the dashboard
+  renders a compact Review inbox with PR URL, verification commands, critic/safety findings, and
+  `pending_human_actions`, and web tests cover render plus server paths.
 
 ### Deferred hardening (do not start until N1 proves the loop)
 - Signed JWT delegation (replace unsigned local bearer).

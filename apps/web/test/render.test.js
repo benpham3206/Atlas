@@ -136,6 +136,41 @@ test("dashboard renders next action, blockers, and complete form", () => {
   assert.match(html, /name="evidence_note"/);
 });
 
+test("dashboard renders review inbox packet and pending human action", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    reviewPackets: [
+      {
+        id: "review_packet_001",
+        pull_request_artifact_id: "pull_request_artifact_001",
+        summary: "Review-ready agent branch",
+        status: "review_ready",
+        verification_commands: ["npm test"],
+        critic_findings: ["No merge tool exposed"],
+        safety_findings: ["GoalContract blocks merge"],
+        pending_human_actions: ["protected_branch_merge"]
+      }
+    ],
+    pullRequestArtifacts: [
+      {
+        id: "pull_request_artifact_001",
+        repository: "benpham3206/Atlas",
+        title: "Agent branch",
+        head_branch: "codex/n4",
+        base_branch: "main",
+        external_url: "https://github.com/benpham3206/Atlas/pull/99",
+        state: "open"
+      }
+    ]
+  });
+
+  assert.match(html, /Review inbox/);
+  assert.match(html, /Review-ready agent branch/);
+  assert.match(html, /protected_branch_merge/);
+  assert.match(html, /npm test/);
+  assert.match(html, /No merge tool exposed/);
+  assert.match(html, /GoalContract blocks merge/);
+});
+
 test("GET /health returns web ok", async (t) => {
   const server = createWebServer({
     now: () => "2026-06-14T00:00:00.000Z",

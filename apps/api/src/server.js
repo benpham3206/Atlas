@@ -2,8 +2,9 @@ import { createServer } from "node:http";
 import { createHealthStatus } from "../../../packages/ontology-core/src/index.js";
 import { ApiError, createOntologyStore } from "./ontology-store.js";
 import { dispatchAgentTool, getAgentManifest } from "./agent-gateway.js";
-import { createGitHubClientFromEnv } from "./github-client.js";
+import { createGitHubClientFromEnv, createGitHubPolicyFromEnv } from "./github-client.js";
 import { createFilePersistence } from "./persistence.js";
+import { createSlackClientFromEnv, createSlackPolicyFromEnv } from "./slack-client.js";
 import {
   bootstrapPersonalAtlas,
   completePersonalTask,
@@ -22,6 +23,9 @@ export function createApiServer(options = {}) {
   const store = options.store ?? createOntologyStore({ now });
   const persistence = options.persistence ?? null;
   const githubClient = options.githubClient ?? null;
+  const githubPolicy = options.githubPolicy ?? { allowed_repositories: [], allowed_base_branches: [], dry_run: false };
+  const slackClient = options.slackClient ?? null;
+  const slackPolicy = options.slackPolicy ?? { allowed_channel_ids: [] };
 
   if (persistence) {
     const snapshot = persistence.load();
@@ -32,7 +36,7 @@ export function createApiServer(options = {}) {
   }
 
   return createServer((request, response) => {
-    handleRequest({ request, response, now, store, githubClient })
+    handleRequest({ request, response, now, store, githubClient, githubPolicy, slackClient, slackPolicy })
       .then(() => {
         if (persistence && request.method && request.method !== "GET") {
           try {
@@ -60,7 +64,7 @@ export function createApiServer(options = {}) {
   });
 }
 
-async function handleRequest({ request, response, now, store, githubClient }) {
+async function handleRequest({ request, response, now, store, githubClient, githubPolicy, slackClient, slackPolicy }) {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
   const segments = url.pathname.split("/").filter(Boolean);
 
@@ -127,7 +131,7 @@ async function handleRequest({ request, response, now, store, githubClient }) {
       delegationId,
       toolName: segments[2],
       input: body.input ?? body
-    }, { githubClient });
+    }, { githubClient, githubPolicy, slackClient, slackPolicy });
     return sendJson(response, 200, {
       data: result
     });
@@ -623,7 +627,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const dataFile = process.env.ATLAS_DATA_FILE;
   const persistence = dataFile ? createFilePersistence(dataFile) : null;
   const githubClient = createGitHubClientFromEnv();
-  const server = createApiServer({ persistence, githubClient });
+  const githubPolicy = createGitHubPolicyFromEnv();
+  const slackClient = createSlackClientFromEnv();
+  const slackPolicy = createSlackPolicyFromEnv();
+  const server = createApiServer({ persistence, githubClient, githubPolicy, slackClient, slackPolicy });
 
   server.listen(port, host, () => {
     console.log(`Atlas API listening at http://${host}:${port}`);
