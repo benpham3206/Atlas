@@ -86,17 +86,22 @@ Owns HTTP API routes. Current routes:
 - `GET /workspaces/:workspace_id/audit-events` lists audit events for one workspace (filterable by `resource_id`, `event_type`).
 - `GET /workspaces/:workspace_id/audit-events/:event_id` fetches a single audit event.
 - `GET /agents` / `POST /agents` / `GET /agents/:agent_id` manage agent identities.
+- `GET /workspaces/:workspace_id/goal-contracts` / `POST /workspaces/:workspace_id/goal-contracts` manage GoalContracts that constrain agent allowed/blocked actions and optional next-action configuration.
+- `GET /workspaces/:workspace_id/goal-contracts/:goal_contract_id` fetches a GoalContract scoped to one workspace.
 - `GET /workspaces/:workspace_id/agent-delegations` lists scoped delegations for one workspace.
-- `POST /workspaces/:workspace_id/agent-delegations` mints a scoped, expiring delegation (role + scopes + allowed tools + expiry).
+- `POST /workspaces/:workspace_id/agent-delegations` mints a scoped, expiring delegation (role + scopes + allowed tools + optional GoalContract + expiry).
 - `GET /workspaces/:workspace_id/agent-delegations/:delegation_id` fetches a delegation.
+- `GET /workspaces/:workspace_id/pull-request-artifacts` / `GET /workspaces/:workspace_id/pull-request-artifacts/:artifact_id` expose PR artifacts created by the agent gateway.
+- `GET /workspaces/:workspace_id/review-packets` / `POST /workspaces/:workspace_id/review-packets` manage bundled review packets.
+- `GET /workspaces/:workspace_id/review-packets/:review_packet_id` fetches one review packet.
 - `GET /agent/manifest` returns the discoverable agent tool contract (tools, scopes, verification order).
-- `POST /agent/tools/:tool` dispatches a governed agent tool call; authorizes the delegation bearer (status, expiry, scope, tool allowlist), evaluates policy for actions, executes within the delegation's workspace, and appends an audit event for every call (allow or deny).
+- `POST /agent/tools/:tool` dispatches a governed agent tool call; authorizes the delegation bearer (status, expiry, scope, tool allowlist, GoalContract allowed/blocked actions), evaluates policy for action runs, executes within the delegation's workspace, and appends an audit event for every call (allow or deny). `github.open_pr` can create a PR from `codex/` or `agent/` branches; no merge tool exists.
 - `POST /personal/bootstrap` seeds the personal workspace, object types, Atlas self-hosting roadmap, tasks, and complete-task action type. Idempotent.
 - `GET /personal/overview` returns carbon copy, project, tasks, blockers map, next action, and security boundary notice.
 - `GET /personal/next-action` returns the highest-priority unblocked open personal task with acceptance criteria and blocker context.
 - `POST /personal/tasks/:task_id/complete` completes a personal task via the complete-task ActionType/ActionRun path; requires `artifact_uri` and `evidence_note`.
 
-Storage is in-memory by default and can be snapshotted to a JSON file when `ATLAS_DATA_FILE` is set (`apps/api/src/persistence.js`): the full store is written after each mutating request and reloaded on boot, so state survives restarts without a database. The migrations under `infra/migrations/` (`0001`–`0009`) define the intended Postgres schema for the same records. `0004_actions.sql` adds `action_types` and `action_runs`. `0005_governance.sql` adds local `users` and `workspace_memberships`. `0006_policies.sql` adds local `policies`. `0007_permission_checks.sql` adds `permission_checks`. `0008_agents.sql` adds `agents` and `agent_delegations`. `0009_audit_events.sql` adds the insert-only, hash-chained `audit_events` log.
+Storage is in-memory by default and can be snapshotted to a JSON file when `ATLAS_DATA_FILE` is set (`apps/api/src/persistence.js`): the full store is written after each mutating request and reloaded on boot, so state survives restarts without a database. The migrations under `infra/migrations/` (`0001`–`0010`) define the intended Postgres schema for the same records. `0004_actions.sql` adds `action_types` and `action_runs`. `0005_governance.sql` adds local `users` and `workspace_memberships`. `0006_policies.sql` adds local `policies`. `0007_permission_checks.sql` adds `permission_checks`. `0008_agents.sql` adds `agents` and `agent_delegations`. `0009_audit_events.sql` adds the insert-only, hash-chained `audit_events` log. `0010_goal_contracts_review_packets.sql` adds GoalContracts, PullRequestArtifacts, and ReviewPackets.
 
 ### `apps/web`
 
@@ -121,7 +126,7 @@ Owns shared cross-app types and tiny runtime helpers. Current exports cover:
 
 ### `infra/migrations`
 
-Reserved for database migrations. The current migrations define `workspaces`, `object_types`, `object_instances`, `link_types`, `link_instances`, `object_sets`, `action_types`, `action_runs`, `users`, `workspace_memberships`, `policies`, `permission_checks`, `agents`, `agent_delegations`, and `audit_events`.
+Reserved for database migrations. The current migrations define `workspaces`, `object_types`, `object_instances`, `link_types`, `link_instances`, `object_sets`, `action_types`, `action_runs`, `users`, `workspace_memberships`, `policies`, `permission_checks`, `agents`, `agent_delegations`, `audit_events`, `goal_contracts`, `pull_request_artifacts`, and `review_packets`.
 
 Migration verification is currently static because no local Postgres runtime is configured. `npm run verify:migrations` checks ordering, file naming, semicolon termination, and duplicate table creation.
 
@@ -135,7 +140,8 @@ Ontology nouns
 -> governed actions
 -> policy checks (enforced on the action path)
 -> hash-chained audit log
--> agent-readable tools (governed gateway + scoped delegations)
+-> agent-readable tools (governed gateway + scoped delegations + GoalContracts)
+-> open-PR-not-merge GitHub tool and review packet records
 -> generalized next-action engine
 -> durable file-backed persistence
 ```

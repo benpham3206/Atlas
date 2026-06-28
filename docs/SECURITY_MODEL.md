@@ -16,7 +16,8 @@ An object type, object instance, action run, membership, policy, delegation, or 
 What **is** now enforced:
 
 - **Policy on the action path.** Once a workspace has an active policy, an action run (direct or via the agent gateway) must present a role permitted by an allow rule and not matched by a deny rule; otherwise it is rejected (`403 policy_denied`), the target is not mutated, and the denial is recorded as a `PermissionCheck` and an audit event. Workspaces with no active policy remain open (legacy behavior).
-- **Least-privilege agent access.** Agents act through scoped, expiring `AgentDelegation` bearers bound to a workspace, role, scope set, and tool allowlist. The gateway verifies status, expiry, scope, and tool allowlist on every call. Agents cannot mint or extend their own delegations.
+- **Least-privilege agent access.** Agents act through scoped, expiring `AgentDelegation` bearers bound to a workspace, role, scope set, tool allowlist, and optional `GoalContract`. The gateway verifies status, expiry, scope, tool allowlist, and GoalContract allowed/blocked actions on every call. Agents cannot mint or extend their own delegations.
+- **Open-PR-not-merge GitHub boundary.** The gateway exposes `github.open_pr` behind the `github.pr:create` scope and an agent branch namespace (`codex/` or `agent/`). It records a `PullRequestArtifact` and audit event. There is no merge tool and no merge scope; protected-branch merge remains a human-only boundary.
 - **Append-only audit.** Object writes, action runs, policy decisions, delegations, and agent tool calls append to a hash-chained audit log (`canonicalJson` + SHA-256 over each event plus the previous hash) that is verifiable and tamper-evident via `GET /audit/verify`.
 
 What is **not** yet real: cryptographically signed identity/JWTs, OS-level tool sandboxing, classification propagation/redaction, and database Row-Level Security. Local `User`/`WorkspaceMembership` records are still identity scaffolding, not authenticated principals; delegation bearers are unsigned local tokens.
@@ -26,8 +27,8 @@ What is **not** yet real: cryptographically signed identity/JWTs, OS-level tool 
 1. Every request must resolve tenant and workspace before returning data. — **partial** (workspace scoping; no authenticated tenant/identity yet).
 2. No endpoint may return records outside the caller's workspace. — **enforced at the application layer** (not yet DB Row-Level Security).
 3. Every action must pass policy before mutation. — **enforced** (deny-by-default in governed workspaces).
-4. Every mutation must create an audit event. — **implemented** for object writes, action runs, policy decisions, delegations, and agent tool calls.
-5. Agent tools must be least-privilege by default. — **enforced** via scoped delegations and per-delegation tool allowlists.
+4. Every mutation must create an audit event. — **implemented** for object writes, action runs, policy decisions, delegations, agent tool calls, PR artifacts, and review packets.
+5. Agent tools must be least-privilege by default. — **enforced** via scoped delegations, per-delegation tool allowlists, GoalContract action constraints, and absent merge capability.
 6. Derived records, summaries, and embeddings must inherit source permissions. — **not yet** (classification propagation is future work).
 
 ## Personal Atlas v0 Boundary
@@ -53,6 +54,6 @@ Completing a personal task creates an ActionRun and a hash-chained audit event. 
 ## In Place For Current Slice
 
 - Enforced role-based policy on the action path (deny-by-default in governed workspaces).
-- Least-privilege agent gateway with scoped, expiring delegations and tool allowlists.
+- Least-privilege agent gateway with scoped, expiring delegations, tool allowlists, optional GoalContracts, and open-PR-not-merge GitHub capability.
 - Append-only, hash-chained, verifiable audit log.
 - Optional durable file-backed persistence (`ATLAS_DATA_FILE`).
