@@ -336,6 +336,23 @@ See the whole loop run end-to-end (discover -> delegate -> read -> govern -> aud
 npm run smoke:agent
 ```
 
+Prove the GitHub PR boundary without calling GitHub (allowlist denial, dry-run artifact, audit chain):
+
+```sh
+npm run smoke:github-open-pr
+```
+
+Optional live GitHub proof (requires a narrowly scoped `GITHUB_TOKEN`, allowlists, and an existing remote branch):
+
+```sh
+GITHUB_LIVE_SMOKE=1 \
+GITHUB_TOKEN=... \
+GITHUB_ALLOWED_REPOSITORIES=benpham3206/Atlas \
+GITHUB_ALLOWED_BASE_BRANCHES=main \
+GITHUB_HEAD_BRANCH=codex/n4-n6-hardening-review-loop \
+npm run smoke:github-open-pr
+```
+
 Discover the tool contract (no auth required for discovery):
 
 ```sh

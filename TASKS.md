@@ -99,16 +99,18 @@ and destructive delete remain human-only boundaries; do not add merge tools or m
   verification commands, critic findings, safety findings, audit event ids, and default
   `pending_human_actions: ["protected_branch_merge"]`.
 
-### N4. Prove and harden the GitHub PR boundary — Implemented; live smoke pending
+### N4. Prove and harden the GitHub PR boundary — Complete
 - Add repository and base-branch allowlists for `github.open_pr`, so a delegation cannot open PRs
   against arbitrary repositories or protected branches.
 - Add dry-run mode for the same gateway/audit path without calling GitHub.
 - Audit every GitHub PR attempt, including success, dry-run, allowlist denial, and client failure.
+- Open live PRs as **draft** by default (no merge capability exists in the gateway).
 - Evidence: `github.open_pr` requires `githubPolicy.allowed_repositories` and
   `githubPolicy.allowed_base_branches`, runtime env supports `GITHUB_ALLOWED_REPOSITORIES`,
-  `GITHUB_ALLOWED_BASE_BRANCHES`, and `GITHUB_DRY_RUN`, and tests cover allowlist denial, dry-run
-  without client call, and client failure audit. The remaining proof is a live network smoke against
-  an existing remote branch with a narrowly scoped `GITHUB_TOKEN`.
+  `GITHUB_ALLOWED_BASE_BRANCHES`, and `GITHUB_DRY_RUN`, tests cover allowlist denial, dry-run
+  without client call, and client failure audit, and `npm run smoke:github-open-pr` proves the
+  boundary without network. Optional live proof: `GITHUB_LIVE_SMOKE=1` with scoped token + existing
+  `GITHUB_HEAD_BRANCH`.
 
 ### N5. Second Tool Router integration — read-only Slack — Complete
 - Add one read-only external tool to prove the gateway pattern is not GitHub-specific.

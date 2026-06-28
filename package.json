@@ -20,7 +20,8 @@
     "test:core": "node --test packages/ontology-core/test/*.test.js",
     "validate:records": "node scripts/validate-records.js tests/fixtures/capability-records.valid.json",
     "verify:migrations": "node scripts/verify-migrations.js",
-    "smoke:agent": "node scripts/agent-smoke.js"
+    "smoke:agent": "node scripts/agent-smoke.js",
+    "smoke:github-open-pr": "node scripts/github-open-pr-smoke.js"
   },
   "engines": {
     "node": ">=18.17"
