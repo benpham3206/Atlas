@@ -46,6 +46,49 @@ Goal: a system any agent can actually drive and trust. Completed this turn (all 
 Deliberately deferred to hardening (target architecture, not yet implemented): signed JWT delegation,
 Postgres + Row-Level Security, OS-level tool sandboxing, classification propagation, audit UI.
 
+## What's Next (prioritized)
+
+Apply `.agent/skills/the-algorithm` before each item: question the requirement, prefer
+safety-by-absence, build the smallest verifiable inch. Order reflects meaning-per-line, not the
+phase numbering above.
+
+### N0. Land the design-discipline docs (tiny, do first)
+- Commit `the-algorithm` skill + `AGENTS.md` wiring (algorithm + MoO architecture references).
+- Why: this is the discipline that governs every item below; it should be in place before the next build.
+
+### N1. First real Tool Router integration — GitHub "open-PR-not-merge" (keystone)
+- Implement a scoped GitHub tool exposed through the agent gateway: open a PR / push to a branch
+  namespace, with **no merge tool and no merge scope in any agent delegation**.
+- Verification: an `editor`-role agent can open a PR; there is no code path by which it can merge to a
+  protected branch (capability absent, not approval-gated). Audit event recorded for the tool call.
+- Why first: converts safety-by-absence from an in-Atlas model into a guarantee over a real external
+  system. It is the direct structural answer to the "agent force-merged to dev" incident and the
+  highest meaning-per-line increment in the repo. Everything else is plumbing for or polish on this.
+- Challenges: real network/credentials cross the sandbox boundary and need scoped tokens; keep the
+  tool contract narrow (no merge, no force-push, branch namespace allowlist).
+
+### N2. GoalContract object (front door)
+- Add a `GoalContract` ontology object: objective, constraints, allowed/blocked actions, risk class,
+  budget, done-definition; route a vague goal into a bounded task graph.
+- Verification: a GoalContract drives next-action selection and constrains which actions are allowed.
+- Why second: it is the single human approval moment that makes this leadership, not autocomplete —
+  but it is worth more once N1 lets a contract drive a real external action.
+
+### N3. Review-ready packet / approval surface
+- Produce a bundled "what changed + evidence + audit refs + the one irreversible thing pending"
+  artifact, surfaced once per loop (not per step).
+- Verification: a completed loop yields a packet listing changed objects, audit events, and the
+  pending human-only action.
+- Why third: this is the "interrupt the human exactly once, at the boundary" payoff; it depends on
+  N1 producing real artifacts worth reviewing.
+
+### Deferred hardening (do not start until N1 proves the loop)
+- Signed JWT delegation (replace unsigned local bearer).
+- Postgres + Row-Level Security runtime (replace app-level scope + file snapshot).
+- Sandboxed tool execution profiles; classification propagation/redaction; audit UI (T5.8).
+- Why deferred: these harden guarantees that already exist in model form. By the algorithm, do not
+  optimize/secure a part until N1 has proven the product loop is worth hardening.
+
 ## Phase 0: Foundation
 
 ### Phase Challenges

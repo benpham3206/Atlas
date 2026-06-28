@@ -7,6 +7,20 @@ Atlas is a zero-dependency Node.js monorepo (npm workspaces: `apps/api`, `apps/w
 target. Standard commands (run/test/lint/verify) are documented in `README.md` and `package.json`
 `scripts` — use those; they are not duplicated here.
 
+## Design discipline (apply before building)
+
+Before scoping a feature or adding any record type, table, endpoint, status, role, flag, or
+subsystem, apply **the algorithm** (`.agent/skills/the-algorithm/SKILL.md`): question the
+requirement, delete the part, simplify, accelerate, automate — in that order, with a bias toward
+removal. Prefer **safety-by-absence over safety-by-machinery**: the strongest control is a missing
+capability/scope/tool evaluated on the write path, not a checking subsystem an LLM must pass.
+
+All security/authority design must conform to MoO's zero-trust architecture: the canonical spec is
+`docs/UNIFIED_ATLAS_MOO_MASTER_PRD.md`, and the operating rules + `ToolCall` verification order are
+in `.agent/skills/zero-trust-orchestration/SKILL.md`. Authority comes only from short-lived scoped
+delegation + the Tool Router; agents cannot self-extend scope; audit append is platform-side; do not
+micromanage agents per step — they report asynchronously through the hash-chained audit log.
+
 ## Project-local agent skills
 
 Reusable Atlas/MoO operating instructions live under `.agent/skills`.
@@ -24,8 +38,9 @@ Non-obvious notes for future agents:
 - No external npm packages. `npm install` only links the local workspace packages; modules are
   imported via relative paths, so dependency installation is essentially a no-op. There is no
   `package-lock.json`.
-- The API store is fully in-memory (`apps/api/src/ontology-store.js`). All workspaces/objects/links
-  reset on every API restart — do not expect data to persist across `dev:api` restarts.
+- The API store is in-memory by default (`apps/api/src/ontology-store.js`); data resets on restart
+  unless `ATLAS_DATA_FILE` is set, which snapshots the full store to JSON after each mutation and
+  reloads it on boot (`apps/api/src/persistence.js`).
 - Despite `infra/migrations`, there is no database runtime wiring yet. `npm run verify:migrations`
   only statically validates migration files; nothing connects to a DB.
 - Object instance IDs are auto-generated sequentially (`object_001`, `object_002`, ...), so the
