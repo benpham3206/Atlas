@@ -1,10 +1,15 @@
 /**
  * Run API (:4000) and web (:3000) together for Personal Atlas dogfood.
  * Skips a service if its port already responds (avoids EADDRINUSE).
+ * Writes a default local MCP session file once the API is reachable.
  */
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import {
+  bootstrapOperationalSession,
+  publishOperationalSession
+} from "./operational-support.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const API_URL = process.env.ATLAS_API_URL ?? "http://127.0.0.1:4000";
@@ -17,6 +22,21 @@ async function probe(url) {
   } catch {
     return false;
   }
+}
+
+async function waitForApi(url, timeoutMs = 15000) {
+  const healthUrl = `${url.replace(/\/$/, "")}/health`;
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (await probe(healthUrl)) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error(`API did not become ready at ${url}`);
 }
 
 function run(label, script) {
@@ -70,14 +90,21 @@ if (webUp) {
   children.push(run("web", "apps/web/src/server.js"));
 }
 
-if (children.length === 0) {
-  console.log("Personal Atlas: API and web are already running.");
-  console.log(`  API  ${API_URL}`);
-  console.log(`  Web  ${WEB_URL}`);
-  process.exit(0);
-}
+await waitForApi(API_URL);
+
+const session = await bootstrapOperationalSession(API_URL);
+const { sessionFile, kit } = publishOperationalSession(session, API_URL);
 
 console.log("Personal Atlas:");
 console.log(`  API  ${API_URL}`);
 console.log(`  Web  ${WEB_URL}`);
+console.log(`  MCP session ${sessionFile}`);
+console.log(`  Delegation ${kit.ATLAS_DELEGATION_ID} (expires ${kit.expires_at})`);
+console.log("Cursor MCP can point at scripts/atlas-mcp-stdio.js with ATLAS_SESSION_FILE from cursor_mcp_config.");
+
+if (children.length === 0) {
+  console.log("API and web were already running; refreshed the local MCP session file.");
+  process.exit(0);
+}
+
 console.log("Ctrl+C stops processes started by this command (not pre-existing servers).");
