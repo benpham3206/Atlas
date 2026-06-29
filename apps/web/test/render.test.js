@@ -60,6 +60,22 @@ test("bootstrap page renders form", () => {
   assert.match(html, /<h1>Personal Atlas<\/h1>/);
   assert.match(html, /Bootstrap Personal Atlas/);
   assert.match(html, /<form method="post" action="\/bootstrap">/);
+  assert.match(html, /layout-bootstrap/);
+  assert.match(html, /bootstrap-sticky/);
+});
+
+test("bootstrap page shows API hint when unreachable", () => {
+  const html = renderBootstrapPage({ error: "fetch failed", apiUnreachable: true });
+  assert.match(html, /npm run dev:api/);
+});
+
+test("bootstrap page keeps tree left and detail right in markup", () => {
+  const html = renderBootstrapPage();
+  const treeIndex = html.indexOf('class="tree-panel"');
+  const detailIndex = html.indexOf('class="detail-panel"');
+  assert.ok(treeIndex > 0 && detailIndex > 0);
+  assert.match(html, /grid-template-areas/);
+  assert.match(html, /atlas-layout-critical/);
 });
 
 test("dashboard renders API-shaped next action", () => {
@@ -138,6 +154,7 @@ test("dashboard renders next action, blockers, and complete form", () => {
 
 test("dashboard renders workspace selector with selected state", () => {
   const html = renderPersonalDashboard(sampleOverview, {
+    view: "workspaces",
     workspaces: [
       { id: "workspace_personal", name: "Personal Atlas" },
       { id: "workspace_game_studio", name: "AAA Game Studio" }
@@ -145,16 +162,17 @@ test("dashboard renders workspace selector with selected state", () => {
     selectedWorkspaceId: "workspace_game_studio"
   });
 
-  assert.match(html, /Workspace context/);
+  assert.match(html, /Workspaces/);
   assert.match(html, /Personal Atlas/);
   assert.match(html, /AAA Game Studio/);
-  assert.match(html, /href="\/\?workspace_id=workspace_game_studio"/);
+  assert.match(html, /href="\/\?view=workspaces&amp;workspace_id=workspace_game_studio"/);
   assert.match(html, /class="workspace-link is-selected"/);
-  assert.match(html, /Personal next-action completion remains bound to Personal Atlas/);
+  assert.match(html, /Personal next-action stays on Personal Atlas/);
 });
 
 test("dashboard renders ontology manager object type inventory", () => {
   const html = renderPersonalDashboard(sampleOverview, {
+    view: "ontology",
     selectedWorkspaceId: "workspace_game_studio",
     objectTypes: [
       {
@@ -187,6 +205,7 @@ test("dashboard renders ontology manager object type inventory", () => {
 
 test("dashboard renders object instance list", () => {
   const html = renderPersonalDashboard(sampleOverview, {
+    view: "objects",
     selectedWorkspaceId: "workspace_game_studio",
     objects: [
       {
@@ -209,11 +228,12 @@ test("dashboard renders object instance list", () => {
   assert.match(html, /title: Camera clips through wall/);
   assert.match(html, /status: open/);
   assert.match(html, /severity: 2/);
-  assert.match(html, /href="\/\?workspace_id=workspace_game_studio&amp;object_id=object_bug_camera_clip"/);
+  assert.match(html, /href="\/\?view=object-detail&amp;workspace_id=workspace_game_studio&amp;object_id=object_bug_camera_clip"/);
 });
 
 test("dashboard renders selected object detail and one-hop links", () => {
   const html = renderPersonalDashboard(sampleOverview, {
+    view: "object-detail",
     selectedObject: {
       id: "object_bug_camera_clip",
       object_type_id: "object_type_bug",
@@ -249,6 +269,7 @@ test("dashboard renders selected object detail and one-hop links", () => {
 
 test("dashboard renders graph explorer nodes and edges", () => {
   const html = renderPersonalDashboard(sampleOverview, {
+    view: "graph",
     selectedWorkspaceId: "workspace_game_studio",
     objects: [
       {
@@ -275,7 +296,7 @@ test("dashboard renders graph explorer nodes and edges", () => {
   assert.match(html, /Graph explorer/);
   assert.match(html, /Nodes/);
   assert.match(html, /Edges/);
-  assert.match(html, /href="\/\?workspace_id=workspace_game_studio&amp;object_id=object_bug_camera_clip"/);
+  assert.match(html, /href="\/\?view=object-detail&amp;workspace_id=workspace_game_studio&amp;object_id=object_bug_camera_clip"/);
   assert.match(html, /object_type_build/);
   assert.match(html, /link_type_bug_affects_build/);
   assert.match(html, /object_bug_camera_clip -> object_build_v001/);
@@ -283,6 +304,7 @@ test("dashboard renders graph explorer nodes and edges", () => {
 
 test("dashboard renders action runner form", () => {
   const html = renderPersonalDashboard(sampleOverview, {
+    view: "actions",
     selectedWorkspaceId: "workspace_game_studio",
     objects: [
       {
@@ -313,6 +335,7 @@ test("dashboard renders action runner form", () => {
 
 test("dashboard renders review inbox packet and pending human action", () => {
   const html = renderPersonalDashboard(sampleOverview, {
+    view: "review-inbox",
     reviewPackets: [
       {
         id: "review_packet_001",
@@ -348,6 +371,7 @@ test("dashboard renders review inbox packet and pending human action", () => {
 
 test("dashboard renders audit timeline events", () => {
   const html = renderPersonalDashboard(sampleOverview, {
+    view: "audit",
     auditEvents: [
       {
         id: "audit_event_001",

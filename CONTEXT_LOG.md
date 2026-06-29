@@ -1283,3 +1283,19 @@ GitHub open-PR boundary smoke complete (allowlist + dry-run + audit).
 - Continue with D8.1 seed game-development domain.
 
 ---
+
+## Turn 25 — Hermes + Ben live dogfood (2026-06-29)
+
+**INTENT:** Use built Personal/operational Atlas on live API (not design-only).
+
+**EXECUTE:**
+- Started `dev:api`; `operational:bootstrap` with Ben objective; `smoke:operational` green on delegation `delegation_001`.
+- `POST /personal/bootstrap` → `workspace_personal`, 5 tasks, blocker links.
+- `GET /personal/next-action` → `object_task_harden_personal_loop`.
+- Governed tool overview + `audit/verify` valid.
+
+**OUTCOME:** System is runnable and trustworthy for daily dogfood. Handoff brick doc: `docs/bricks/HERMES_DOGFOOD_2026-06-29.md`. Codex/Cursor implement next; Hermes owns architecture.
+
+**NEXT:** Wire Cursor MCP from handoff; implement personal-loop hardening **or** D8.1 per brick doc.
+
+---

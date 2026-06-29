@@ -209,8 +209,8 @@ test("server renders dashboard when overview is available", async (t) => {
   const html = await response.text();
 
   assert.equal(response.status, 200);
-  assert.match(html, /Personal Atlas/);
-  assert.match(html, /Workspace context/);
+  assert.match(html, /atlas\//);
+  assert.match(html, /Mixture of Orchestrators Platform/);
   assert.match(html, /Next action/);
   assert.match(html, /Read endpoints are side-effect free/);
   assert.match(html, /action="\/tasks\/object_task_harden_personal_loop\/complete"/);
@@ -266,12 +266,12 @@ test("server renders workspace selector and uses selected workspace for scoped p
     }
   });
 
-  const response = await fetch(`${baseUrl}/?workspace_id=workspace_game_studio`);
+  const response = await fetch(`${baseUrl}/?view=workspaces&workspace_id=workspace_game_studio`);
   const html = await response.text();
 
   assert.equal(response.status, 200);
   assert.match(html, /AAA Game Studio/);
-  assert.match(html, /href="\/\?workspace_id=workspace_game_studio"/);
+  assert.match(html, /href="\/\?view=workspaces&amp;workspace_id=workspace_game_studio"/);
   assert.match(html, /class="workspace-link is-selected"/);
   assert.deepEqual(scopedWorkspaceIds, [
     "workspace_game_studio",
@@ -316,7 +316,7 @@ test("server renders ontology manager object types for selected workspace", asyn
     })
   });
 
-  const response = await fetch(`${baseUrl}/`);
+  const response = await fetch(`${baseUrl}/?view=ontology`);
   const html = await response.text();
 
   assert.equal(response.status, 200);
@@ -355,7 +355,7 @@ test("server renders object instances for selected workspace", async (t) => {
     })
   });
 
-  const response = await fetch(`${baseUrl}/`);
+  const response = await fetch(`${baseUrl}/?view=objects`);
   const html = await response.text();
 
   assert.equal(response.status, 200);
@@ -410,7 +410,9 @@ test("server renders selected object detail with one-hop links", async (t) => {
     })
   });
 
-  const response = await fetch(`${baseUrl}/?workspace_id=workspace_personal&object_id=object_bug_camera_clip`);
+  const response = await fetch(
+    `${baseUrl}/?view=object-detail&workspace_id=workspace_personal&object_id=object_bug_camera_clip`
+  );
   const html = await response.text();
 
   assert.equal(response.status, 200);
@@ -465,7 +467,7 @@ test("server renders graph explorer nodes and edges", async (t) => {
     })
   });
 
-  const response = await fetch(`${baseUrl}/`);
+  const response = await fetch(`${baseUrl}/?view=graph`);
   const html = await response.text();
 
   assert.equal(response.status, 200);
@@ -499,7 +501,7 @@ test("server renders action runner when action types and objects are available",
     })
   });
 
-  const response = await fetch(`${baseUrl}/`);
+  const response = await fetch(`${baseUrl}/?view=actions`);
   const html = await response.text();
 
   assert.equal(response.status, 200);
@@ -714,7 +716,7 @@ test("server renders review inbox when packets are available", async (t) => {
     })
   });
 
-  const response = await fetch(`${baseUrl}/`);
+  const response = await fetch(`${baseUrl}/?view=review-inbox`);
   const html = await response.text();
 
   assert.equal(response.status, 200);
@@ -757,7 +759,7 @@ test("server renders audit timeline when audit events are available", async (t) 
     })
   });
 
-  const response = await fetch(`${baseUrl}/`);
+  const response = await fetch(`${baseUrl}/?view=audit`);
   const html = await response.text();
 
   assert.equal(response.status, 200);
@@ -785,11 +787,10 @@ test("server renders audit timeline API error without hiding dashboard", async (
     })
   });
 
-  const response = await fetch(`${baseUrl}/`);
+  const response = await fetch(`${baseUrl}/?view=audit`);
   const html = await response.text();
 
   assert.equal(response.status, 200);
-  assert.match(html, /Next action/);
   assert.match(html, /Audit timeline/);
   assert.match(html, /Audit unavailable/);
 });

@@ -1,3 +1,6 @@
+import { DEFAULT_VIEW, normalizeView, renderPlatformSidebarHtml } from "./moo-tree.js";
+import { renderRepoPathPanel } from "./atlas-repo-tree.js";
+
 export function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -7,188 +10,326 @@ export function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function pageShell(title, body) {
+function pageShell(title, body, layoutOptions = {}) {
+  const useTree = layoutOptions.tree !== false;
+  const treeHtml = layoutOptions.treeHtml ?? "";
+  const bootstrapMode = layoutOptions.bootstrapMode === true;
+  const layoutClass = [
+    useTree ? "layout-tree" : "layout-single",
+    bootstrapMode ? "layout-bootstrap" : ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const treeColumn = `<aside class="tree-panel" aria-label="Navigation trees">${treeHtml}</aside>`;
+  const detailColumn = `<main class="detail-panel">${body}</main>`;
+  const twoPane = `${treeColumn}${detailColumn}`;
+
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style id="atlas-layout-critical">
+      body.layout-tree {
+        display: grid;
+        grid-template-columns: 320px minmax(0, 1fr);
+        grid-template-areas: "nav main";
+        height: 100vh;
+        overflow: hidden;
+        margin: 0;
+      }
+      body.layout-tree .tree-panel { grid-area: nav; }
+      body.layout-tree .detail-panel { grid-area: main; }
+      @media (max-width: 900px) {
+        body.layout-tree {
+          grid-template-columns: 1fr;
+          grid-template-areas: "nav" "main";
+          height: auto;
+          min-height: 100vh;
+          overflow: visible;
+        }
+        body.layout-tree.layout-bootstrap {
+          grid-template-areas: "main" "nav";
+        }
+      }
+    </style>
     <title>${escapeHtml(title)}</title>
     <style>
       :root {
-        color-scheme: light;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #f7f7f4;
-        color: #171713;
+        color-scheme: light dark;
+        --bg: #0d1110;
+        --panel: #141a18;
+        --border: #2a3530;
+        --text: #e8efe9;
+        --muted: #8a9a90;
+        --link: #7ec8a8;
+        --selected: #c4f0d4;
+        font-family: "IBM Plex Mono", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
+        background: var(--bg);
+        color: var(--text);
       }
+
+      * { box-sizing: border-box; }
 
       body {
         margin: 0;
         min-height: 100vh;
+      }
+
+      .layout-tree {
+        display: grid;
+        grid-template-columns: 320px minmax(0, 1fr);
+        grid-template-areas: "nav main";
+        height: 100vh;
+        overflow: hidden;
+        align-items: stretch;
+      }
+
+      .tree-panel {
+        grid-area: nav;
+      }
+
+      .detail-panel {
+        grid-area: main;
+      }
+
+      @media (max-width: 900px) {
+        .layout-tree {
+          grid-template-columns: 1fr;
+          grid-template-areas: "nav" "main";
+          height: auto;
+          min-height: 100vh;
+          overflow: visible;
+        }
+        .layout-bootstrap.layout-tree {
+          grid-template-areas: "main" "nav";
+        }
+        .layout-tree .tree-panel {
+          max-height: 42vh;
+          overflow: auto;
+          border-bottom: 1px solid var(--border);
+          border-right: none;
+        }
+        .layout-bootstrap .tree-panel {
+          max-height: 38vh;
+          border-bottom: none;
+          border-top: 1px solid var(--border);
+        }
+      }
+
+      .layout-bootstrap .tree-panel {
+        border-right: 1px solid var(--border);
+      }
+
+      .tree-panel {
+        padding: 16px 12px 24px 16px;
+        border-right: 1px solid var(--border);
+        background: var(--panel);
+        overflow: auto;
+        max-height: 100vh;
+      }
+
+      .detail-panel {
+        padding: 20px 24px 48px;
+        overflow: auto;
+        max-height: 100vh;
+      }
+
+      .bootstrap-sticky {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        margin: -20px -24px 16px;
+        padding: 16px 24px 12px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .api-hint {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border: 1px dashed var(--border);
+        border-radius: 4px;
+        font-size: 12px;
+      }
+
+      .api-hint code {
+        color: var(--link);
+      }
+
+      .tree-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .tree-section-divider {
+        padding-top: 16px;
+        border-top: 1px dashed var(--border);
+      }
+
+      .tree-section .tree-pre {
+        margin: 8px 0 0;
+      }
+
+      .layout-single main {
+        width: min(860px, 100%);
+        margin: 0 auto;
         padding: 32px 24px 48px;
       }
 
-      main {
-        width: min(860px, 100%);
-        margin: 0 auto;
+      .tree-pre {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .tree-root {
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .tree-dir {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .tree-leaf {
+        color: var(--muted);
+      }
+
+      .tree-link {
+        color: var(--link);
+        text-decoration: none;
+      }
+
+      .tree-link:hover {
+        text-decoration: underline;
+      }
+
+      .tree-link.is-selected {
+        color: var(--selected);
+        font-weight: 700;
+      }
+
+      .tree-status {
+        color: #6a756c;
+        font-size: 11px;
       }
 
       h1 {
         margin: 0 0 8px;
-        font-size: clamp(32px, 6vw, 56px);
-        line-height: 1;
-        font-weight: 720;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
       }
 
       h2 {
-        margin: 0 0 12px;
-        font-size: 22px;
-        line-height: 1.2;
+        margin: 0 0 10px;
+        font-size: 15px;
+        font-weight: 600;
       }
 
       h3 {
         margin: 0 0 8px;
-        font-size: 16px;
-        line-height: 1.3;
+        font-size: 13px;
       }
 
       p, li {
         margin: 0;
-        color: #55554a;
-        font-size: 16px;
-        line-height: 1.55;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
       }
 
       ul {
         margin: 0;
-        padding-left: 20px;
+        padding-left: 18px;
       }
 
       section {
-        margin-top: 28px;
-        padding: 20px 22px;
-        border: 1px solid #dddcd4;
-        border-radius: 12px;
-        background: #fff;
+        margin-top: 20px;
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--panel);
       }
 
       .notice {
-        border-color: #d9c27a;
-        background: #fff9e8;
+        border-color: #4a5a40;
       }
 
       .error {
-        border-color: #d88;
-        background: #fff3f3;
-        color: #7a1f1f;
+        border-color: #8a4040;
+        color: #f0c0c0;
       }
 
       .next-action {
-        border-color: #7aa8d9;
-        background: #f0f7ff;
+        border-color: #3a6a55;
       }
 
       .muted {
-        color: #77776c;
-        font-size: 14px;
+        color: var(--muted);
+        font-size: 12px;
       }
 
-      .task-list {
+      .task-list, .review-list, .audit-list, .ontology-list {
         list-style: none;
         padding: 0;
         display: grid;
-        gap: 12px;
+        gap: 8px;
       }
 
-      .task-item {
-        padding: 14px 16px;
-        border: 1px solid #e4e3db;
-        border-radius: 10px;
-        background: #fafaf8;
+      .task-item, .review-item, .audit-item, .ontology-item, .object-item {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
       }
 
       .task-item.is-next {
-        border-color: #7aa8d9;
-        background: #f0f7ff;
+        border-color: #3a6a55;
       }
 
       .task-meta {
         display: flex;
-        gap: 10px;
+        gap: 8px;
         flex-wrap: wrap;
         margin-top: 6px;
-        font-size: 14px;
-        color: #66665c;
+        font-size: 12px;
       }
 
       .badge {
         display: inline-block;
-        padding: 2px 8px;
-        border-radius: 999px;
-        background: #ecebe4;
-        font-size: 12px;
+        padding: 1px 6px;
+        border-radius: 2px;
+        background: #1f2824;
+        font-size: 11px;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
-      }
-
-      .review-list {
-        list-style: none;
-        padding: 0;
-        display: grid;
-        gap: 12px;
-      }
-
-      .review-item,
-      .audit-item {
-        padding: 14px 16px;
-        border: 1px solid #e4e3db;
-        border-radius: 10px;
-        background: #fafaf8;
       }
 
       .review-grid {
         display: grid;
-        gap: 8px;
-        margin-top: 8px;
+        gap: 6px;
+        margin-top: 6px;
       }
 
       .review-link {
-        color: #174f88;
+        color: var(--link);
         overflow-wrap: anywhere;
-      }
-
-      .audit-list {
-        list-style: none;
-        padding: 0;
-        display: grid;
-        gap: 12px;
-      }
-
-      .ontology-list {
-        list-style: none;
-        padding: 0;
-        display: grid;
-        gap: 12px;
-      }
-
-      .ontology-item,
-      .object-item {
-        padding: 14px 16px;
-        border: 1px solid #e4e3db;
-        border-radius: 10px;
-        background: #fafaf8;
       }
 
       .graph-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
       }
 
       .audit-hash {
-        font-size: 12px;
-        color: #66665c;
+        font-size: 11px;
         overflow-wrap: anywhere;
       }
 
@@ -201,45 +342,42 @@ function pageShell(title, body) {
       .workspace-link {
         display: inline-flex;
         align-items: center;
-        min-height: 34px;
-        padding: 0 12px;
-        border: 1px solid #d4d3ca;
-        border-radius: 8px;
-        color: #171713;
+        min-height: 28px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text);
         text-decoration: none;
-        background: #fafaf8;
       }
 
       .workspace-link.is-selected {
-        border-color: #171713;
-        background: #171713;
-        color: #f7f7f4;
+        border-color: var(--selected);
+        color: var(--selected);
       }
 
       form {
         display: grid;
-        gap: 12px;
-        margin-top: 12px;
+        gap: 10px;
+        margin-top: 10px;
       }
 
       label {
         display: grid;
-        gap: 6px;
-        font-size: 14px;
-        color: #44443c;
+        gap: 4px;
+        font-size: 12px;
       }
 
       input, select, textarea {
         font: inherit;
-        padding: 10px 12px;
-        border: 1px solid #cccbc3;
-        border-radius: 8px;
-        background: #fff;
-        color: #171713;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg);
+        color: var(--text);
       }
 
       textarea {
-        min-height: 88px;
+        min-height: 72px;
         resize: vertical;
       }
 
@@ -247,28 +385,26 @@ function pageShell(title, body) {
         justify-self: start;
         font: inherit;
         font-weight: 600;
-        padding: 10px 16px;
-        border: 0;
-        border-radius: 8px;
-        background: #171713;
-        color: #f7f7f4;
+        padding: 8px 14px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: #1f2824;
+        color: var(--text);
         cursor: pointer;
       }
 
       button:hover {
-        background: #2d2d28;
+        border-color: var(--link);
       }
 
       code {
         font: inherit;
-        color: #171713;
+        color: var(--selected);
       }
     </style>
   </head>
-  <body>
-    <main>
-      ${body}
-    </main>
+  <body class="${layoutClass}">
+    ${useTree ? twoPane : `<main>${body}</main>`}
   </body>
 </html>`;
 }
@@ -350,12 +486,12 @@ function formatInlineList(values) {
   return values.map((value) => escapeHtml(value)).join(", ");
 }
 
-function renderWorkspaceSelector({ workspaces = [], selectedWorkspaceId, error } = {}) {
+function renderWorkspaceSelector({ workspaces = [], selectedWorkspaceId, error, queryParams = {} } = {}) {
   const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
 
   if (workspaces.length === 0) {
     return `<section>
-      <h2>Workspace context</h2>
+      <h2>Workspaces</h2>
       ${errorHtml}
       <p>No workspaces available.</p>
     </section>`;
@@ -364,19 +500,20 @@ function renderWorkspaceSelector({ workspaces = [], selectedWorkspaceId, error }
   const items = workspaces.map((workspace) => {
     const isSelected = workspace.id === selectedWorkspaceId;
     const name = workspace.name ?? workspace.id;
-    const href = `/?workspace_id=${encodeURIComponent(workspace.id)}`;
+    const q = new URLSearchParams({ ...queryParams, workspace_id: workspace.id });
+    const href = `/?${q.toString()}`;
     return `<a class="workspace-link${isSelected ? " is-selected" : ""}" href="${escapeHtml(href)}" aria-current="${isSelected ? "page" : "false"}">
       ${escapeHtml(name)}
     </a>`;
   });
 
   return `<section>
-    <h2>Workspace context</h2>
+    <h2>Workspaces</h2>
     ${errorHtml}
     <div class="workspace-selector">
       ${items.join("")}
     </div>
-    <p class="muted">Controls workspace-scoped review and audit panels. Personal next-action completion remains bound to Personal Atlas.</p>
+    <p class="muted">Scoped data for review, audit, ontology, and graph. Personal next-action stays on Personal Atlas.</p>
   </section>`;
 }
 
@@ -482,7 +619,7 @@ function summarizeProperties(properties) {
     .join("; ");
 }
 
-function renderObjectList({ objects = [], selectedWorkspaceId, error } = {}) {
+function renderObjectList({ objects = [], selectedWorkspaceId, error, queryParams = {} } = {}) {
   const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
 
   if (objects.length === 0) {
@@ -494,12 +631,14 @@ function renderObjectList({ objects = [], selectedWorkspaceId, error } = {}) {
   }
 
   const items = objects.map((object) => {
-    const href = selectedWorkspaceId
-      ? `/?workspace_id=${encodeURIComponent(selectedWorkspaceId)}&object_id=${encodeURIComponent(object.id)}`
-      : null;
-    const title = href
-      ? `<a class="review-link" href="${escapeHtml(href)}">${escapeHtml(object.id)}</a>`
-      : escapeHtml(object.id);
+    const q = new URLSearchParams({
+      ...queryParams,
+      view: "object-detail",
+      ...(selectedWorkspaceId ? { workspace_id: selectedWorkspaceId } : {}),
+      object_id: object.id
+    });
+    const href = `/?${q.toString()}`;
+    const title = `<a class="review-link" href="${escapeHtml(href)}">${escapeHtml(object.id)}</a>`;
 
     return `<li class="object-item">
     <h3>${title}</h3>
@@ -567,17 +706,19 @@ function renderObjectDetail({ object, links, error } = {}) {
   </section>`;
 }
 
-function renderGraphExplorer({ objects = [], links = [], selectedWorkspaceId, error } = {}) {
+function renderGraphExplorer({ objects = [], links = [], selectedWorkspaceId, error, queryParams = {} } = {}) {
   const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
   const nodeItems = objects.length === 0
     ? "<li><p>No nodes.</p></li>"
     : objects.map((object) => {
-        const href = selectedWorkspaceId
-          ? `/?workspace_id=${encodeURIComponent(selectedWorkspaceId)}&object_id=${encodeURIComponent(object.id)}`
-          : null;
-        const title = href
-          ? `<a class="review-link" href="${escapeHtml(href)}">${escapeHtml(object.id)}</a>`
-          : escapeHtml(object.id);
+        const q = new URLSearchParams({
+          ...queryParams,
+          view: "object-detail",
+          ...(selectedWorkspaceId ? { workspace_id: selectedWorkspaceId } : {}),
+          object_id: object.id
+        });
+        const href = `/?${q.toString()}`;
+        const title = `<a class="review-link" href="${escapeHtml(href)}">${escapeHtml(object.id)}</a>`;
         return `<li><p>${title} <span class="badge">${escapeHtml(object.object_type_id ?? "unknown_type")}</span></p></li>`;
       }).join("");
   const edgeItems = links.length === 0
@@ -749,28 +890,92 @@ function renderAuditTimeline({ auditEvents = [], error } = {}) {
   </section>`;
 }
 
+function renderStubPanel(title, body) {
+  return `<section>
+    <h2>${escapeHtml(title)}</h2>
+    <p class="muted">${body}</p>
+  </section>`;
+}
+
+function renderNextActionSection(resolvedNextAction) {
+  if (!resolvedNextAction) {
+    return `<section>
+        <h2>Next action</h2>
+        <p>No actionable task is available.</p>
+      </section>`;
+  }
+
+  const nextActionId = resolvedNextAction.id;
+
+  return `<section class="next-action">
+        <h2>Next action</h2>
+        <p><strong>${escapeHtml(resolvedNextAction.title)}</strong></p>
+        ${
+          resolvedNextAction.explanation
+            ? `<p class="muted">${escapeHtml(resolvedNextAction.explanation)}</p>`
+            : ""
+        }
+        ${
+          resolvedNextAction.acceptance_criteria
+            ? `<div>
+                <h3>Acceptance criteria</h3>
+                <p>${escapeHtml(resolvedNextAction.acceptance_criteria)}</p>
+              </div>`
+            : ""
+        }
+        ${
+          resolvedNextAction.blockers?.length
+            ? `<div>
+                <h3>Blockers</h3>
+                ${formatBlockers(resolvedNextAction.blockers)}
+              </div>`
+            : ""
+        }
+        <form method="post" action="/tasks/${escapeHtml(nextActionId)}/complete">
+          <label>
+            Artifact URI
+            <input name="artifact_uri" required placeholder="evidence/task-review.md">
+          </label>
+          <label>
+            Evidence note
+            <textarea name="evidence_note" required placeholder="Describe how acceptance criteria were met."></textarea>
+          </label>
+          <button type="submit">Complete task</button>
+        </form>
+      </section>`;
+}
+
 export function renderBootstrapPage(options = {}) {
   const errorBanner = renderErrorBanner(options.error);
+  const apiUnreachable = options.apiUnreachable === true;
+  const apiHint = apiUnreachable
+    ? `<div class="api-hint"><strong>API not reachable.</strong> Start the API in another terminal: <code>npm run dev:api</code> (default <code>http://127.0.0.1:4000</code>), then reload this page. Bootstrap will fail until the API is up.</div>`
+    : "";
   const securityBoundary =
     options.securityBoundary ??
     "Local in-memory personal state. No authentication. Data resets on API restart. Route scoping is not privacy protection.";
+  const treeHtml = renderPlatformSidebarHtml("home", { view: "home" }, "");
 
   return pageShell(
     "Atlas — Bootstrap",
-    `<h1>Personal Atlas</h1>
-      <p class="muted">Seed an in-memory workspace, Carbon Copy, project, and task graph for local development.</p>
-      ${errorBanner}
+    `<div class="bootstrap-sticky">
+        <h1>Personal Atlas</h1>
+        <p class="muted">Seed workspace, Carbon Copy, project, and task graph.</p>
+        ${errorBanner}
+        ${apiHint}
+        <section>
+          <h2>Bootstrap workspace</h2>
+          <p>No personal workspace yet. After bootstrap, use the tree to navigate.</p>
+          <form method="post" action="/bootstrap">
+            <button type="submit">Bootstrap Personal Atlas</button>
+          </form>
+        </section>
+      </div>
       <section class="notice">
         <h2>Security boundary</h2>
         <p>${escapeHtml(securityBoundary)}</p>
-      </section>
-      <section>
-        <h2>Bootstrap workspace</h2>
-        <p>No personal workspace is available yet. Bootstrap creates the Atlas self-hosting roadmap and task graph.</p>
-        <form method="post" action="/bootstrap">
-          <button type="submit">Bootstrap Personal Atlas</button>
-        </form>
-      </section>`
+      </section>`,
+    { treeHtml, bootstrapMode: true }
   );
 }
 
@@ -781,11 +986,23 @@ export function renderPersonalDashboard(overview, options = {}) {
   const project = overview.project ?? {};
   const tasks = overview.tasks ?? [];
   const blockersMap = overview.blockers ?? {};
+  const activeView = normalizeView(options.view);
+  const repoPath = options.repoPath ?? "";
+  const selectedWorkspaceId =
+    options.selectedWorkspaceId ?? overview.workspace_id ?? overview.workspace?.id;
+  const queryParams = { view: activeView };
+  if (selectedWorkspaceId) {
+    queryParams.workspace_id = selectedWorkspaceId;
+  }
+  if (options.selectedObject?.id) {
+    queryParams.object_id = options.selectedObject.id;
+  }
+
   const workspaceSelector = {
     workspaces: options.workspaces ?? [],
-    selectedWorkspaceId:
-      options.selectedWorkspaceId ?? overview.workspace_id ?? overview.workspace?.id,
-    error: options.workspaceSelectorError
+    selectedWorkspaceId,
+    error: options.workspaceSelectorError,
+    queryParams
   };
   const reviewInbox = {
     reviewPackets: options.reviewPackets ?? [],
@@ -794,13 +1011,14 @@ export function renderPersonalDashboard(overview, options = {}) {
   };
   const ontologyManager = {
     objectTypes: options.objectTypes ?? [],
-    selectedWorkspaceId: workspaceSelector.selectedWorkspaceId,
+    selectedWorkspaceId,
     error: options.ontologyManagerError
   };
   const objectList = {
     objects: options.objects ?? [],
-    selectedWorkspaceId: workspaceSelector.selectedWorkspaceId,
-    error: options.objectListError
+    selectedWorkspaceId,
+    error: options.objectListError,
+    queryParams
   };
   const objectDetail = {
     object: options.selectedObject,
@@ -810,13 +1028,14 @@ export function renderPersonalDashboard(overview, options = {}) {
   const graphExplorer = {
     objects: options.objects ?? [],
     links: options.links ?? [],
-    selectedWorkspaceId: workspaceSelector.selectedWorkspaceId,
-    error: options.graphExplorerError
+    selectedWorkspaceId,
+    error: options.graphExplorerError,
+    queryParams
   };
   const actionRunner = {
     actionTypes: options.actionTypes ?? [],
     objects: options.objects ?? [],
-    selectedWorkspaceId: workspaceSelector.selectedWorkspaceId,
+    selectedWorkspaceId,
     error: options.actionRunnerError
   };
   const auditTimeline = {
@@ -852,81 +1071,81 @@ export function renderPersonalDashboard(overview, options = {}) {
     })
     .join("");
 
-  const nextActionSection = resolvedNextAction
-    ? `<section class="next-action">
-        <h2>Next action</h2>
-        <p><strong>${escapeHtml(resolvedNextAction.title)}</strong></p>
-        ${
-          resolvedNextAction.explanation
-            ? `<p class="muted">${escapeHtml(resolvedNextAction.explanation)}</p>`
-            : ""
-        }
-        ${
-          resolvedNextAction.acceptance_criteria
-            ? `<div>
-                <h3>Acceptance criteria</h3>
-                <p>${escapeHtml(resolvedNextAction.acceptance_criteria)}</p>
-              </div>`
-            : ""
-        }
-        ${
-          resolvedNextAction.blockers?.length
-            ? `<div>
-                <h3>Blockers</h3>
-                ${formatBlockers(resolvedNextAction.blockers)}
-              </div>`
-            : ""
-        }
-        <form method="post" action="/tasks/${escapeHtml(nextActionId)}/complete">
-          <label>
-            Artifact URI
-            <input name="artifact_uri" required placeholder="evidence/task-review.md">
-          </label>
-          <label>
-            Evidence note
-            <textarea name="evidence_note" required placeholder="Describe how acceptance criteria were met."></textarea>
-          </label>
-          <button type="submit">Complete task</button>
-        </form>
-      </section>`
-    : `<section>
-        <h2>Next action</h2>
-        <p>No actionable task is available.</p>
-      </section>`;
-
-  return pageShell(
-    "Atlas — Personal Dashboard",
-    `<h1>Personal Atlas</h1>
-      <p class="muted">Next-action dashboard for your local in-memory workspace.</p>
-      ${errorBanner}
-      <section class="notice">
-        <h2>Security boundary</h2>
-        <p>${escapeHtml(securityBoundary)}</p>
-      </section>
-      ${renderWorkspaceSelector(workspaceSelector)}
-      <section>
-        <h2>Carbon Copy</h2>
-        <p><strong>Goal:</strong> ${escapeHtml(carbonGoal)}</p>
-        <p><strong>Constraints:</strong> ${escapeHtml(carbonConstraints)}</p>
-      </section>
-      <section>
-        <h2>Active project</h2>
-        <p><strong>${escapeHtml(projectName)}</strong></p>
-        <p>${escapeHtml(projectGoal)}</p>
-      </section>
-      ${renderOntologyManager(ontologyManager)}
-      ${renderObjectList(objectList)}
-      ${renderObjectDetail(objectDetail)}
-      ${renderGraphExplorer(graphExplorer)}
-      ${renderActionRunner(actionRunner)}
-      <section>
+  const tasksSection = `<section>
         <h2>Tasks</h2>
         <ul class="task-list">
           ${taskItems || "<li><p>No tasks found.</p></li>"}
         </ul>
-      </section>
-      ${renderReviewInbox(reviewInbox)}
-      ${renderAuditTimeline(auditTimeline)}
-      ${nextActionSection}`
+      </section>`;
+
+  const carbonSection = `<section>
+        <h2>Carbon Copy</h2>
+        <p><strong>Goal:</strong> ${escapeHtml(carbonGoal)}</p>
+        <p><strong>Constraints:</strong> ${escapeHtml(carbonConstraints)}</p>
+      </section>`;
+
+  const projectSection = `<section>
+        <h2>Active project</h2>
+        <p><strong>${escapeHtml(projectName)}</strong></p>
+        <p>${escapeHtml(projectGoal)}</p>
+      </section>`;
+
+  const securitySection = `<section class="notice">
+        <h2>Security boundary</h2>
+        <p>${escapeHtml(securityBoundary)}</p>
+      </section>`;
+
+  const viewPanels = {
+    home: `${securitySection}${projectSection}${carbonSection}${tasksSection}${renderNextActionSection(resolvedNextAction)}`,
+    "next-action": renderNextActionSection(resolvedNextAction),
+    "carbon-copy": `${carbonSection}${projectSection}`,
+    tasks: tasksSection,
+    workspaces: renderWorkspaceSelector(workspaceSelector),
+    ontology: renderOntologyManager(ontologyManager),
+    objects: renderObjectList(objectList),
+    "object-detail": renderObjectDetail(objectDetail),
+    graph: renderGraphExplorer(graphExplorer),
+    actions: renderActionRunner(actionRunner),
+    "review-inbox": renderReviewInbox(reviewInbox),
+    audit: renderAuditTimeline(auditTimeline),
+    "goal-contracts": renderStubPanel(
+      "Goal contracts",
+      "v0: use operational bootstrap + delegation tokens (see docs/bricks). Editor UI is a stub; data lives in API GoalContract objects."
+    ),
+    delegation: renderStubPanel(
+      "Delegation / tool registry",
+      "v0: agent manifest at /agent/manifest; governed tools via Bearer delegation id. Full registry UI not built yet."
+    ),
+    repo: renderRepoPathPanel(repoPath || "docs/PRD.md")
+  };
+
+  const detailBody = viewPanels[activeView] ?? viewPanels.home;
+  const treeHtml = renderPlatformSidebarHtml(activeView, queryParams, repoPath);
+
+  const viewTitles = {
+    home: "Orchestration console",
+    "next-action": "Next-action selector",
+    "carbon-copy": "User and goal layer",
+    tasks: "Workflow steps",
+    workspaces: "Workspaces",
+    ontology: "Orchestrator registry (ontology)",
+    objects: "State updates",
+    "object-detail": "Object detail",
+    graph: "Subtask graph",
+    actions: "Action proposals",
+    "review-inbox": "Approval inbox",
+    audit: "Governance and audit",
+    "goal-contracts": "Goal contracts",
+    delegation: "Delegation platform",
+    repo: "Monorepo path"
+  };
+
+  return pageShell(
+    `Atlas — ${viewTitles[activeView] ?? "Console"}`,
+    `<h1>${escapeHtml(viewTitles[activeView] ?? "Personal Atlas")}</h1>
+      <p class="muted">Mixture of Orchestrators Platform · local v0</p>
+      ${errorBanner}
+      ${detailBody}`,
+    { treeHtml }
   );
 }

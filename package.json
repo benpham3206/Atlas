@@ -11,6 +11,7 @@
   "scripts": {
     "dev:api": "node apps/api/src/server.js",
     "dev:web": "node apps/web/src/server.js",
+    "dev:personal": "node scripts/dev-personal.js",
     "lint": "node scripts/lint.js",
     "start:api": "node apps/api/src/server.js",
     "start:web": "node apps/web/src/server.js",

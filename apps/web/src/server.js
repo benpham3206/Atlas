@@ -22,6 +22,21 @@ import { renderBootstrapPage, renderPersonalDashboard } from "./render.js";
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 3000;
 
+function bootstrapPageOptions(overviewResult, queryError) {
+  const apiUnreachable = overviewResult?.error?.code === "network_error";
+  const notBootstrapped =
+    overviewResult?.error?.status === 404 ||
+    overviewResult?.error?.code === "not_found" ||
+    overviewResult?.error?.code === "workspace_not_bootstrapped";
+
+  let error = queryError ?? null;
+  if (!error && overviewResult && !overviewResult.ok && !notBootstrapped) {
+    error = overviewResult.error?.message ?? "Failed to load personal overview";
+  }
+
+  return { error, apiUnreachable };
+}
+
 export function createWebServer(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const apiUrl = options.apiUrl ?? process.env.ATLAS_API_URL ?? "http://127.0.0.1:4000";
@@ -118,18 +133,14 @@ async function handleRequest({
         return sendHtml(
           response,
           200,
-          renderBootstrapPage({
-            error: queryError ?? (notBootstrapped ? null : overviewResult.error?.message)
-          })
+          renderBootstrapPage(bootstrapPageOptions(overviewResult, queryError))
         );
       }
 
       return sendHtml(
         response,
         200,
-        renderBootstrapPage({
-          error: queryError ?? overviewResult.error?.message ?? "Failed to load personal overview"
-        })
+        renderBootstrapPage(bootstrapPageOptions(overviewResult, queryError))
       );
     }
 
@@ -137,15 +148,15 @@ async function handleRequest({
       return sendHtml(
         response,
         200,
-        renderBootstrapPage({
-          error: queryError
-        })
+        renderBootstrapPage(bootstrapPageOptions(overviewResult, queryError))
       );
     }
 
     const workspaceId = overviewResult.data.workspace_id ?? overviewResult.data.workspace?.id;
     const requestedWorkspaceId = url.searchParams.get("workspace_id");
     const requestedObjectId = url.searchParams.get("object_id");
+    const activeView = url.searchParams.get("view") ?? undefined;
+    const repoPath = url.searchParams.get("path") ?? undefined;
     let workspaces = [];
     let selectedWorkspaceId = workspaceId;
     let reviewPackets = [];
@@ -263,6 +274,8 @@ async function handleRequest({
       response,
       200,
       renderPersonalDashboard(overviewResult.data, {
+        view: activeView,
+        repoPath,
         error: queryError,
         workspaces,
         selectedWorkspaceId,
@@ -294,14 +307,14 @@ async function handleRequest({
       return sendHtml(
         response,
         200,
-        renderBootstrapPage({
-          error: bootstrapResult.error?.message ?? "Bootstrap failed"
-        })
+        renderBootstrapPage(
+          bootstrapPageOptions(bootstrapResult, bootstrapResult.error?.message ?? "Bootstrap failed")
+        )
       );
     }
 
     response.writeHead(303, {
-      location: "/",
+      location: "/?view=home",
       "cache-control": "no-store"
     });
     response.end();
@@ -485,5 +498,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   server.listen(port, host, () => {
     console.log(`Atlas web listening at http://${host}:${port}`);
+  });
+
+  server.on("error", (error) => {
+    if (error?.code === "EADDRINUSE") {
+      console.error(`Port ${port} is already in use. Stop the other process or set PORT=3001.`);
+    } else {
+      console.error(error);
+    }
+    process.exit(1);
   });
 }
