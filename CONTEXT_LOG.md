@@ -1197,3 +1197,46 @@ Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> pe
 - Continue to G4.8 with a role/action/resource permission matrix.
 
 ---
+
+## Turn 23: G4.8 Permission Matrix (2026-06-28)
+**Target:** close Governance Phase 4 with a table-driven permission regression suite.
+
+### Completed Actions
+- [x] Applied the design-discipline rule: no new roles, flags, policy states, or policy-engine abstraction were needed.
+- [x] Added a role/action/resource matrix to `apps/api/test/policy-enforcement.test.js`.
+- [x] Covered owner/admin/editor allow on task actions, viewer deny on task actions, wildcard read-style permission, explicit destructive denial, unknown action denial, and missing-role denial in governed workspaces.
+- [x] Marked G4.8 complete in `TASKS.md`; Phase 4 Governance is now complete on this stacked branch.
+
+### Verification
+```text
+node --test apps/api/test/policy-enforcement.test.js
+tests 6
+pass 6
+fail 0
+
+git diff --check
+passed
+
+npm run lint
+Lint passed
+
+npm test
+tests 148
+pass 148
+fail 0
+
+npm run verify:migrations
+Verified 10 migration files
+
+npm run validate:records
+Validated 20 records
+
+npm run smoke:agent
+Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> persist.
+```
+
+### Atomic Next Steps
+- Commit and open a stacked PR for G4.8 with base `codex/g4-endpoint-scope-regression`.
+- After PR #14 and the G4 stack land, continue with D8.1 seed game-development domain.
+
+---
