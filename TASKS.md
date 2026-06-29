@@ -24,6 +24,7 @@ next executable slice limited to tasks, architecture, and tests until implementa
 | Phase 7: Agent Layer | Complete | `npm run test:api`, `npm run smoke:operational` | Keep future tool additions least-privilege and absent unless proven useful |
 | Operational MCP/API | Complete | `npm run smoke:operational`, MCP stdio smoke, `npm run operational:bootstrap` | Keep MCP transport-only; do not add orchestration machinery before dogfood proof |
 | Default-On MCP Runtime | Complete | `npm run smoke:mcp`, `npm run smoke:operational`, `npm run operational:bootstrap` | MCP reads platform-written `.atlas/local-session.json`; env overrides remain for tests |
+| Customer-Facing Outputs | Establish site/app/docs/codebase/demo/proof shelf | `npm run lint`, `npm test` | Keep internal state under `outputs/internal`; top-level outputs should read like product deliverables |
 | Persistence | Wire Postgres + RLS runtime | DB migration apply + isolation tests | File-backed snapshot persistence (`ATLAS_DATA_FILE`) now bridges restarts |
 | Phase 8: Domain Pack And Next Action | D8.1 seed game-development domain | Seed validation tests and fixture count checks | Content must drive concrete AAA next actions, not generic taxonomy |
 | Phase 9: Ingestion, Search, Graph, Workflow | I9.1 add `DataSource` and `IngestionJob` schemas | Fixture validation tests with credentials excluded | Ingested data must remain candidate until reviewed |

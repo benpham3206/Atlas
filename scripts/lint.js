@@ -8,6 +8,7 @@ const INCLUDED_DIRS = [
   "apps",
   "docs",
   "infra",
+  "outputs",
   "packages",
   "scripts",
   "tests"

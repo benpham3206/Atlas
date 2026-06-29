@@ -44,10 +44,239 @@ test("MCP tools/list proxies manifest without delegation", async () => {
     );
 
     assert.equal(response.isError, false);
-    assert.deepEqual(
-      response.result.tools.map((tool) => tool.name),
-      manifest.tools.map((tool) => tool.name)
+    const toolNames = response.result.tools.map((tool) => tool.name);
+
+    for (const tool of manifest.tools) {
+      assert.ok(toolNames.includes(tool.name), `missing manifest tool ${tool.name}`);
+    }
+
+    assert.ok(toolNames.includes("atlas.api.routes"));
+    assert.ok(toolNames.includes("atlas.api.get"));
+    assert.ok(toolNames.includes("atlas.api.post"));
+    assert.ok(toolNames.includes("atlas.api.patch"));
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("MCP direct API tools expose route catalog and require a local session for API calls", async () => {
+  const runtime = await startMcpSmokeRuntime();
+  const repoRoot = mkdtempSync(join(tmpdir(), "atlas-mcp-direct-missing-"));
+
+  try {
+    const routes = await runMcpExchange(
+      {
+        jsonrpc: "2.0",
+        id: 20,
+        method: "tools/call",
+        params: { name: "atlas.api.routes", arguments: {} }
+      },
+      { ATLAS_API_URL: runtime.baseUrl }
     );
+
+    assert.equal(routes.isError, false);
+    const catalog = JSON.parse(routes.result.content[0].text);
+    assert.ok(catalog.routes.some((route) => route.method === "POST" && route.path === "/workspaces/:workspace_id/objects"));
+    assert.equal(
+      catalog.routes.some((route) => route.method === "POST" && route.path === "/workspaces/:workspace_id/agent-delegations"),
+      false
+    );
+    assert.equal(
+      catalog.routes.some((route) => route.method === "POST" && route.path === "/workspaces/:workspace_id/policies"),
+      false
+    );
+    assert.equal(
+      catalog.routes.some((route) => route.method === "POST" && route.path === "/workspaces/:workspace_id/memberships"),
+      false
+    );
+
+    const missingSession = await runMcpExchange(
+      {
+        jsonrpc: "2.0",
+        id: 21,
+        method: "tools/call",
+        params: { name: "atlas.api.get", arguments: { path: "/workspaces" } }
+      },
+      {
+        ATLAS_API_URL: runtime.baseUrl,
+        ATLAS_SESSION_FILE: join(repoRoot, ".atlas", "missing-session.json")
+      }
+    );
+
+    assert.equal(missingSession.isError, true);
+    assert.equal(missingSession.payload.component, "atlas-mcp-stdio");
+    assert.equal(missingSession.payload.failure_type, "authorization");
+    assert.equal(missingSession.payload.root_cause, "missing_local_session");
+  } finally {
+    await runtime.close();
+    rmSync(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("MCP direct API tools can create, read, and patch implemented workspace resources", async () => {
+  const runtime = await startMcpSmokeRuntime();
+
+  try {
+    const { session, sessionFile } = await createSmokeSession(runtime);
+
+    const createdType = await runMcpExchange(
+      {
+        jsonrpc: "2.0",
+        id: 22,
+        method: "tools/call",
+        params: {
+          name: "atlas.api.post",
+          arguments: {
+            path: `/workspaces/${session.workspace.id}/object-types`,
+            body: {
+              id: "object_type_mcp_direct_note",
+              name: "MCP Direct Note",
+              schema_json: {
+                type: "object",
+                required: ["title", "status"],
+                properties: {
+                  title: { type: "string" },
+                  status: { type: "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      { ATLAS_SESSION_FILE: sessionFile }
+    );
+
+    assert.equal(createdType.isError, false);
+    const createdTypePayload = JSON.parse(createdType.result.content[0].text);
+    assert.equal(createdTypePayload.id, "object_type_mcp_direct_note");
+
+    const createdObject = await runMcpExchange(
+      {
+        jsonrpc: "2.0",
+        id: 23,
+        method: "tools/call",
+        params: {
+          name: "atlas.api.post",
+          arguments: {
+            path: `/workspaces/${session.workspace.id}/objects`,
+            body: {
+              id: "object_mcp_direct_note",
+              object_type_id: "object_type_mcp_direct_note",
+              properties_json: {
+                title: "Created through MCP direct API",
+                status: "todo"
+              }
+            }
+          }
+        }
+      },
+      { ATLAS_SESSION_FILE: sessionFile }
+    );
+
+    assert.equal(createdObject.isError, false);
+
+    const patchedObject = await runMcpExchange(
+      {
+        jsonrpc: "2.0",
+        id: 24,
+        method: "tools/call",
+        params: {
+          name: "atlas.api.patch",
+          arguments: {
+            path: `/workspaces/${session.workspace.id}/objects/object_mcp_direct_note`,
+            body: {
+              properties_json: {
+                status: "done"
+              }
+            }
+          }
+        }
+      },
+      { ATLAS_SESSION_FILE: sessionFile }
+    );
+
+    assert.equal(patchedObject.isError, false);
+    const patchedPayload = JSON.parse(patchedObject.result.content[0].text);
+    assert.equal(patchedPayload.properties_json.status, "done");
+
+    const listedObjects = await runMcpExchange(
+      {
+        jsonrpc: "2.0",
+        id: 25,
+        method: "tools/call",
+        params: {
+          name: "atlas.api.get",
+          arguments: {
+            path: `/workspaces/${session.workspace.id}/objects`,
+            query: {
+              object_type_id: "object_type_mcp_direct_note"
+            }
+          }
+        }
+      },
+      { ATLAS_SESSION_FILE: sessionFile }
+    );
+
+    assert.equal(listedObjects.isError, false);
+    const listedPayload = JSON.parse(listedObjects.result.content[0].text);
+    assert.equal(listedPayload.length, 1);
+    assert.equal(listedPayload[0].id, "object_mcp_direct_note");
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("MCP direct API tools deny unlisted routes and cross-workspace scoped paths", async () => {
+  const runtime = await startMcpSmokeRuntime();
+
+  try {
+    const { session, sessionFile } = await createSmokeSession(runtime);
+    const otherWorkspace = requireOk(
+      await api(runtime.baseUrl, "POST", "/workspaces", {
+        body: { id: "workspace_other_mcp_direct", name: "Other MCP Direct Workspace" }
+      }),
+      "create other workspace"
+    );
+
+    const crossWorkspace = await runMcpExchange(
+      {
+        jsonrpc: "2.0",
+        id: 26,
+        method: "tools/call",
+        params: {
+          name: "atlas.api.get",
+          arguments: {
+            path: `/workspaces/${otherWorkspace.id}/object-types`
+          }
+        }
+      },
+      { ATLAS_SESSION_FILE: sessionFile }
+    );
+
+    assert.equal(crossWorkspace.isError, true);
+    assert.equal(crossWorkspace.payload.failure_type, "authorization");
+    assert.equal(crossWorkspace.payload.root_cause, "workspace_scope_mismatch");
+    assert.equal(crossWorkspace.payload.details.session_workspace_id, session.workspace.id);
+
+    const destructive = await runMcpExchange(
+      {
+        jsonrpc: "2.0",
+        id: 27,
+        method: "tools/call",
+        params: {
+          name: "atlas.api.post",
+          arguments: {
+            path: `/workspaces/${session.workspace.id}/unknown-admin-delete`,
+            body: {}
+          }
+        }
+      },
+      { ATLAS_SESSION_FILE: sessionFile }
+    );
+
+    assert.equal(destructive.isError, true);
+    assert.equal(destructive.payload.failure_type, "policy");
+    assert.equal(destructive.payload.root_cause, "api_route_not_allowed");
   } finally {
     await runtime.close();
   }
