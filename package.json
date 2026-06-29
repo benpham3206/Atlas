@@ -21,7 +21,10 @@
     "validate:records": "node scripts/validate-records.js tests/fixtures/capability-records.valid.json",
     "verify:migrations": "node scripts/verify-migrations.js",
     "smoke:agent": "node scripts/agent-smoke.js",
-    "smoke:github-open-pr": "node scripts/github-open-pr-smoke.js"
+    "smoke:github-open-pr": "node scripts/github-open-pr-smoke.js",
+    "operational:bootstrap": "node scripts/operational-bootstrap.js",
+    "smoke:operational": "node scripts/operational-smoke.js",
+    "mcp:atlas": "node scripts/atlas-mcp-stdio.js"
   },
   "engines": {
     "node": ">=18.17"

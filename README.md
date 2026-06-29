@@ -353,6 +353,65 @@ GITHUB_HEAD_BRANCH=codex/n4-n6-hardening-review-loop \
 npm run smoke:github-open-pr
 ```
 
+## Operational Quickstart
+
+Use this when an agent host needs a scoped Atlas/MoO session without hand-assembling curl calls.
+The bootstrap creates or reuses the operational workspace scaffold, creates a fresh GoalContract,
+mints a scoped delegation, and prints a connection kit. It does not add a new authority plane.
+
+Start the API first:
+
+```sh
+npm run dev:api
+```
+
+Bootstrap an operational session:
+
+```sh
+npm run operational:bootstrap
+```
+
+The command prints:
+
+- `ATLAS_API_URL`
+- `ATLAS_DELEGATION_ID`
+- workspace, GoalContract, agent, and expiry ids
+- a sample `get_workspace_overview` curl
+- a Cursor MCP snippet for `scripts/atlas-mcp-stdio.js`
+
+Run the operational proof without a live GitHub call:
+
+```sh
+npm run smoke:operational
+```
+
+That smoke starts a temporary API and proves:
+
+```text
+bootstrap -> tools -> review packet -> dry-run PR -> audit verify
+```
+
+Use the MCP adapter from Cursor or any MCP stdio host:
+
+```json
+{
+  "mcpServers": {
+    "atlas": {
+      "command": "node",
+      "args": ["scripts/atlas-mcp-stdio.js"],
+      "env": {
+        "ATLAS_API_URL": "http://127.0.0.1:4000",
+        "ATLAS_DELEGATION_ID": "delegation_001"
+      }
+    }
+  }
+}
+```
+
+The adapter implements only `initialize`, `tools/list`, and `tools/call`. It proxies
+`tools/list` to `GET /agent/manifest` and `tools/call` to `POST /agent/tools/:tool`; it does not
+mint delegations, import store internals, or bypass the Tool Router.
+
 Discover the tool contract (no auth required for discovery):
 
 ```sh
@@ -430,7 +489,10 @@ curl http://localhost:4000/workspaces/workspace_game_studio/audit-events
 - `PORT`: override the port for whichever app is being started.
 - `HOST`: override the bind host. Defaults to `127.0.0.1`.
 - `ATLAS_API_URL`: API URL displayed by the web placeholder. Defaults to `http://localhost:4000`.
+- `ATLAS_DELEGATION_ID`: scoped delegation bearer used by `scripts/atlas-mcp-stdio.js`.
 - `ATLAS_DATA_FILE`: when set, the API persists its full state to this JSON file after each mutation and reloads it on boot. Unset means in-memory only (resets on restart).
+- `OBJECTIVE`, `ALLOWED_ACTIONS`, `BLOCKED_ACTIONS`, `RISK_CLASS`, `DONE_DEFINITION`: optional inputs for `npm run operational:bootstrap`.
+- `WORKSPACE_ID`, `WORKSPACE_NAME`, `AGENT_NAME`, `ATLAS_AGENT_ROLE`, `ATLAS_DELEGATION_TTL_SECONDS`: optional operational bootstrap identity/session inputs.
 - `GITHUB_TOKEN`: optional token used by the API GitHub client for `github.open_pr`. Use a narrowly scoped token that can create pull requests but cannot merge protected branches.
 - `GITHUB_ALLOWED_REPOSITORIES`: comma-separated repository allowlist for `github.open_pr`, for example `benpham3206/Atlas`.
 - `GITHUB_ALLOWED_BASE_BRANCHES`: comma-separated base-branch allowlist for `github.open_pr`, for example `main`.

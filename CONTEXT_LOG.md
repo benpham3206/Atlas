@@ -1096,3 +1096,54 @@ Lint passed
 - Continue with Phase 7 remaining task AG7.9 artifact/evidence tools, then revisit Phase 4 G4.7/G4.8.
 
 ---
+
+## Turn 21: Operational MCP/API Path (2026-06-28)
+**Target:** complete the operational bootstrap, smoke, MCP adapter, and docs slice from the Cursor plan.
+
+### Completed Actions
+- [x] Confirmed PR #12 was merged to `main` and fast-forwarded local `main` before starting.
+- [x] Added `scripts/operational-support.js` shared HTTP/bootstrap helper.
+- [x] Added `scripts/operational-bootstrap.js` and `npm run operational:bootstrap` to create/reuse the operational workspace scaffold, mint a fresh GoalContract + delegation, and print a connection kit.
+- [x] Added `scripts/operational-smoke.js` and `npm run smoke:operational` proving bootstrap -> tools -> review packet -> dry-run PR -> audit verify.
+- [x] Added `scripts/atlas-mcp-stdio.js` and `npm run mcp:atlas` as a zero-dependency MCP stdio adapter for `initialize`, `tools/list`, and `tools/call`.
+- [x] Updated README and TASKS.md with the operational quickstart and O1-O3 evidence.
+
+### Verification
+```text
+npm run smoke:operational
+Operational smoke complete: bootstrap -> tools -> review packet -> dry-run PR -> audit verify.
+
+ATLAS_API_URL=http://127.0.0.1:4017 npm run operational:bootstrap
+Printed ATLAS_API_URL, ATLAS_DELEGATION_ID, workspace id, GoalContract id, sample curl, and Cursor MCP config.
+
+MCP stdio smoke
+initialize -> tools/list -> tools/call get_workspace_overview passed against the temporary API.
+
+git diff --check
+passed
+
+npm run lint
+Lint passed
+
+npm test
+tests 145
+pass 145
+fail 0
+
+npm run verify:migrations
+Verified 10 migration files
+
+npm run validate:records
+Validated 20 records
+
+npm run smoke:agent
+Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> persist.
+
+npm run smoke:github-open-pr
+GitHub open-PR boundary smoke complete (allowlist + dry-run + audit).
+```
+
+### Next Action
+- Run full repo verification, then open a PR for the operational MCP/API path.
+
+---
