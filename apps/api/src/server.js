@@ -241,6 +241,55 @@ async function handleRequest({ request, response, now, store, githubClient, gith
     }
   }
 
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "artifacts") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listArtifacts(workspaceId)
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const artifact = store.createArtifact(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: artifact
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getArtifact(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "evidence-records") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listEvidenceRecords(workspaceId, {
+          subject_id: url.searchParams.get("subject_id"),
+          artifact_id: url.searchParams.get("artifact_id")
+        })
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const evidenceRecord = store.createEvidenceRecord(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: evidenceRecord
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getEvidenceRecord(workspaceId, segments[3])
+      });
+    }
+  }
+
   if (segments[0] === "workspaces" && segments[1] && segments[2] === "memberships") {
     const workspaceId = segments[1];
 

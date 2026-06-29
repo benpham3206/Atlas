@@ -121,6 +121,42 @@ export const AGENT_TOOLS = Object.freeze([
     }
   },
   {
+    name: "submit_artifact",
+    category: "action",
+    required_scope: SCOPE_ACT,
+    description:
+      "Record metadata for a file, URL, or generated artifact in the delegated workspace. This stores references only; it does not upload content.",
+    input_schema: {
+      type: "object",
+      required: ["uri", "summary"],
+      properties: {
+        artifact_type: { type: "string", enum: ["file", "url", "generated"] },
+        uri: { type: "string" },
+        summary: { type: "string" },
+        metadata: { type: "object" }
+      }
+    }
+  },
+  {
+    name: "attach_evidence",
+    category: "action",
+    required_scope: SCOPE_ACT,
+    description:
+      "Attach an evidence note, optional source URI, and optional Artifact reference to an existing workspace subject.",
+    input_schema: {
+      type: "object",
+      required: ["subject_type", "subject_id", "evidence_kind", "note"],
+      properties: {
+        subject_type: { type: "string" },
+        subject_id: { type: "string" },
+        evidence_kind: { type: "string" },
+        note: { type: "string" },
+        artifact_id: { type: "string" },
+        source_uri: { type: "string" }
+      }
+    }
+  },
+  {
     name: "generate_review_packet",
     category: "action",
     required_scope: SCOPE_ACT,
@@ -370,6 +406,22 @@ const TOOL_IMPLEMENTATIONS = {
       });
       throw apiError;
     }
+  },
+
+  submit_artifact(store, delegation, input) {
+    return store.createArtifact(delegation.workspace_id, {
+      ...input,
+      actor: delegation.agent_id,
+      goal_contract_id: input.goal_contract_id ?? delegation.goal_contract_id
+    });
+  },
+
+  attach_evidence(store, delegation, input) {
+    return store.createEvidenceRecord(delegation.workspace_id, {
+      ...input,
+      actor: delegation.agent_id,
+      goal_contract_id: input.goal_contract_id ?? delegation.goal_contract_id
+    });
   },
 
   generate_review_packet(store, delegation, input) {

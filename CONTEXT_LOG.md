@@ -1077,8 +1077,8 @@ Lint passed
 ### Completed Actions
 - [x] Added `fetchWorkspaceActionTypes` and `createWorkspaceActionRun` to the web API client.
 - [x] Loaded selected-workspace ActionTypes for the dashboard.
-- [x] Rendered an Action runner form with action type, target object, actor, principal type, principal id, role, and `input_json`.
-- [x] Added a web POST proxy at `/workspaces/:workspace_id/action-runs`, validating `input_json` locally before calling the API.
+- [x] Rendered an Action runner form with action type, target object, and `input_json`.
+- [x] Added a web POST proxy at `/workspaces/:workspace_id/action-runs`, validating `input_json` locally before calling the API; later hardening removed browser-controlled actor/principal/role forwarding.
 - [x] Confirmed U6.10 was already satisfied by the existing next-action dashboard and marked it complete with evidence.
 
 ### Verification
@@ -1236,7 +1236,50 @@ Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> pe
 ```
 
 ### Atomic Next Steps
-- Commit and open a stacked PR for G4.8 with base `codex/g4-endpoint-scope-regression`.
-- After PR #14 and the G4 stack land, continue with D8.1 seed game-development domain.
+- Merge PR #15 (G4.7) then PR #16 (G4.8).
+- After PR #14 lands, continue with D8.1 seed game-development domain.
+
+---
+
+## Turn 24: Artifact/Evidence Agent Tools (2026-06-28)
+**Target:** close AG7.9 with minimal metadata-only artifact/evidence tools through the existing Tool Router.
+
+### Completed Actions
+- [x] Added workspace-scoped `Artifact` records to the API store with `artifact.submitted` audit events.
+- [x] Added workspace-scoped `EvidenceRecord` records that validate the referenced subject exists before attaching evidence.
+- [x] Added `GET/POST /workspaces/:workspace_id/artifacts` and `GET/POST /workspaces/:workspace_id/evidence-records` inspection routes.
+- [x] Added `submit_artifact` and `attach_evidence` to the agent manifest behind `atlas.act`.
+- [x] Extended operational bootstrap defaults and `npm run smoke:operational` to exercise artifact/evidence tools.
+- [x] Marked AG7.9 complete in TASKS.md with concrete evidence.
+
+### Verification
+```text
+npm run lint
+Lint passed
+
+npm test
+tests 147
+pass 147
+fail 0
+
+npm run verify:migrations
+Verified 10 migration files
+
+npm run validate:records
+Validated 20 records
+
+npm run smoke:operational
+Operational smoke complete: bootstrap -> tools -> review packet -> dry-run PR -> audit verify.
+
+npm run smoke:agent
+Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> persist.
+
+npm run smoke:github-open-pr
+GitHub open-PR boundary smoke complete (allowlist + dry-run + audit).
+```
+
+### Atomic Next Steps
+- Rebase PR #14 onto `main` and merge AG7.9.
+- Continue with D8.1 seed game-development domain.
 
 ---
