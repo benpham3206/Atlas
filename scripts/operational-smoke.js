@@ -80,6 +80,30 @@ async function main() {
     assert.equal(next.result.task.id, session.task.id);
     ok(`next action ${next.result.task.id}`);
 
+    step("Submit artifact metadata and attach evidence");
+    const artifact = requireOk(
+      await callTool(runtime.baseUrl, session.delegation.id, "submit_artifact", {
+        artifact_type: "file",
+        uri: "artifacts/operational-smoke.md",
+        summary: "Operational smoke verification output",
+        metadata: { command: "npm run smoke:operational" }
+      }),
+      "submit artifact"
+    );
+    const evidence = requireOk(
+      await callTool(runtime.baseUrl, session.delegation.id, "attach_evidence", {
+        subject_type: "object",
+        subject_id: session.task.id,
+        artifact_id: artifact.result.id,
+        evidence_kind: "verification",
+        note: "Operational smoke reached the Tool Router and selected the expected next action.",
+        source_uri: "artifacts/operational-smoke.md"
+      }),
+      "attach evidence"
+    );
+    assert.equal(evidence.result.artifact_id, artifact.result.id);
+    ok(`artifact ${artifact.result.id} and evidence ${evidence.result.id}`);
+
     step("Produce a review packet");
     const packet = requireOk(
       await callTool(runtime.baseUrl, session.delegation.id, "generate_review_packet", {
@@ -118,6 +142,8 @@ async function main() {
       "list audit events"
     );
     assertAuditLinkage(events, session);
+    assert.ok(events.some((event) => event.event_type === "artifact.submitted"));
+    assert.ok(events.some((event) => event.event_type === "evidence.attached"));
     assert.ok(events.some((event) => event.event_type === "github.pull_request.open_attempted"));
     ok(`audit chain valid with ${events.length} events`);
 

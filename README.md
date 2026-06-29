@@ -462,8 +462,13 @@ curl -X POST http://localhost:4000/agent/tools/run_action \
 
 Available tools: `get_workspace_overview`, `query_object`, `list_objects`, `search_records`,
 `traverse_graph`, `get_available_actions`, `get_next_action`, `run_action`, `github.open_pr`,
-`generate_review_packet`, `slack.get_channel_info`, `verify_audit_chain`. There is intentionally no
-merge tool and no Slack write tool.
+`submit_artifact`, `attach_evidence`, `generate_review_packet`, `slack.get_channel_info`,
+`verify_audit_chain`. There is intentionally no merge tool and no Slack write tool.
+
+`submit_artifact` stores metadata for an existing file, URL, or generated artifact reference; it
+does not upload content. `attach_evidence` links a note, optional source URI, and optional artifact
+reference to an existing workspace object, action run, GoalContract, PR artifact, review packet, or
+artifact.
 
 Open a PR through the GitHub tool only after setting `GITHUB_TOKEN`,
 `GITHUB_ALLOWED_REPOSITORIES`, and `GITHUB_ALLOWED_BASE_BRANCHES` for the API process. The

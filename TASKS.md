@@ -20,7 +20,7 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 | Phase 4: Governance | Complete | Cross-workspace + role/action/resource tests | Keep policy changes matrix-tested and deny-by-default in governed workspaces |
 | Phase 5: Audit And Trust | Complete | `npm run test:web`, `npm run lint` | Keep audit UI honest: local hash-chain evidence, not external compliance retention |
 | Phase 6: Human UI | Complete | `npm test`, `npm run lint` | Keep richer UI additions dependency-free unless a stable backend contract requires otherwise |
-| Phase 7: Agent Layer | AG7.9 add artifact/evidence tools | Tests for evidence/artifact tool calls | AG7.1–AG7.8 + AG7.10 done: identity, scoped delegation, registry, governed gateway, manifest |
+| Phase 7: Agent Layer | Complete | `npm run test:api`, `npm run smoke:operational` | Keep future tool additions least-privilege and absent unless proven useful |
 | Operational MCP/API | Complete | `npm run smoke:operational`, MCP stdio smoke, `npm run operational:bootstrap` | Keep MCP transport-only; do not add orchestration machinery before dogfood proof |
 | Persistence | Wire Postgres + RLS runtime | DB migration apply + isolation tests | File-backed snapshot persistence (`ATLAS_DATA_FILE`) now bridges restarts |
 | Phase 8: Domain Pack And Next Action | D8.1 seed game-development domain | Seed validation tests and fixture count checks | Content must drive concrete AAA next actions, not generic taxonomy |
@@ -498,9 +498,10 @@ and destructive delete remain human-only boundaries; do not add merge tools or m
   - Tests: agent action runs through policy and audit; viewer denied, editor allowed.
   - Challenges: prompt/tool injection isolation is not yet implemented.
   - Evidence: `apps/api/test/agent-gateway.test.js`, `npm run smoke:agent`.
-- [ ] AG7.9 Add artifact/evidence tools.
+- [x] AG7.9 Add artifact/evidence tools.
   - Tests: attach evidence and submit artifact creates records.
   - Challenges: depends on Capability Graph schemas.
+  - Evidence: `submit_artifact` and `attach_evidence` are in the agent manifest, create workspace-scoped `Artifact` / `EvidenceRecord` records, audit `artifact.submitted` / `evidence.attached`, reject dangling evidence subjects, and are exercised by `apps/api/test/agent-gateway.test.js` plus `npm run smoke:operational`.
 - [x] AG7.10 Add MCP-style manifest.
   - Tests: manifest lists callable tools, scopes, and verification order.
   - Challenges: avoid exposing incomplete tools as production-ready.

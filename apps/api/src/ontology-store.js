@@ -28,6 +28,8 @@ const AGENT_SCOPES = ["atlas.read", "atlas.act", "github.pr:create", "slack.read
 const GOAL_CONTRACT_STATUSES = ["active", "completed", "cancelled"];
 const GOAL_RISK_CLASSES = ["low", "medium", "high", "unacceptable"];
 const REVIEW_PACKET_STATUSES = ["draft", "review_ready", "superseded"];
+const ARTIFACT_TYPES = ["file", "url", "generated"];
+const ARTIFACT_STATUSES = ["submitted", "accepted", "rejected"];
 const ALLOWED_PR_HEAD_BRANCH_PREFIXES = ["codex/", "agent/"];
 const DEFAULT_DELEGATION_TTL_SECONDS = 3600;
 
@@ -59,6 +61,8 @@ export function createOntologyStore(options = {}) {
   const goalContracts = new Map();
   const pullRequestArtifacts = new Map();
   const reviewPackets = new Map();
+  const artifacts = new Map();
+  const evidenceRecords = new Map();
   const auditEvents = [];
   const auditEventsById = new Map();
 
@@ -758,6 +762,192 @@ export function createOntologyStore(options = {}) {
     }
 
     return clone(reviewPacket);
+  }
+
+  function createArtifact(workspaceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    assertWorkspaceBody(input, workspaceId);
+
+    const artifactType = input.artifact_type ?? "file";
+    assertEnum(artifactType, "artifact_type", ARTIFACT_TYPES);
+    const uri = requireString(input.uri, "uri");
+    const summary = requireString(input.summary, "summary");
+    const status = input.status ?? "submitted";
+    assertEnum(status, "status", ARTIFACT_STATUSES);
+    const goalContractId = optionalString(input.goal_contract_id, "goal_contract_id");
+
+    if (goalContractId) {
+      getGoalContract(workspaceId, goalContractId);
+    }
+
+    const metadata = input.metadata ?? {};
+    assertPlainObject(metadata, "metadata");
+
+    const timestamp = now();
+    const artifact = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("artifact"),
+      workspace_id: workspaceId,
+      goal_contract_id: goalContractId,
+      artifact_type: artifactType,
+      uri,
+      summary,
+      status,
+      metadata: clone(metadata),
+      created_at: timestamp,
+      updated_at: timestamp
+    };
+
+    if (artifacts.has(artifact.id)) {
+      throw new ApiError(409, "artifact_conflict", "Artifact already exists");
+    }
+
+    artifacts.set(artifact.id, artifact);
+    appendAuditEvent({
+      workspace_id: workspaceId,
+      actor: optionalString(input.actor, "actor") ?? "system",
+      event_type: "artifact.submitted",
+      resource_type: "artifact",
+      resource_id: artifact.id,
+      decision: "allow",
+      after: {
+        artifact_type: artifactType,
+        uri,
+        status
+      },
+      metadata: {
+        goal_contract_id: goalContractId
+      }
+    });
+    return clone(artifact);
+  }
+
+  function listArtifacts(workspaceId) {
+    assertWorkspaceExists(workspaceId);
+
+    return [...artifacts.values()]
+      .filter((artifact) => artifact.workspace_id === workspaceId)
+      .map(clone);
+  }
+
+  function getArtifact(workspaceId, artifactId) {
+    assertWorkspaceExists(workspaceId);
+    const artifact = artifacts.get(artifactId);
+
+    if (!artifact || artifact.workspace_id !== workspaceId) {
+      throw new ApiError(404, "artifact_not_found", "Artifact not found in workspace");
+    }
+
+    return clone(artifact);
+  }
+
+  function createEvidenceRecord(workspaceId, input) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    assertWorkspaceBody(input, workspaceId);
+
+    const subjectType = requireString(input.subject_type, "subject_type");
+    const subjectId = requireString(input.subject_id, "subject_id");
+    assertEvidenceSubjectExists(workspaceId, subjectType, subjectId);
+    const evidenceKind = requireString(input.evidence_kind, "evidence_kind");
+    const note = requireString(input.note, "note");
+    const artifactId = optionalString(input.artifact_id, "artifact_id");
+    const sourceUri = optionalString(input.source_uri, "source_uri");
+    const goalContractId = optionalString(input.goal_contract_id, "goal_contract_id");
+
+    if (artifactId) {
+      getArtifact(workspaceId, artifactId);
+    }
+
+    if (goalContractId) {
+      getGoalContract(workspaceId, goalContractId);
+    }
+
+    const timestamp = now();
+    const evidenceRecord = {
+      id: input.id ? requireIdentifier(input.id, "id") : createId("evidence"),
+      workspace_id: workspaceId,
+      goal_contract_id: goalContractId,
+      subject_type: subjectType,
+      subject_id: subjectId,
+      artifact_id: artifactId,
+      source_uri: sourceUri,
+      evidence_kind: evidenceKind,
+      note,
+      created_at: timestamp,
+      updated_at: timestamp
+    };
+
+    if (evidenceRecords.has(evidenceRecord.id)) {
+      throw new ApiError(409, "evidence_conflict", "EvidenceRecord already exists");
+    }
+
+    evidenceRecords.set(evidenceRecord.id, evidenceRecord);
+    appendAuditEvent({
+      workspace_id: workspaceId,
+      actor: optionalString(input.actor, "actor") ?? "system",
+      event_type: "evidence.attached",
+      resource_type: "evidence",
+      resource_id: evidenceRecord.id,
+      decision: "allow",
+      after: {
+        subject_type: subjectType,
+        subject_id: subjectId,
+        artifact_id: artifactId,
+        evidence_kind: evidenceKind
+      },
+      metadata: {
+        goal_contract_id: goalContractId,
+        source_uri: sourceUri
+      }
+    });
+    return clone(evidenceRecord);
+  }
+
+  function assertEvidenceSubjectExists(workspaceId, subjectType, subjectId) {
+    switch (subjectType) {
+      case "object":
+        getObjectInstance(workspaceId, subjectId);
+        return;
+      case "action_run":
+        getActionRun(workspaceId, subjectId);
+        return;
+      case "goal_contract":
+        getGoalContract(workspaceId, subjectId);
+        return;
+      case "pull_request_artifact":
+        getPullRequestArtifact(workspaceId, subjectId);
+        return;
+      case "review_packet":
+        getReviewPacket(workspaceId, subjectId);
+        return;
+      case "artifact":
+        getArtifact(workspaceId, subjectId);
+        return;
+      default:
+        throw new ApiError(400, "invalid_evidence_subject", `Unsupported evidence subject_type: ${subjectType}`);
+    }
+  }
+
+  function listEvidenceRecords(workspaceId, filters = {}) {
+    assertWorkspaceExists(workspaceId);
+
+    return [...evidenceRecords.values()]
+      .filter((evidenceRecord) => evidenceRecord.workspace_id === workspaceId)
+      .filter((evidenceRecord) => !filters.subject_id || evidenceRecord.subject_id === filters.subject_id)
+      .filter((evidenceRecord) => !filters.artifact_id || evidenceRecord.artifact_id === filters.artifact_id)
+      .map(clone);
+  }
+
+  function getEvidenceRecord(workspaceId, evidenceId) {
+    assertWorkspaceExists(workspaceId);
+    const evidenceRecord = evidenceRecords.get(evidenceId);
+
+    if (!evidenceRecord || evidenceRecord.workspace_id !== workspaceId) {
+      throw new ApiError(404, "evidence_not_found", "EvidenceRecord not found in workspace");
+    }
+
+    return clone(evidenceRecord);
   }
 
   function createAgent(input) {
@@ -1653,7 +1843,9 @@ export function createOntologyStore(options = {}) {
     agent_delegations: agentDelegations,
     goal_contracts: goalContracts,
     pull_request_artifacts: pullRequestArtifacts,
-    review_packets: reviewPackets
+    review_packets: reviewPackets,
+    artifacts,
+    evidence_records: evidenceRecords
   };
 
   function snapshot() {
@@ -1730,6 +1922,12 @@ export function createOntologyStore(options = {}) {
     createReviewPacket,
     listReviewPackets,
     getReviewPacket,
+    createArtifact,
+    listArtifacts,
+    getArtifact,
+    createEvidenceRecord,
+    listEvidenceRecords,
+    getEvidenceRecord,
     recordIntegrationAuditEvent,
     createAgent,
     listAgents,

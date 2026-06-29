@@ -109,6 +109,8 @@ test("manifest exposes github.open_pr but no merge capability", () => {
 
   assert.ok(toolNames.includes("github.open_pr"));
   assert.ok(toolNames.includes("generate_review_packet"));
+  assert.ok(toolNames.includes("submit_artifact"));
+  assert.ok(toolNames.includes("attach_evidence"));
   assert.ok(toolNames.includes("slack.get_channel_info"));
   assert.ok(manifest.scopes.includes("github.pr:create"));
   assert.ok(manifest.scopes.includes("slack.read"));
@@ -455,6 +457,92 @@ test("generate_review_packet bundles audit refs, critic findings, and the human-
   assert.ok(packet.result.critic_findings.includes("No merge tool is exposed."));
   assert.equal(store.listReviewPackets(workspace.id).length, 1);
   assert.equal(store.verifyAuditChain().valid, true);
+});
+
+test("submit_artifact and attach_evidence create scoped records through the gateway", async () => {
+  const store = createOntologyStore({ now: () => "2026-06-14T00:00:00.000Z" });
+  const { workspace, taskA } = seedWorkspace(store);
+  const goalContract = store.createGoalContract(workspace.id, {
+    objective: "Collect implementation evidence",
+    allowed_actions: ["submit_artifact", "attach_evidence"],
+    blocked_actions: ["github.merge_pr"],
+    done_definition: "Artifact and evidence records exist"
+  });
+  const delegation = delegate(store, workspace.id, {
+    scopes: ["atlas.act"],
+    goal_contract_id: goalContract.id
+  });
+
+  const artifact = await dispatchAgentTool(store, {
+    delegationId: delegation.id,
+    toolName: "submit_artifact",
+    input: {
+      artifact_type: "file",
+      uri: "artifacts/agent-review.md",
+      summary: "Agent review output",
+      metadata: { command: "npm test" }
+    }
+  });
+  const evidence = await dispatchAgentTool(store, {
+    delegationId: delegation.id,
+    toolName: "attach_evidence",
+    input: {
+      subject_type: "object",
+      subject_id: taskA.id,
+      artifact_id: artifact.result.id,
+      evidence_kind: "test_output",
+      note: "npm test passed for the implementation branch",
+      source_uri: "artifacts/agent-review.md"
+    }
+  });
+
+  assert.equal(artifact.result.goal_contract_id, goalContract.id);
+  assert.equal(artifact.result.uri, "artifacts/agent-review.md");
+  assert.equal(evidence.result.goal_contract_id, goalContract.id);
+  assert.equal(evidence.result.artifact_id, artifact.result.id);
+  assert.equal(evidence.result.subject_id, taskA.id);
+  assert.equal(store.listArtifacts(workspace.id).length, 1);
+  assert.equal(store.listEvidenceRecords(workspace.id, { subject_id: taskA.id }).length, 1);
+  const artifactAudit = store.listAuditEvents(workspace.id, { event_type: "artifact.submitted" });
+  const evidenceAudit = store.listAuditEvents(workspace.id, { event_type: "evidence.attached" });
+  assert.equal(artifactAudit.length, 1);
+  assert.equal(evidenceAudit.length, 1);
+  assert.equal(store.verifyAuditChain().valid, true);
+});
+
+test("attach_evidence rejects missing or cross-workspace subjects", async () => {
+  const store = createOntologyStore({ now: () => "2026-06-14T00:00:00.000Z" });
+  const { workspace } = seedWorkspace(store);
+  const goalContract = store.createGoalContract(workspace.id, {
+    objective: "Reject dangling evidence",
+    allowed_actions: ["attach_evidence"],
+    done_definition: "Missing evidence subject is rejected"
+  });
+  const delegation = delegate(store, workspace.id, {
+    scopes: ["atlas.act"],
+    goal_contract_id: goalContract.id
+  });
+
+  await assert.rejects(
+    async () =>
+      dispatchAgentTool(store, {
+        delegationId: delegation.id,
+        toolName: "attach_evidence",
+        input: {
+          subject_type: "object",
+          subject_id: "object_missing",
+          evidence_kind: "test_output",
+          note: "This should not attach"
+        }
+      }),
+    (error) => {
+      assert.equal(error.statusCode, 404);
+      assert.equal(error.code, "object_instance_not_found");
+      return true;
+    }
+  );
+
+  assert.equal(store.listEvidenceRecords(workspace.id).length, 0);
 });
 
 test("github.open_pr requires repository and base branch allowlist", async () => {

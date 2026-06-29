@@ -61,6 +61,8 @@ export function operationalConfig(env = process.env) {
     allowedActions: parseCsv(env.ALLOWED_ACTIONS, [
       "get_workspace_overview",
       "get_next_action",
+      "submit_artifact",
+      "attach_evidence",
       "generate_review_packet",
       "github.open_pr",
       "verify_audit_chain"
