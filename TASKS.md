@@ -21,6 +21,7 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 | Phase 5: Audit And Trust | Complete | `npm run test:web`, `npm run lint` | Keep audit UI honest: local hash-chain evidence, not external compliance retention |
 | Phase 6: Human UI | Complete | `npm test`, `npm run lint` | Keep richer UI additions dependency-free unless a stable backend contract requires otherwise |
 | Phase 7: Agent Layer | AG7.9 add artifact/evidence tools | Tests for evidence/artifact tool calls | AG7.1–AG7.8 + AG7.10 done: identity, scoped delegation, registry, governed gateway, manifest |
+| Operational MCP/API | Complete | `npm run smoke:operational`, MCP stdio smoke, `npm run operational:bootstrap` | Keep MCP transport-only; do not add orchestration machinery before dogfood proof |
 | Persistence | Wire Postgres + RLS runtime | DB migration apply + isolation tests | File-backed snapshot persistence (`ATLAS_DATA_FILE`) now bridges restarts |
 | Phase 8: Domain Pack And Next Action | D8.1 seed game-development domain | Seed validation tests and fixture count checks | Content must drive concrete AAA next actions, not generic taxonomy |
 | Phase 9: Ingestion, Search, Graph, Workflow | I9.1 add `DataSource` and `IngestionJob` schemas | Fixture validation tests with credentials excluded | Ingested data must remain candidate until reviewed |
@@ -126,6 +127,33 @@ and destructive delete remain human-only boundaries; do not add merge tools or m
 - Evidence: web API client fetches `review-packets` and `pull-request-artifacts`, the dashboard
   renders a compact Review inbox with PR URL, verification commands, critic/safety findings, and
   `pending_human_actions`, and web tests cover render plus server paths.
+
+### O1. Operational bootstrap connection kit — Complete
+- Add `scripts/operational-bootstrap.js` and `npm run operational:bootstrap`.
+- Create or reuse the operational workspace scaffold, create a fresh GoalContract, mint a scoped
+  delegation, and print `ATLAS_API_URL`, `ATLAS_DELEGATION_ID`, sample curl, and Cursor MCP config.
+- Evidence: temporary API verification on `http://127.0.0.1:4017` ran `npm run operational:bootstrap`
+  and printed a usable connection kit.
+
+### O2. Operational smoke proof — Complete
+- Add `scripts/operational-smoke.js` and `npm run smoke:operational`.
+- Prove bootstrap -> Tool Router calls -> review packet -> dry-run PR -> audit verify without a
+  live GitHub call by default.
+- Evidence: `npm run smoke:operational` passed, creating a review packet, dry-run PR artifact, valid
+  audit chain, and audit events linked to both `delegation_id` and `goal_contract_id`.
+
+### O3. Zero-dependency MCP stdio adapter — Complete
+- Add `scripts/atlas-mcp-stdio.js` and `npm run mcp:atlas`.
+- Implement only `initialize`, `tools/list`, and `tools/call`; proxy `GET /agent/manifest` and
+  `POST /agent/tools/:tool` over HTTP with `ATLAS_DELEGATION_ID`.
+- Evidence: framed MCP smoke passed against the temporary API: initialize, tools/list, and
+  tools/call `get_workspace_overview`.
+
+### O4. Operational docs/tracker/context — Complete
+- Add README Operational Quickstart, update this tracker with O1-O3 evidence, and append the
+  verification turn to `CONTEXT_LOG.md`.
+- Evidence: README documents bootstrap, smoke, MCP config, and operational env vars; CONTEXT_LOG
+  Turn 21 records the completed actions and verification.
 
 ### Deferred hardening (do not start until N1 proves the loop)
 - Signed JWT delegation (replace unsigned local bearer).
