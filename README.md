@@ -371,13 +371,21 @@ Bootstrap an operational session:
 npm run operational:bootstrap
 ```
 
+The command writes `.atlas/local-session.json` (gitignored), prints a connection kit, and emits a
+Cursor MCP config that points at `scripts/atlas-mcp-stdio.js`. The MCP adapter reads the session file
+by default; it does not mint or widen delegation authority.
+
 The command prints:
 
 - `ATLAS_API_URL`
 - `ATLAS_DELEGATION_ID`
+- `ATLAS_SESSION_FILE`
 - workspace, GoalContract, agent, and expiry ids
 - a sample `get_workspace_overview` curl
 - a Cursor MCP snippet for `scripts/atlas-mcp-stdio.js`
+
+For personal dev, `npm run dev:personal` starts API + web and refreshes the same local session file
+once the API is reachable.
 
 Run the operational proof without a live GitHub call:
 
@@ -400,13 +408,16 @@ Use the MCP adapter from Cursor or any MCP stdio host:
       "command": "node",
       "args": ["scripts/atlas-mcp-stdio.js"],
       "env": {
-        "ATLAS_API_URL": "http://127.0.0.1:4000",
-        "ATLAS_DELEGATION_ID": "delegation_001"
+        "ATLAS_SESSION_FILE": ".atlas/local-session.json"
       }
     }
   }
 }
 ```
+
+Run `npm run operational:bootstrap` (or `npm run dev:personal`) to refresh the session file when the
+delegation expires. `ATLAS_API_URL` and `ATLAS_DELEGATION_ID` remain supported overrides for tests and
+advanced setups.
 
 The adapter implements only `initialize`, `tools/list`, and `tools/call`. It proxies
 `tools/list` to `GET /agent/manifest` and `tools/call` to `POST /agent/tools/:tool`; it does not
@@ -493,8 +504,9 @@ curl http://localhost:4000/workspaces/workspace_game_studio/audit-events
 
 - `PORT`: override the port for whichever app is being started.
 - `HOST`: override the bind host. Defaults to `127.0.0.1`.
-- `ATLAS_API_URL`: API URL displayed by the web placeholder. Defaults to `http://localhost:4000`.
-- `ATLAS_DELEGATION_ID`: scoped delegation bearer used by `scripts/atlas-mcp-stdio.js`.
+- `ATLAS_API_URL`: API URL displayed by the web placeholder. Defaults to `http://localhost:4000`. Optional MCP override when not using the local session file.
+- `ATLAS_SESSION_FILE`: path to the platform-written local MCP session envelope. Defaults to `.atlas/local-session.json`.
+- `ATLAS_DELEGATION_ID`: optional MCP override for the scoped delegation bearer. By default MCP reads `delegation_id` from the local session file.
 - `ATLAS_DATA_FILE`: when set, the API persists its full state to this JSON file after each mutation and reloads it on boot. Unset means in-memory only (resets on restart).
 - `OBJECTIVE`, `ALLOWED_ACTIONS`, `BLOCKED_ACTIONS`, `RISK_CLASS`, `DONE_DEFINITION`: optional inputs for `npm run operational:bootstrap`.
 - `WORKSPACE_ID`, `WORKSPACE_NAME`, `AGENT_NAME`, `ATLAS_AGENT_ROLE`, `ATLAS_DELEGATION_TTL_SECONDS`: optional operational bootstrap identity/session inputs.

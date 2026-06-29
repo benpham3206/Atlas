@@ -1,6 +1,7 @@
 # Atlas Task Tracker
 
-Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until implementation behavior matches the requested Atlas requirements.
+Current objective: align current Atlas implementation with the three PRD vision while keeping the
+next executable slice limited to tasks, architecture, and tests until implementation is approved.
 
 ## Completion Rules
 
@@ -22,6 +23,7 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 | Phase 6: Human UI | Complete | `npm test`, `npm run lint` | Keep richer UI additions dependency-free unless a stable backend contract requires otherwise |
 | Phase 7: Agent Layer | Complete | `npm run test:api`, `npm run smoke:operational` | Keep future tool additions least-privilege and absent unless proven useful |
 | Operational MCP/API | Complete | `npm run smoke:operational`, MCP stdio smoke, `npm run operational:bootstrap` | Keep MCP transport-only; do not add orchestration machinery before dogfood proof |
+| Default-On MCP Runtime | Complete | `npm run smoke:mcp`, `npm run smoke:operational`, `npm run operational:bootstrap` | MCP reads platform-written `.atlas/local-session.json`; env overrides remain for tests |
 | Persistence | Wire Postgres + RLS runtime | DB migration apply + isolation tests | File-backed snapshot persistence (`ATLAS_DATA_FILE`) now bridges restarts |
 | Phase 8: Domain Pack And Next Action | D8.1 seed game-development domain | Seed validation tests and fixture count checks | Content must drive concrete AAA next actions, not generic taxonomy |
 | Phase 9: Ingestion, Search, Graph, Workflow | I9.1 add `DataSource` and `IngestionJob` schemas | Fixture validation tests with credentials excluded | Ingested data must remain candidate until reviewed |
@@ -52,6 +54,51 @@ Postgres + Row-Level Security, OS-level tool sandboxing, classification propagat
 Apply `.agent/skills/the-algorithm` before each item: question the requirement, prefer
 safety-by-absence, build the smallest verifiable inch. Order reflects meaning-per-line, not the
 phase numbering above.
+
+Planning source for the next implementation pass: `docs/PRD_ALIGNMENT_NEXT_STEPS_2026-06-29.md`.
+
+### P0. Default-on MCP runtime contract — Complete
+- Goal: make the existing MCP stdio adapter the default local agent operating surface whenever Atlas
+  operational runtime is started.
+- Architecture: MCP remains transport-only over `GET /agent/manifest` and `POST /agent/tools/:tool`;
+  platform-side runtime owns bootstrap/delegation, and all tools still execute through the Tool Router.
+- Session file: platform runtime writes `.atlas/local-session.json` (gitignored); MCP reads it and
+  fails closed when absent or expired. Env overrides (`ATLAS_API_URL`, `ATLAS_DELEGATION_ID`,
+  `ATLAS_SESSION_FILE`) remain for tests and advanced setups.
+- Tests required: framed MCP initialize/list/call smoke, missing delegation structured failure,
+  API-unreachable structured failure, expired delegation failure, denied-tool failure, audit evidence
+  for allowed and denied calls, and manifest regression proving no merge or Slack write tool exists.
+- Evidence: `scripts/atlas-local-session.js`, `scripts/atlas-mcp-lib.js`, `publishOperationalSession`
+  in `scripts/operational-support.js`, session refresh in `scripts/dev-personal.js`,
+  `scripts/test/atlas-local-session.test.js`, `scripts/test/atlas-mcp-stdio.test.js`,
+  `npm run smoke:mcp`, extended `npm run smoke:operational`, `npm test` (168 tests).
+- Non-goals: no MCP-side delegation minting, no separate MCP permission model, no external npm
+  package, no merge/deploy/secret/permission/destructive/public-export tool.
+
+### P1. Structured failure payload standard — Planned
+- Goal: every MCP/API/Tool Router failure reachable by an agent returns `component`, `root_cause`,
+  `failure_type`, and `message`.
+- Tests required: authorization, validation, dependency, upstream-client, policy, and GoalContract
+  denial paths.
+- Non-goal: do not rewrite success payloads or introduce a framework.
+
+### P2. Signed delegation hardening — Planned
+- Goal: replace local unsigned bearer delegations with short-lived signed JWT-style delegation.
+- Tests required: signature, issuer, audience, expiry, not-before, workspace, scope, tool allowlist,
+  and replay/invalid-token denials.
+- Non-goal: no full end-user login in this slice.
+
+### P3. Postgres + RLS runtime proof — Planned
+- Goal: prove DB-enforced tenant/workspace isolation for the records already modeled.
+- Tests required: cross-workspace and cross-tenant denial at the database policy layer.
+- Non-goal: no broad future-record migration, search upgrade, or graph database replacement.
+
+### P4. Minimal MoO runtime trace records — Planned
+- Goal: make every tool-executed action traceable through `GoalContract -> MetaOrchestrationRun ->
+  OrchestratorRun -> AgentSession -> ToolCall -> AuditEvent`.
+- Tests required: run trace continuity, review packet links, denied tool trace, and audit-chain
+  verification.
+- Non-goal: no autonomous multi-agent execution before trace records exist.
 
 Agent review and hardening boundary: Coding, Critic, red-team, and Safety-Verification agents may
 run inside the PR loop before human review, as scoped, audited, non-merge actors. They can prepare

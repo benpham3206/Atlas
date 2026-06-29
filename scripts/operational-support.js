@@ -1,9 +1,15 @@
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { createApiServer } from "../apps/api/src/server.js";
 import { createFilePersistence } from "../apps/api/src/persistence.js";
 import { createGitHubClientFromEnv, createGitHubPolicyFromEnv } from "../apps/api/src/github-client.js";
+import {
+  DEFAULT_SESSION_RELATIVE_PATH,
+  REPO_ROOT,
+  buildSessionEnvelope,
+  writeLocalSession
+} from "./atlas-local-session.js";
 
 export const DEFAULT_OPERATIONAL_REPOSITORY = "benpham3206/Atlas";
 export const DEFAULT_OPERATIONAL_BASE_BRANCH = "main";
@@ -241,7 +247,19 @@ async function createOrGet(baseUrl, label, createPath, getPath, body) {
   return requireOk(await api(baseUrl, "GET", getPath), `get existing ${label}`);
 }
 
-export function connectionKit(session, baseUrl) {
+export function publishOperationalSession(session, baseUrl, options = {}) {
+  const sessionFile = writeLocalSession(session, baseUrl, options);
+  return {
+    sessionFile,
+    kit: connectionKit(session, baseUrl, { sessionFile, ...options })
+  };
+}
+
+export function connectionKit(session, baseUrl, options = {}) {
+  const repoRoot = options.repoRoot ?? REPO_ROOT;
+  const sessionFile = options.sessionFile ?? join(repoRoot, DEFAULT_SESSION_RELATIVE_PATH);
+  const sessionRelativePath = relative(repoRoot, sessionFile);
+  const envelope = buildSessionEnvelope(session, baseUrl);
   const curl = [
     "curl -sS -X POST \"$ATLAS_API_URL/agent/tools/get_workspace_overview\"",
     "  -H \"authorization: Bearer $ATLAS_DELEGATION_ID\"",
@@ -254,8 +272,7 @@ export function connectionKit(session, baseUrl) {
         command: "node",
         args: ["scripts/atlas-mcp-stdio.js"],
         env: {
-          ATLAS_API_URL: baseUrl,
-          ATLAS_DELEGATION_ID: session.delegation.id
+          ATLAS_SESSION_FILE: sessionRelativePath
         }
       }
     }
@@ -264,10 +281,12 @@ export function connectionKit(session, baseUrl) {
   return {
     ATLAS_API_URL: baseUrl,
     ATLAS_DELEGATION_ID: session.delegation.id,
+    ATLAS_SESSION_FILE: sessionRelativePath,
     workspace_id: session.workspace.id,
     goal_contract_id: session.goalContract.id,
     agent_id: session.agent.id,
     expires_at: session.delegation.expires_at,
+    local_session: envelope,
     sample_curl: curl,
     cursor_mcp_config: mcpConfig
   };

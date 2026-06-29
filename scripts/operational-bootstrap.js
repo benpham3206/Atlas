@@ -1,4 +1,4 @@
-import { api, bootstrapOperationalSession, connectionKit, requireOk } from "./operational-support.js";
+import { api, bootstrapOperationalSession, publishOperationalSession, requireOk } from "./operational-support.js";
 
 const apiUrl = process.env.ATLAS_API_URL ?? "http://127.0.0.1:4000";
 
@@ -33,7 +33,7 @@ async function main() {
 
   await assertApiUp();
   const session = await bootstrapOperationalSession(apiUrl);
-  const kit = connectionKit(session, apiUrl);
+  const { sessionFile, kit } = publishOperationalSession(session, apiUrl);
 
   console.log(JSON.stringify(kit, null, 2));
   console.error(
@@ -43,7 +43,8 @@ async function main() {
       `Workspace: ${session.workspace.id}`,
       `GoalContract: ${session.goalContract.id}`,
       `Delegation: ${session.delegation.id}`,
-      "Export ATLAS_API_URL and ATLAS_DELEGATION_ID, or paste cursor_mcp_config into Cursor."
+      `Session file: ${sessionFile}`,
+      "MCP reads the local session file by default. Paste cursor_mcp_config into Cursor once, then rerun bootstrap to refresh authority."
     ].join("\n")
   );
 }

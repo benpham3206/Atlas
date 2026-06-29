@@ -3,6 +3,8 @@ node_modules/
 .kimi/
 .env
 .env.*
+.atlas/
+.tmp-operational-smoke-session.json
 coverage/
 dist/
 build/

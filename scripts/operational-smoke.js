@@ -3,10 +3,12 @@ import {
   api,
   baseBranchAllowlist,
   bootstrapOperationalSession,
+  publishOperationalSession,
   repositoryAllowlist,
   requireOk,
   startEphemeralApi
 } from "./operational-support.js";
+import { runMcpExchange } from "./mcp-smoke-support.js";
 
 function step(label) {
   console.log(`\n▶ ${label}`);
@@ -56,9 +58,14 @@ async function main() {
       workspaceId: "workspace_operational_smoke",
       workspaceName: "Atlas Operational Smoke"
     });
+    const { sessionFile, kit } = publishOperationalSession(session, runtime.baseUrl, {
+      repoRoot: process.cwd(),
+      sessionFile: `${process.cwd()}/.tmp-operational-smoke-session.json`
+    });
     ok(`workspace ${session.workspace.id}`);
     ok(`GoalContract ${session.goalContract.id}`);
     ok(`delegation ${session.delegation.id}`);
+    ok(`session file ${sessionFile}`);
 
     step("Call governed tools through the HTTP Tool Router");
     const manifest = requireOk(await api(runtime.baseUrl, "GET", "/agent/manifest"), "get manifest");
@@ -147,9 +154,39 @@ async function main() {
     assert.ok(events.some((event) => event.event_type === "github.pull_request.open_attempted"));
     ok(`audit chain valid with ${events.length} events`);
 
+    step("Prove default MCP initialize/list/call against the published session file");
+    const initialized = await runMcpExchange(
+      { jsonrpc: "2.0", id: 100, method: "initialize", params: {} },
+      { ATLAS_SESSION_FILE: sessionFile, ATLAS_API_URL: runtime.baseUrl }
+    );
+    assert.equal(initialized.isError, false);
+    assert.equal(initialized.result.serverInfo.name, "atlas");
+    ok("MCP initialize");
+
+    const listed = await runMcpExchange(
+      { jsonrpc: "2.0", id: 101, method: "tools/list", params: {} },
+      { ATLAS_API_URL: runtime.baseUrl }
+    );
+    assert.equal(listed.isError, false);
+    assert.equal(listed.result.tools.length, manifest.tools.length);
+    ok("MCP tools/list");
+
+    const called = await runMcpExchange(
+      {
+        jsonrpc: "2.0",
+        id: 102,
+        method: "tools/call",
+        params: { name: "verify_audit_chain", arguments: {} }
+      },
+      { ATLAS_SESSION_FILE: sessionFile, ATLAS_API_URL: runtime.baseUrl }
+    );
+    assert.equal(called.isError, false);
+    ok("MCP tools/call verify_audit_chain");
+    assert.equal(kit.cursor_mcp_config.mcpServers.atlas.env.ATLAS_SESSION_FILE, ".tmp-operational-smoke-session.json");
+
     if (!liveSmokeRequested()) {
       ok("live GitHub call skipped (set GITHUB_LIVE_SMOKE=1 with GITHUB_TOKEN + GITHUB_HEAD_BRANCH)");
-      console.log("\n✅ Operational smoke complete: bootstrap -> tools -> review packet -> dry-run PR -> audit verify.\n");
+      console.log("\n✅ Operational smoke complete: bootstrap -> MCP -> tools -> review packet -> dry-run PR -> audit verify.\n");
       return;
     }
 
