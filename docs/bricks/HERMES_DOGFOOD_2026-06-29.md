@@ -1,7 +1,7 @@
 # Brick handoff — Hermes dogfood session (Ben)
 
-**Date:** 2026-06-29  
-**Architect:** Hermes (not implementer)  
+**Date:** 2026-06-29
+**Architect:** Hermes (not implementer)
 **Implementers:** Codex (ChatGPT Edu) + Cursor (Auto/Composer)
 
 ## What we exercised (live)
@@ -54,14 +54,14 @@ Complete personal-loop hardening (acceptance criteria in seeded task) OR land D8
 
 ## AGI-lite concepts to borrow (design only)
 
-- **Constitution** → GoalContract `constraints` + blocked actions list  
-- **Hippocampal buffer** → candidate ingestion / review before promotion (I9)  
-- **Multi-agent split** → Hermes spec, Cursor/Codex code, Atlas audit — already operational  
+- **Constitution** → GoalContract `constraints` + blocked actions list
+- **Hippocampal buffer** → candidate ingestion / review before promotion (I9)
+- **Multi-agent split** → Hermes spec, Cursor/Codex code, Atlas audit — already operational
 
 Do **not** merge AGI-lite repos into Atlas; encode patterns as ontology + domain pack.
 
 ## Verification bar for implementers
 
-- `npm test` + `npm run smoke:operational`  
-- Append **CONTEXT_LOG** Turn with INTENT/OUTCOME  
+- `npm test` + `npm run smoke:operational`
+- Append **CONTEXT_LOG** Turn with INTENT/OUTCOME
 - Optional: governed `submit_artifact` + `attach_evidence` for this brick doc URI
