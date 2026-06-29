@@ -55,6 +55,22 @@ Run lint:
 npm run lint
 ```
 
+## Outputs
+
+Customer-facing outputs live in `outputs/`.
+
+- `outputs/site/`: public website direction and future built site output.
+- `outputs/app/`: customer-facing Atlas app surface and run path.
+- `outputs/docs/`: finished product and architecture notes.
+- `outputs/codebase/`: technical implementation package notes.
+- `outputs/demos/`: demo scenarios and walkthroughs.
+- `outputs/proofs/`: verification evidence and proof ledger.
+- `outputs/internal/`: agent recovery state and next action; not customer-facing.
+
+Use this folder as the product shelf for Atlas, comparable to a polished website/app/docs package.
+It complements the API audit log and review packets; it is not a replacement for tests or governed
+runtime records.
+
 Verify migration files:
 
 ```sh

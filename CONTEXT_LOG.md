@@ -41,8 +41,6 @@ Long-running implementation toward the Atlas enterprise PRD in `ChatGPT Lean Acc
 - No database runtime exists yet; migrations will be schema artifacts while the API uses in-memory storage.
 - No auth exists yet; workspace scoping is route-based, not identity-based.
 
----
-
 ## Turn 1: Outcome
 
 **Status:** Success
@@ -1297,5 +1295,63 @@ GitHub open-PR boundary smoke complete (allowlist + dry-run + audit).
 **OUTCOME:** System is runnable and trustworthy for daily dogfood. Handoff brick doc: `docs/bricks/HERMES_DOGFOOD_2026-06-29.md`. Codex/Cursor implement next; Hermes owns architecture.
 
 **NEXT:** Wire Cursor MCP from handoff; implement personal-loop hardening **or** D8.1 per brick doc.
+
+---
+
+## Turn 26: Outputs And Long-Running Work Surface (2026-06-29)
+**Target:** create a durable outputs surface for finished work, recovery, proof, web handoff, and METR-style long-running task continuity.
+
+### Completed Actions
+- [x] Added `outputs/README.md` as the first outputs contract and folder index.
+- [x] Added state, next-action, proof, long-running-work, and web-output notes.
+- [x] Added `outputs` to `scripts/lint.js` coverage and updated README/TASKS to make the surface official.
+
+### Verification
+```text
+npm run lint
+Lint passed
+
+git diff --check
+passed
+
+npm test
+tests 173
+pass 173
+fail 0
+```
+
+### Correction
+- Turn 27 reframes this output surface from internal work recovery to customer-facing deliverables.
+
+---
+
+## Turn 27: Customer-Facing Outputs Reframe (2026-06-29)
+**Target:** correct `outputs/` so it represents customer-facing deliverables: site, app, docs, codebase, demos, and proof.
+
+### Completed Actions
+- [x] Reframed `outputs/README.md` as the customer-facing product shelf.
+- [x] Added `outputs/site/README.md` for Matrix-style public website direction.
+- [x] Added `outputs/app/README.md` for the runnable Atlas app surface.
+- [x] Added `outputs/codebase/README.md` for the technical implementation package.
+- [x] Added `outputs/demos/README.md` for customer-facing demo scenarios.
+- [x] Moved internal state and restart files under `outputs/internal/`.
+- [x] Removed the old top-level `outputs/STATE.md`, `outputs/NEXT_ACTION.md`, and `outputs/web/README.md` shape.
+
+### Verification
+```text
+npm run lint
+Lint passed
+
+git diff --check
+passed
+
+npm test
+tests 173
+pass 173
+fail 0
+```
+
+### Atomic Next Steps
+- Create the first polished customer-facing Atlas site/app output slice under `outputs/site/` or `outputs/app/`.
 
 ---
