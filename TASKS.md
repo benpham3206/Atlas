@@ -17,7 +17,7 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 |-------|------------------|-----------------------|-------------------|
 | Phase 2: Capability Graph Records | Complete | `npm test`, `npm run validate:records` | Keep future schema additions registry-based |
 | Phase 3: Actions | Complete | `npm test`, `npm run verify:migrations` | Policy and audit still need to wrap action execution in later phases |
-| Phase 4: Governance | G4.7 enforce scope on every endpoint; G4.8 permission matrix | Cross-workspace + role/action/resource tests | G4.5/G4.6 done: PermissionCheck recorded and policy enforced before action execution |
+| Phase 4: Governance | G4.8 permission matrix | Cross-workspace + role/action/resource tests | G4.7 done: workspace-scoped route regression covers reads, lists, and cross-workspace writes |
 | Phase 5: Audit And Trust | Complete | `npm run test:web`, `npm run lint` | Keep audit UI honest: local hash-chain evidence, not external compliance retention |
 | Phase 6: Human UI | Complete | `npm test`, `npm run lint` | Keep richer UI additions dependency-free unless a stable backend contract requires otherwise |
 | Phase 7: Agent Layer | AG7.9 add artifact/evidence tools | Tests for evidence/artifact tool calls | AG7.1–AG7.8 + AG7.10 done: identity, scoped delegation, registry, governed gateway, manifest |
@@ -350,9 +350,10 @@ and destructive delete remain human-only boundaries; do not add merge tools or m
   - Tests: viewer denied, editor allowed; denial recorded and target not mutated.
   - Challenges: action engine must call policy engine before mutation.
   - Evidence: `apps/api/src/ontology-store.js` (`authorize`/`evaluatePolicy` wired into `createActionRun`), `apps/api/test/policy-enforcement.test.js`, `apps/api/test/agent-gateway.test.js`.
-- [ ] G4.7 Enforce workspace scope on every data endpoint.
+- [x] G4.7 Enforce workspace scope on every data endpoint.
   - Tests: cross-workspace reads and writes fail.
   - Challenges: future query/search endpoints must inherit the same guardrail.
+  - Evidence: `apps/api/test/workspace-scope-regression.test.js` covers workspace-scoped list/fetch routes and cross-workspace write references; `apps/api/src/server.js` now rejects audit-event fetches whose event workspace does not match the route workspace.
 - [ ] G4.8 Add permission regression suite.
   - Tests: matrix of role/action/resource outcomes.
   - Challenges: avoid brittle tests while roles evolve.

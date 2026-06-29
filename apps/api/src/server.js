@@ -342,8 +342,14 @@ async function handleRequest({ request, response, now, store, githubClient, gith
     }
 
     if (segments.length === 4 && request.method === "GET") {
+      const auditEvent = store.getAuditEvent(segments[3]);
+
+      if (auditEvent.workspace_id !== workspaceId) {
+        throw new ApiError(404, "audit_event_not_found", "AuditEvent not found in workspace");
+      }
+
       return sendJson(response, 200, {
-        data: store.getAuditEvent(segments[3])
+        data: auditEvent
       });
     }
   }

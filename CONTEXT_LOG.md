@@ -1147,3 +1147,53 @@ GitHub open-PR boundary smoke complete (allowlist + dry-run + audit).
 - Run full repo verification, then open a PR for the operational MCP/API path.
 
 ---
+
+## Turn 22: G4.7 Workspace Scope Regression (2026-06-28)
+**Target:** prove every current workspace-scoped data endpoint rejects cross-workspace route access.
+
+### Completed Actions
+- [x] Applied the design-discipline rule: no new product surface; G4.7 needed a regression proof and one route fix.
+- [x] Added `apps/api/test/workspace-scope-regression.test.js` to seed two workspaces and exercise scoped list/fetch routes through HTTP.
+- [x] Covered memberships, policies, permission checks, object types, objects, object links, link types, links, object sets, object-set objects, action types, action runs, agent delegations, GoalContracts, PR artifacts, review packets, and audit events.
+- [x] Added write-path regression attempts for body workspace mismatch and cross-workspace references.
+- [x] Fixed `GET /workspaces/:workspace_id/audit-events/:event_id` so it returns `audit_event_not_found` when the event belongs to another workspace.
+- [x] Marked G4.7 complete in `TASKS.md`; next Phase 4 item is G4.8 permission matrix.
+
+### Verification
+```text
+node --test apps/api/test/workspace-scope-regression.test.js
+tests 2
+pass 2
+fail 0
+
+npm run test:api
+tests 87
+pass 87
+fail 0
+
+git diff --check
+passed
+
+npm run lint
+Lint passed
+
+npm test
+tests 147
+pass 147
+fail 0
+
+npm run verify:migrations
+Verified 10 migration files
+
+npm run validate:records
+Validated 20 records
+
+npm run smoke:agent
+Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> persist.
+```
+
+### Atomic Next Steps
+- Commit and open a PR for G4.7.
+- Continue to G4.8 with a role/action/resource permission matrix.
+
+---
