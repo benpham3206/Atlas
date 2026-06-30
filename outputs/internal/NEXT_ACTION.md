@@ -1,10 +1,23 @@
 # Atlas Internal Next Action
 
-## Next Action (personal workspace spine)
+## Momentum program (giants shoulders)
 
-**Do:** **`object_task_runtime_foundation`** — Postgres wiring, transaction boundary, migration runner, object history tests.
-**Because:** Harden (P1) is **done**; policy/public/enterprise tasks block on durable DB runtime, not JSON snapshots alone.
-**Context:** `outputs/internal/PERSONAL_WORKSPACE_STATUS.md` · `TASKS.md` persistence section · Codex/Cursor for implementation.
+**Cadence:** Hermes cron **Atlas Giants momentum** (9am/5pm Photon) + weekly **company turn** on live spine.
+
+**Playbook:** `outputs/internal/GIANTS_DOGFOOD_MOMENTUM.md` · pulse: `npm run momentum:pulse`
+
+## Next Action (Public Atlas — Paperclip pivot)
+
+**Do:** **PA-P1b** — import Paperclip MIT repo to repo root (`server/`, `ui/`, `cli/`, `packages/adapters/`).
+**Because:** Snapshot tag `atlas-pre-paperclip-v0` is in place; root-trunk import is next.
+**Context:** `TASKS.md` § PA-P1 · `docs/bricks/2026-06-30-public-atlas-atomic-tasks.md`
+**Verification:** Paperclip layout present; `upstream` remote → `https://github.com/paperclipai/paperclip`
+
+## Deferred: personal workspace spine
+
+**Blocked until:** PA-P1 epic gate (P1a–P1g complete).
+**Then:** **PS-P1** / `object_task_runtime_foundation` — Postgres wiring, migration runner, object history tests.
+**Pointer:** `outputs/internal/PERSONAL_WORKSPACE_STATUS.md` · `docs/bricks/2026-06-30-runtime-foundation-handoff.md`
 
 ## Parallel track (polish program)
 
@@ -13,8 +26,8 @@
 
 ## Update Rule
 
-- Personal spine: update `PERSONAL_WORKSPACE_STATUS.md` when a governed task completes.
-- Polish track: update this file’s parallel section when epic status changes.
+- Public Atlas: update `TASKS.md` PA-* checkboxes when a task completes; update epic gates in this file.
+- Personal spine: update `PERSONAL_WORKSPACE_STATUS.md` when a governed PS-* task completes.
 - Run `npm run dev:personal` after bootstrap/smoke that touches session files.
 
 ## Role Reminder (Matrix)

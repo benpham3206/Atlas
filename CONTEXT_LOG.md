@@ -1355,3 +1355,35 @@ fail 0
 - Create the first polished customer-facing Atlas site/app output slice under `outputs/site/` or `outputs/app/`.
 
 ---
+
+## Turn 28: Public Atlas Atomic Task Decomposition (2026-06-30)
+**Target:** Decompose Paperclip-first pivot into PR-sized atomic tasks; resolve PA-/PS-/H- naming collision.
+
+### Completed Actions
+- [x] Added `TASKS.md` § Public Atlas (Paperclip pivot) with PA-P0.1 through PA-P4d (~25 tasks).
+- [x] Renamed trust hardening lane P1–P4 → H1–H4; noted supersession by PA-* sprint order.
+- [x] Updated Upcoming Work Map with PA-/PS-/H- rows and blocked-by column.
+- [x] Created `docs/bricks/2026-06-30-public-atlas-atomic-tasks.md` (root-trunk layout, epic gates, errata vs framework §4).
+- [x] Updated `outputs/internal/NEXT_ACTION.md` → **PA-P1a** snapshot tag.
+- [x] Updated `outputs/internal/PERSONAL_WORKSPACE_STATUS.md` — PS-P1 blocked until PA-P1 epic gate.
+
+### Locked Decisions Recorded
+- Paperclip at repo root (`server/`, `ui/`, `cli/`); graft at `packages/atlas-ontology/`.
+- Public Atlas (PA-*) before personal spine Postgres (PS-*).
+- Migration reference (`apps/api`, `packages/ontology-core`) kept until PA-P3 epic gate.
+
+### Atomic Next Steps
+- ~~**PA-P0.1** — confirm legacy gates green.~~ Done 2026-06-30 (199 tests pass).
+- ~~**PA-P1a** — `git tag -a atlas-pre-paperclip-v0` on green tree.~~ Done 2026-06-30.
+- **PA-P1b** — import Paperclip MIT repo to repo root.
+
+### Verification (PA-P0.1 / PA-P1a, 2026-06-30)
+```text
+npm test — 199 pass, 0 fail
+npm run lint — pass
+npm run smoke:polish — audit_valid: true
+npm run demo:flagship — ok
+git tag -l atlas-pre-paperclip-v0 — tag present
+```
+
+---
