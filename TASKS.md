@@ -19,7 +19,7 @@ and `docs/bricks/2026-06-30-public-atlas-atomic-tasks.md`.
 | Phase | Next Atomic Task | Required Verification | Blocked by |
 |-------|------------------|-----------------------|------------|
 | **PA-P0** Legacy spine guard | PA-P0.1 confirm migration-reference gates | `npm test`, `smoke:polish`, `demo:flagship` | — |
-| **PA-P1** Paperclip trunk | **PA-P1a** snapshot tag | tag + legacy gates | — |
+| **PA-P1** Paperclip trunk | **PA-P1b** import Paperclip to root | Paperclip layout + upstream remote | PA-P1a |
 | **PA-P2** Knowledge + proof graft | PA-P2a Activity audit ADR | ADR merged | PA-P1 |
 | **PA-P3** Staff + knowledge pack | PA-P3a staff manifest | fixture loads | PA-P2 |
 | **PA-P4** Re-hero + public slice | PA-P4a encyclopedia hero copy | site-smoke | PA-P3 |

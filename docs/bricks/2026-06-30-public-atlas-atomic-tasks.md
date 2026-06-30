@@ -72,7 +72,8 @@ PA-P0.1 → PA-P1a → PA-P1b…P1g → PA-P2a…P2h → PA-P3a…P3g → PA-P4a
 
 ## Next action
 
-**PA-P1a** — tag `atlas-pre-paperclip-v0` on current green tree. See `outputs/internal/NEXT_ACTION.md`.
+**PA-P1b** — import Paperclip MIT repo to repo root. Tag `atlas-pre-paperclip-v0` marks the prior
+baseline; current HEAD (`de30412`+) includes the atomic backlog and verified gates.
 
 ## Non-goals (this brick)
 
