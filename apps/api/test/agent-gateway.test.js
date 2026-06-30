@@ -1,11 +1,29 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createApiServer } from "../src/server.js";
 import { createOntologyStore } from "../src/ontology-store.js";
 import { AGENT_TOOLS, dispatchAgentTool, getAgentManifest } from "../src/agent-gateway.js";
 
 const TASK_TYPE = "object_type_task";
 const BLOCKS_LINK = "link_type_blocks";
 const ACTION_TYPE = "action_type_complete";
+
+async function startTestServer(t) {
+  const server = createApiServer({ now: () => "2026-06-14T00:00:00.000Z" });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const { port } = server.address();
+  return `http://127.0.0.1:${port}`;
+}
+
+async function requestJson(baseUrl, path, options = {}) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...options,
+    headers: { "content-type": "application/json", ...(options.headers ?? {}) },
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+  return { status: response.status, payload: await response.json() };
+}
 
 function seedWorkspace(store, { governed } = { governed: false }) {
   const workspace = store.createWorkspace({ id: "workspace_demo", name: "Demo" });
@@ -826,4 +844,71 @@ test("slack.get_channel_info audits client failure", async () => {
   assert.equal(attempts[0].decision, "deny");
   assert.equal(attempts[0].metadata.reason, "slack_call_failed");
   assert.equal(attempts[0].metadata.error_message, "slack unavailable");
+});
+
+test("list_goal_contracts and list_delegations are read-only MCP tools", async () => {
+  const store = createOntologyStore({ now: () => "2026-06-14T00:00:00.000Z" });
+  const { workspace } = seedWorkspace(store);
+  const goalContract = store.createGoalContract(workspace.id, {
+    objective: "Polish program control plane",
+    done_definition: "Board and company views ship"
+  });
+  store.createAgent({ id: "agent_polish", display_name: "Polish Worker" });
+  const delegation = store.createAgentDelegation(workspace.id, {
+    id: "delegation_polish_read",
+    agent_id: "agent_polish",
+    scopes: ["atlas.read"],
+    goal_contract_id: goalContract.id
+  });
+
+  const contracts = await dispatchAgentTool(store, {
+    delegationId: delegation.id,
+    toolName: "list_goal_contracts",
+    input: {}
+  });
+  assert.equal(contracts.result.length, 1);
+  assert.equal(contracts.result[0].id, goalContract.id);
+
+  const delegations = await dispatchAgentTool(store, {
+    delegationId: delegation.id,
+    toolName: "list_delegations",
+    input: {}
+  });
+  assert.ok(delegations.result.some((entry) => entry.id === delegation.id));
+});
+
+test("PATCH agent-delegation revokes Board pause without agent tool", async (t) => {
+  const baseUrl = await startTestServer(t);
+  const workspace = await requestJson(baseUrl, "/workspaces", {
+    method: "POST",
+    body: { id: "workspace_board_test", name: "Board Test" }
+  });
+  await requestJson(baseUrl, "/agents", {
+    method: "POST",
+    body: { id: "agent_board", display_name: "Board Test Agent" }
+  });
+  const delegation = await requestJson(
+    baseUrl,
+    `/workspaces/${workspace.payload.data.id}/agent-delegations`,
+    {
+      method: "POST",
+      body: { agent_id: "agent_board", scopes: ["atlas.read"] }
+    }
+  );
+
+  const revoked = await requestJson(
+    baseUrl,
+    `/workspaces/${workspace.payload.data.id}/agent-delegations/${delegation.payload.data.id}`,
+    {
+      method: "PATCH",
+      body: { status: "revoked", actor: "human_board" }
+    }
+  );
+
+  assert.equal(revoked.status, 200);
+  assert.equal(revoked.payload.data.status, "revoked");
+  assert.equal(
+    getAgentManifest().tools.some((tool) => tool.name === "revoke_delegation"),
+    false
+  );
 });

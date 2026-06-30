@@ -1,4 +1,4 @@
-import { rmSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { createApiServer } from "../apps/api/src/server.js";
@@ -247,8 +247,40 @@ async function createOrGet(baseUrl, label, createPath, getPath, body) {
   return requireOk(await api(baseUrl, "GET", getPath), `get existing ${label}`);
 }
 
+export function refreshOutputsState(session, baseUrl, options = {}) {
+  const repoRoot = options.repoRoot ?? REPO_ROOT;
+  const internalDir = join(repoRoot, "outputs", "internal");
+  mkdirSync(internalDir, { recursive: true });
+
+  const body = `# Atlas Internal Output State
+
+Refreshed by operational bootstrap. Not customer-facing.
+
+## Session
+
+| Field | Value |
+| --- | --- |
+| workspace_id | ${session.workspace.id} |
+| goal_contract_id | ${session.goalContract.id} |
+| delegation_id | ${session.delegation.id} |
+| agent_id | ${session.agent.id} |
+| api_url | ${baseUrl} |
+| expires_at | ${session.delegation.expires_at} |
+| refreshed_at | ${new Date().toISOString()} |
+
+## Recovery
+
+1. Read \`outputs/internal/NEXT_ACTION.md\`
+2. Run \`npm run dev:personal\` or \`npm run smoke:operational\`
+3. Verify audit: \`curl ${baseUrl}/audit/verify\`
+`;
+
+  writeFileSync(join(internalDir, "STATE.md"), body, "utf8");
+}
+
 export function publishOperationalSession(session, baseUrl, options = {}) {
   const sessionFile = writeLocalSession(session, baseUrl, options);
+  refreshOutputsState(session, baseUrl, options);
   return {
     sessionFile,
     kit: connectionKit(session, baseUrl, { sessionFile, ...options })

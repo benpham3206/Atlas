@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atlas — workspace brain for governed agent work</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0d1117; --fg: #e6edf3; --muted: #8b949e; --accent: #58a6ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg); color: var(--fg); line-height: 1.55; }
+    main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+    h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 0.5rem; }
+    p.lead { color: var(--muted); margin: 0 0 2rem; }
+    section { margin-bottom: 2rem; border-left: 2px solid #30363d; padding-left: 1rem; }
+    h2 { font-size: 0.85rem; color: var(--accent); margin: 0 0 0.5rem; letter-spacing: 0.04em; }
+    section p { margin: 0; font-size: 0.9rem; }
+    a { color: var(--accent); }
+    footer { margin-top: 3rem; font-size: 0.8rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Atlas</h1>
+    <p class="lead">Not a chatbot. A governed operating layer: GoalContract, Tool Router, evidence, audit.</p>
+
+    <section id="01">
+      <h2>01 — Workspace brain</h2>
+      <p>Workspaces, ontology objects, and links hold direction and domain memory before any tool runs.</p>
+    </section>
+    <section id="02">
+      <h2>02 — Control plane</h2>
+      <p>Scoped delegations, Board pause, and deny-by-default policy — Paperclip-style authority without a second server.</p>
+    </section>
+    <section id="03">
+      <h2>03 — Proof</h2>
+      <p>Artifacts, ReviewPackets, and a hash-chained AuditEvent log. Tasks close only with <code>artifact_uri</code> and evidence.</p>
+    </section>
+    <section id="04">
+      <h2>04 — Try locally</h2>
+      <p><code>npm run dev:personal</code> in the repo — see <a href="../app/RUN_PATH.md">RUN_PATH.md</a>. Hermes runs workers; Atlas stays authority.</p>
+    </section>
+
+    <footer>Quality bar: matrix-hermes-product-craft · GoalContract · file-tree MoO at :3000</footer>
+  </main>
+</body>
+</html>

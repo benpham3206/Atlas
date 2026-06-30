@@ -99,6 +99,9 @@ Owns HTTP API routes. Current routes:
 - `POST /personal/bootstrap` seeds the personal workspace, object types, Atlas self-hosting roadmap, tasks, and complete-task action type. Idempotent.
 - `GET /personal/overview` returns carbon copy, project, tasks, blockers map, next action, and security boundary notice.
 - `GET /personal/next-action` returns the highest-priority unblocked open personal task with acceptance criteria and blocker context.
+- `GET /personal/tasks` returns the personal task list, blocker map, and open/total counts (lighter than overview).
+- `GET /personal/session-context` returns the dual-spine header: personal next-action summary, parallel polish pointers, `agent_contract` hints, and security boundary (for web UI and `personal.get_session_context` MCP).
+- `PATCH /personal/objects/:object_id` patches personal object properties; marking tasks `done` is rejected (use complete route).
 - `POST /personal/tasks/:task_id/complete` completes a personal task via the complete-task ActionType/ActionRun path; requires `artifact_uri` and `evidence_note`.
 
 Storage is in-memory by default and can be snapshotted to a JSON file when `ATLAS_DATA_FILE` is set (`apps/api/src/persistence.js`): the full store is written after each mutating request and reloaded on boot, so state survives restarts without a database. The migrations under `infra/migrations/` (`0001`–`0010`) define the intended Postgres schema for the same records. `0004_actions.sql` adds `action_types` and `action_runs`. `0005_governance.sql` adds local `users` and `workspace_memberships`. `0006_policies.sql` adds local `policies`. `0007_permission_checks.sql` adds `permission_checks`. `0008_agents.sql` adds `agents` and `agent_delegations`. `0009_audit_events.sql` adds the insert-only, hash-chained `audit_events` log. `0010_goal_contracts_review_packets.sql` adds GoalContracts, PullRequestArtifacts, and ReviewPackets.
@@ -118,6 +121,7 @@ Owns the human-facing UI. Current behavior:
 
 The web server does not embed personal state. It calls the API at `ATLAS_API_URL` (default `http://127.0.0.1:4000`) through `apps/web/src/api-client.js`.
 The dashboard renders next actions, a read-only workspace selector, selected-workspace object type inventory, object instance summaries, object detail, a dependency-free node/edge graph explorer, governed action runner, review packets, PR artifacts, and the latest local hash-chained audit events.
+A **session context bar** at the top of every console view shows dual-spine mode (personal `workspace_personal` vs operational MCP delegation), polish track URI, repo cwd, and last gate ledger mtime (from `outputs/proofs/VERIFICATION_LEDGER.md`).
 
 ### `packages/ontology-core`
 
