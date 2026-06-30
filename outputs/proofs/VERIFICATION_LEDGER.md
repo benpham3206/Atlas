@@ -9,8 +9,8 @@ Commands that gate the Atlas polish program and customer-facing outputs. Update 
 | operational | `npm run smoke:operational` | 2026-06-30 | pass | 50554d3 |
 | mcp | `npm run smoke:mcp` | 2026-06-30 | pass | 50554d3 |
 | personal smoke | `npm run smoke:personal` | 2026-06-30 | pass | 50554d3 |
-| polish quickstart | `npm run smoke:polish` | 2026-06-30 | pass | 56800ce |
-| flagship demo | `npm run demo:flagship` | 2026-06-30 | pass | 56800ce |
+| polish quickstart | `npm run smoke:polish` | 2026-06-30 | pass | c7f0dc5 |
+| flagship demo | `npm run demo:flagship` | 2026-06-30 | pass | c7f0dc5 |
 | outputs shelf | `node --test scripts/test/outputs-shelf.test.js` | 2026-06-30 | pass | 50554d3 |
 
 ## Rules

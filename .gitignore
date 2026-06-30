@@ -7,6 +7,7 @@ outputs/internal/STATE.md
 outputs/proofs/*.log
 .env
 .env.*
+.env.paperclip
 .atlas/
 .tmp-operational-smoke-session.json
 .tmp-polish-quickstart-session.json
@@ -17,3 +18,10 @@ build/
 .next/
 .turbo/
 npm-debug.log*
+# Paperclip / pnpm
+.pnpm-store/
+**/.vite/
+**/ui-dist/
+server/ui-dist/
+.paperclip/
+*.tsbuildinfo

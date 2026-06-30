@@ -20,6 +20,18 @@ const INCLUDED_ROOT_FILES = [
   "TASKS.md"
 ];
 const TEXT_EXTENSIONS = new Set([".js", ".json", ".md", ".mdc", ".sql", ".yml"]);
+/** Upstream Paperclip trees — lint Atlas-owned paths only until grafted. */
+const SKIP_PATH_PREFIXES = [
+  "docs/paperclip/",
+  "packages/adapter-utils/",
+  "packages/adapters/",
+  "packages/db/",
+  "packages/mcp-server/",
+  "packages/plugins/",
+  "packages/shared/",
+  "packages/skills-catalog/",
+  "packages/teams-catalog/"
+];
 
 const errors = [];
 
@@ -27,6 +39,10 @@ for (const file of listFiles(ROOT)) {
   const relativePath = relative(ROOT, file);
 
   if (relativePath.includes("node_modules/")) {
+    continue;
+  }
+
+  if (SKIP_PATH_PREFIXES.some((prefix) => relativePath.startsWith(prefix))) {
     continue;
   }
 

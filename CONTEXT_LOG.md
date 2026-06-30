@@ -1375,15 +1375,21 @@ fail 0
 ### Atomic Next Steps
 - ~~**PA-P0.1** — confirm legacy gates green.~~ Done 2026-06-30 (199 tests pass).
 - ~~**PA-P1a** — `git tag -a atlas-pre-paperclip-v0` on green tree.~~ Done 2026-06-30.
-- **PA-P1b** — import Paperclip MIT repo to repo root.
+- ~~**PA-P1b–P1g** — Paperclip root-trunk import + dual test harness.~~ Done 2026-06-30.
+- **PA-P2M0** — Atlas + MoO import inventory ADR (queued graft map before code ports).
 
-### Verification (PA-P0.1 / PA-P1a, 2026-06-30)
+### Verification (PA-P1b–P1g, 2026-06-30)
 ```text
-npm test — 199 pass, 0 fail
+pnpm install && pnpm --filter @paperclipai/plugin-sdk build
+pnpm run dev:server — listening 127.0.0.1:3100
+GET /api/health — 200 status ok
+GET /api/openapi.json — 200
+npm run test:atlas — 199 pass
+npm run test:paperclip:import — 8 pass (incl. live smoke)
 npm run lint — pass
 npm run smoke:polish — audit_valid: true
 npm run demo:flagship — ok
-git tag -l atlas-pre-paperclip-v0 — tag present
+git remote upstream — paperclipai/paperclip
 ```
 
 ---

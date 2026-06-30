@@ -19,8 +19,8 @@ and `docs/bricks/2026-06-30-public-atlas-atomic-tasks.md`.
 | Phase | Next Atomic Task | Required Verification | Blocked by |
 |-------|------------------|-----------------------|------------|
 | **PA-P0** Legacy spine guard | PA-P0.1 confirm migration-reference gates | `npm test`, `smoke:polish`, `demo:flagship` | — |
-| **PA-P1** Paperclip trunk | **PA-P1b** import Paperclip to root | Paperclip layout + upstream remote | PA-P1a |
-| **PA-P2** Knowledge + proof graft | PA-P2a Activity audit ADR | ADR merged | PA-P1 |
+| **PA-P2M** Atlas + MoO import | **PA-P2M0** import inventory ADR | graft map in brick doc | PA-P1 done |
+| **PA-P2** Knowledge + proof graft | PA-P2a Activity audit ADR | ADR merged | PA-P2M0 |
 | **PA-P3** Staff + knowledge pack | PA-P3a staff manifest | fixture loads | PA-P2 |
 | **PA-P4** Re-hero + public slice | PA-P4a encyclopedia hero copy | site-smoke | PA-P3 |
 | **PS-*** Personal spine | PS-P1 runtime foundation | `gate:test` + object history | **PA-P1** |
@@ -93,44 +93,91 @@ otherwise. One PR per task; ~300 LOC target except PA-P1b fork import.
   - Challenges: tag must point at recoverable green tree
   - Evidence: tag `atlas-pre-paperclip-v0` on commit with atomic task backlog + green gates
 
-- [ ] PA-P1b Import Paperclip MIT repo to repo root
+- [x] PA-P1b Import Paperclip MIT repo to repo root
   - Implement: add `server/`, `ui/`, `cli/`, `packages/adapters/` from `https://github.com/paperclipai/paperclip`; add git remote `upstream` → Paperclip; do not literal unrelated-histories merge
   - Tests: Paperclip directory layout present; `upstream` remote configured
   - Non-goals: no ontology graft; no schema edits; no deletion of `apps/api` or `packages/ontology-core`
   - Depends-on: PA-P1a
   - Challenges: resolve root `package.json` / workspace conflicts with existing monorepo scripts
+  - Evidence: branch `pa/p1b-paperclip-root-import`; upstream remote; server/ui/cli/packages imported
 
-- [ ] PA-P1c Preserve MIT license and Atlas attribution
+- [x] PA-P1c Preserve MIT license and Atlas attribution
   - Implement: preserve Paperclip `LICENSE` + NOTICE; add `ATTRIBUTION.md` delineating Paperclip base vs Atlas additions
   - Tests: LICENSE and NOTICE present at root; ATTRIBUTION.md references both projects
   - Non-goals: no license substitution
   - Depends-on: PA-P1b
+  - Evidence: `PAPERCLIP_LICENSE`, `ATTRIBUTION.md`
 
-- [ ] PA-P1d Wire root install and local boot (`paperclipai onboard` + `run`)
+- [x] PA-P1d Wire root install and local boot (`paperclipai onboard` + `run`)
   - Implement: root workspace/package wiring per Paperclip docs so onboard and run succeed locally
   - Tests: `paperclipai onboard` (or documented non-interactive equivalent) and `paperclipai run` start without error
   - Non-goals: no knowledge routes; no custom Atlas env beyond documented defaults
   - Depends-on: PA-P1c
   - Challenges: dependency install vs Atlas zero-dep scripts coexistence at root
+  - Evidence: `pnpm install`; `pnpm --filter @paperclipai/plugin-sdk build`; `pnpm run dev:server` → :3100
 
-- [ ] PA-P1e Smoke Paperclip API health and OpenAPI contract
+- [x] PA-P1e Smoke Paperclip API health and OpenAPI contract
   - Implement: `scripts/test/paperclip-boot.test.js` (or smoke script) asserting `GET /api/health` ok and `GET /api/openapi.json` retrievable
   - Tests: new boot smoke passes against running Paperclip server
   - Non-goals: no Atlas route assertions yet
   - Depends-on: PA-P1d
+  - Evidence: `scripts/test/paperclip-boot.test.js`; live verify with `PAPERCLIP_LIVE_SMOKE=1`
 
-- [ ] PA-P1f Add `docs/SPEC.md` index (Paperclip base vs Atlas additions)
+- [x] PA-P1f Add `docs/SPEC.md` index (Paperclip base vs Atlas additions)
   - Implement: index sections for Paperclip primitives (live), Atlas differentiators (stub until PA-P2), migration reference (`apps/api`)
   - Tests: `scripts/test/spec-index.test.js` asserts required Atlas differentiator headings exist
   - Non-goals: full API reference duplication
   - Depends-on: PA-P1b
+  - Evidence: `docs/SPEC.md`, `scripts/test/spec-index.test.js`
 
-- [ ] PA-P1g Confirm Paperclip test suite green alongside legacy gates
+- [x] PA-P1g Confirm Paperclip test suite green alongside legacy gates
   - Implement: document Paperclip test command in SPEC.md; ensure CI/local gate runs both suites where feasible
   - Tests: Paperclip suite green; legacy `npm test` still green for `apps/api` / `packages/ontology-core`
   - Non-goals: no graft code
   - Depends-on: PA-P1e, PA-P1f
+  - Evidence: `test:atlas` 199 pass; `test:paperclip:import` 7 pass; `npm run lint`; full vitest via `npm run test:paperclip`
   - **Epic gate (PA-P1 done):** P1a–P1g complete; fork boots; SPEC index live; legacy reference spine green
+
+### PA-P2M — Atlas + MoO import queue (after PA-P1, before encyclopedia MVP)
+
+**Status:** queued — do not start until PA-P1 epic gate passes.
+**Intent:** Port everything Atlas + MoO related from the migration reference (`apps/api`, `packages/ontology-core`, Atlas `scripts/`, `.agent/skills/`) into the Paperclip trunk. PA-P2 (knowledge + proof) is the first slice; this epic tracks the full MoO surface map and remaining ports.
+
+- [ ] PA-P2M0 Import inventory ADR — graft map: legacy path → Paperclip target, live vs retire vs defer
+  - Implement: `docs/bricks/2026-06-30-atlas-moo-import-map.md` — cover ontology, agent gateway tools, MCP, policy, GoalContract/review packet, personal/operational bootstrap, Hermes skills, GitHub/Slack adapters
+  - Tests: SPEC.md links inventory; every `apps/api/src/*` differentiator file appears in map
+  - Non-goals: no code ports in this task
+  - Depends-on: PA-P1 epic gate
+
+- [ ] PA-P2M1 Port agent tool surface (`search_records`, `attach_evidence`, manifest) → Paperclip tool/adapter registry
+  - Source: `apps/api/src/agent-gateway.js`
+  - Depends-on: PA-P2M0, PA-P2d
+
+- [ ] PA-P2M2 Wire Atlas MCP stdio (`scripts/atlas-mcp-stdio.js`) to Paperclip API/tool surface
+  - Source: `scripts/atlas-mcp-lib.js`, `scripts/atlas-local-session.js`
+  - Depends-on: PA-P2M1
+
+- [ ] PA-P2M3 Port policy + PermissionCheck onto Paperclip company write path
+  - Source: `apps/api/src/policy-engine.js`, governed workspace rules
+  - Depends-on: PA-P2M0
+
+- [ ] PA-P2M4 Map GoalContract + review packet → Paperclip Goals + Approvals
+  - Source: GoalContract routes, review packet generator
+  - Depends-on: PA-P2M0
+
+- [ ] PA-P2M5 Port operational/personal bootstrap smoke to Paperclip company onboarding
+  - Source: `scripts/operational-bootstrap.js`, `scripts/dev-personal.js`
+  - Depends-on: PA-P2M2
+
+- [ ] PA-P2M6 Document `.agent/skills/` + Hermes bundle as worker instructions over Paperclip hires
+  - Source: `.agent/skills/`, `docs/HERMES_SKILL_BUNDLE.md`
+  - Depends-on: PA-P2M0
+
+- [ ] PA-P2M7 Port GitHub open-PR + Slack read adapters to `packages/adapters/` contract
+  - Source: inline tools in `agent-gateway.js`
+  - Depends-on: PA-P2M1
+
+**Epic gate (PA-P2M done):** no Atlas-only authority path required for dogfood; legacy `apps/api` optional for new work; inventory map shows all items live or explicitly retired.
 
 ### PA-P2 — Graft knowledge + proof layer
 
@@ -138,7 +185,7 @@ otherwise. One PR per task; ~300 LOC target except PA-P1b fork import.
   - Implement: `docs/bricks/2026-06-30-audit-activity-integration.md` — choose sidecar table, dual-write, or replace; document write path and verify contract
   - Tests: ADR reviewed; no code until merged
   - Non-goals: no implementation in this task
-  - Depends-on: PA-P1 epic gate
+  - Depends-on: PA-P2M0
   - Challenges: Paperclip Activity ≠ hash-chain; proof moat must survive migration
 
 - [ ] PA-P2b Copy `packages/ontology-core` → `packages/atlas-ontology`

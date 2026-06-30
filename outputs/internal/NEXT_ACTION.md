@@ -8,16 +8,15 @@
 
 ## Next Action (Public Atlas — Paperclip pivot)
 
-**Do:** **PA-P1b** — import Paperclip MIT repo to repo root (`server/`, `ui/`, `cli/`, `packages/adapters/`).
-**Because:** Snapshot tag `atlas-pre-paperclip-v0` is in place; root-trunk import is next.
-**Context:** `TASKS.md` § PA-P1 · `docs/bricks/2026-06-30-public-atlas-atomic-tasks.md`
-**Verification:** Paperclip layout present; `upstream` remote → `https://github.com/paperclipai/paperclip`
+**Do:** **PA-P2M0** — write Atlas + MoO import inventory ADR (`docs/bricks/2026-06-30-atlas-moo-import-map.md`).
+**Because:** PA-P1 epic gate passed; full Atlas/MoO port into Paperclip is queued and must be mapped before code graft (PA-P2/P2M).
+**Context:** `TASKS.md` § PA-P2M · `docs/bricks/2026-06-30-public-atlas-atomic-tasks.md`
+**Verification:** every `apps/api` differentiator appears in graft map; SPEC.md links inventory
 
 ## Deferred: personal workspace spine
 
-**Blocked until:** PA-P1 epic gate (P1a–P1g complete).
-**Then:** **PS-P1** / `object_task_runtime_foundation` — Postgres wiring, migration runner, object history tests.
-**Pointer:** `outputs/internal/PERSONAL_WORKSPACE_STATUS.md` · `docs/bricks/2026-06-30-runtime-foundation-handoff.md`
+**Unblocked:** PS-P1 may start after PA-P1 (done); still sequenced after PA-P2M inventory unless Ben reprioritizes.
+**Pointer:** `outputs/internal/PERSONAL_WORKSPACE_STATUS.md`
 
 ## Parallel track (polish program)
 
