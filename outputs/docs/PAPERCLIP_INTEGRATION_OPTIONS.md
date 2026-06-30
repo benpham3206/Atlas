@@ -1,3 +1,5 @@
+> **⚠️ Superseded 2026-06-30.** Ben locked **fork & extend Paperclip (MIT)** as the Public Atlas foundation — see `outputs/docs/ARCHITECTURE_COMPETITIVE_FRAMEWORK_2026-06-30.md` §2/§7/§8. The "Option A spec-only" recommendation below is **no longer the stance**; this file is retained for the option analysis and decision history.
+
 # Paperclip integration options (Atlas v0)
 
 Paperclip ([paperclip.ing](https://paperclip.ing), [SPEC](https://github.com/paperclipai/paperclip/blob/main/doc/SPEC.md)) is an open **company control plane** over bring-your-own agents (org chart, Board, heartbeats, budgets, goal alignment). Atlas already maps Paperclip **methodology** in `outputs/docs/LONG_RUNNING_WORK.md` and the web **Board** view — without running Paperclip inside the monorepo.
