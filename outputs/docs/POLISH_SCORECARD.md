@@ -15,6 +15,11 @@ Score each **0 / 1 / 2** (missing / partial / shippable). Dogfood target: **≥2
 | Authority | Approvals | Pause dept | Budget stop | **2** policy; **1** budget display-only |
 | Surface polish | Desktop + docs | Site + Mac app | Dashboard | **1** local file-tree; no public site yet |
 | Public story | Hermes docs | matrix.build | SPEC/README | **1** USAGE_GUIDE + outputs shelf |
+| **Momentum flywheel (110%)** | cron+skills | company turn | heartbeat | **2** pulse+compound live; **1** weekly PA turns |
+
+## Flywheel (110–120%)
+
+See `outputs/docs/FLYWHEEL_STATUS.md`. **110%** = sprint-aware pulse + `flywheel:check` + watchdog/weekly crons. **120%** = four weeks traced turns + scorecard flywheel row at 2.
 
 ## What Atlas is *not* trying to be
 

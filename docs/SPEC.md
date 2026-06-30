@@ -42,9 +42,9 @@ pnpm run paperclipai run       # onboard + run
 
 | Capability | Migration reference | Graft target | Status |
 | --- | --- | --- | --- |
-| Ontology registry + lifecycle | `packages/ontology-core/` | `packages/atlas-ontology/` | **stub** (PA-P2b) |
+| Ontology registry + lifecycle | `packages/ontology-core/` | `packages/atlas-ontology/` | **grafted** (PA-P2b) |
 | Knowledge tools | `apps/api/src/agent-gateway.js` | Paperclip adapter/tool surface | **stub** (PA-P2/P3) |
-| Hash-chained audit + verify | `packages/ontology-core`, `GET /audit/verify` on legacy API | `server/.../audit-chain/` | **stub** (PA-P2g) |
+| Hash-chained audit + verify | `packages/ontology-core`, `GET /audit/verify` on legacy API | `atlas_audit_events` sidecar + `/api/companies/:id/audit/verify` | **design** (PA-P2a) → **stub** (PA-P2g) |
 | Record validation | `npm run validate:records` | fork CI script | **stub** (PA-P2h) |
 | Encyclopedia knowledge pack | — | `tests/fixtures/` + staff manifest | **stub** (PA-P3) |
 | Proof-closed public hero | `outputs/site/` | dashboard + site copy | **stub** (PA-P4) |

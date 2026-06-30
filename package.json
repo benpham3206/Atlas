@@ -19,9 +19,10 @@
     "build": "pnpm run preflight:workspace-links && pnpm -r build",
     "typecheck": "pnpm run preflight:workspace-links && pnpm -r typecheck",
     "typecheck:build-gaps": "pnpm run preflight:workspace-links && node scripts/run-typecheck-build-gaps.mjs",
-    "test": "npm run test:atlas && npm run test:paperclip:import",
+    "test": "npm run test:atlas && npm run test:paperclip:import && npm run test:atlas-ontology",
     "test:paperclip": "pnpm run test:run:general",
-    "test:paperclip:import": "node --test scripts/test/paperclip-boot.test.js scripts/test/spec-index.test.js scripts/test/import-map.test.js",
+    "test:atlas-ontology": "node --test packages/atlas-ontology/test/*.test.js",
+    "test:paperclip:import": "node --test scripts/test/paperclip-boot.test.js scripts/test/spec-index.test.js scripts/test/import-map.test.js scripts/test/audit-integration-adr.test.js",
     "test:watch": "pnpm run preflight:workspace-links && vitest",
     "test:run": "pnpm run preflight:workspace-links && node scripts/run-vitest-stable.mjs",
     "test:run:general": "pnpm run preflight:workspace-links && pnpm --filter @paperclipai/plugin-sdk ensure-build-deps && node scripts/run-vitest-stable.mjs --mode general",
@@ -83,6 +84,7 @@
     "smoke:polish": "node scripts/polish-quickstart-smoke.js",
     "demo:flagship": "node scripts/flagship-loop-demo.js",
     "momentum:pulse": "node scripts/momentum-pulse.js",
+    "flywheel:check": "node scripts/flywheel-check.js",
     "gate:test": "node scripts/run-gate-ledger.js test",
     "gate:lint": "node scripts/run-gate-ledger.js lint",
     "gate:operational": "node scripts/run-gate-ledger.js operational",
@@ -90,7 +92,7 @@
     "gate:personal": "node scripts/run-gate-ledger.js personal",
     "gate:outputs-shelf": "node scripts/run-gate-ledger.js outputs-shelf",
     "mcp:atlas": "node scripts/atlas-mcp-stdio.js",
-    "test:atlas": "node --test apps/api/test/*.test.js apps/web/test/*.test.js packages/ontology-core/test/*.test.js scripts/test/atlas-local-session.test.js scripts/test/atlas-mcp-stdio.test.js scripts/test/outputs-shelf.test.js scripts/test/run-gate-ledger.test.js scripts/test/site-smoke.test.js scripts/test/update-verification-ledger.test.js tests/integration/*.test.js"
+    "test:atlas": "node --test apps/api/test/*.test.js apps/web/test/*.test.js packages/ontology-core/test/*.test.js scripts/test/atlas-local-session.test.js scripts/test/atlas-mcp-stdio.test.js scripts/test/outputs-shelf.test.js scripts/test/run-gate-ledger.test.js scripts/test/site-smoke.test.js scripts/test/update-verification-ledger.test.js scripts/test/flywheel-pulse.test.js tests/integration/*.test.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

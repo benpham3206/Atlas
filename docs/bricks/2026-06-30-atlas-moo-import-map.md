@@ -220,3 +220,5 @@ Until then: **`apps/api` stays keep-ref** on :4000 for migration proofs.
 - [x] `scripts/test/import-map.test.js` enforces §1 file coverage.
 
 **Next task:** PA-P2a — Activity ↔ hash-chain integration ADR (`docs/bricks/2026-06-30-audit-activity-integration.md`).
+
+**Audit integration (PA-P2a):** [Activity ↔ hash-chain ADR](./2026-06-30-audit-activity-integration.md) — **sidecar `atlas_audit_events` table**, dual append on governed writes.

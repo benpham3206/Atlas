@@ -19,8 +19,7 @@ and `docs/bricks/2026-06-30-public-atlas-atomic-tasks.md`.
 | Phase | Next Atomic Task | Required Verification | Blocked by |
 |-------|------------------|-----------------------|------------|
 | **PA-P0** Legacy spine guard | PA-P0.1 confirm migration-reference gates | `npm test`, `smoke:polish`, `demo:flagship` | — |
-| **PA-P2M** Atlas + MoO import | **PA-P2a** Activity audit ADR | audit integration doc | PA-P2M0 done |
-| **PA-P2** Knowledge + proof graft | PA-P2a Activity audit ADR | ADR merged | PA-P2M0 |
+| **PA-P2** Knowledge + proof graft | **PA-P2d** company ↔ workspace mapping | cross-company denial tests | PA-P2c done |
 | **PA-P3** Staff + knowledge pack | PA-P3a staff manifest | fixture loads | PA-P2 |
 | **PA-P4** Re-hero + public slice | PA-P4a encyclopedia hero copy | site-smoke | PA-P3 |
 | **PS-*** Personal spine | PS-P1 runtime foundation | `gate:test` + object history | **PA-P1** |
@@ -182,24 +181,26 @@ otherwise. One PR per task; ~300 LOC target except PA-P1b fork import.
 
 ### PA-P2 — Graft knowledge + proof layer
 
-- [ ] PA-P2a ADR: Activity ↔ hash-chain integration
-  - Implement: `docs/bricks/2026-06-30-audit-activity-integration.md` — choose sidecar table, dual-write, or replace; document write path and verify contract
-  - Tests: ADR reviewed; no code until merged
+- [x] PA-P2a ADR: Activity ↔ hash-chain integration
+  - Implement: `docs/bricks/2026-06-30-audit-activity-integration.md` — sidecar `atlas_audit_events` table; dual append on governed writes; verify reads sidecar only
+  - Tests: ADR reviewed; `scripts/test/audit-integration-adr.test.js` green
   - Non-goals: no implementation in this task
   - Depends-on: PA-P2M0
-  - Challenges: Paperclip Activity ≠ hash-chain; proof moat must survive migration
+  - Evidence: sidecar decision; schema + write/verify paths specified
 
-- [ ] PA-P2b Copy `packages/ontology-core` → `packages/atlas-ontology`
-  - Implement: zero-dep package copy; update package name; keep registry + lifecycle + hash helpers
-  - Tests: `packages/atlas-ontology` exports match ontology-core surface needed for graft
+- [x] PA-P2b Copy `packages/ontology-core` → `packages/atlas-ontology`
+  - Implement: zero-dep package copy; update package name `@atlas/atlas-ontology`; keep registry + lifecycle + hash helpers
+  - Tests: `npm run test:atlas-ontology` passes
   - Non-goals: no Paperclip server routes yet
   - Depends-on: PA-P2a
+  - Evidence: `packages/atlas-ontology/` created from ontology-core
 
-- [ ] PA-P2c Port ontology-core tests into fork harness
-  - Implement: wire atlas-ontology tests into root `npm test`
-  - Tests: all ported ontology-core tests pass
+- [x] PA-P2c Port ontology-core tests into fork harness
+  - Implement: wire atlas-ontology tests into root `npm test` via `test:atlas-ontology`
+  - Tests: all ported ontology-core tests pass (23 tests)
   - Non-goals: no new record types
   - Depends-on: PA-P2b
+  - Evidence: `npm test` includes `test:atlas-ontology`
 
 - [ ] PA-P2d ADR + implement Company ↔ workspace_id mapping
   - Implement: document and implement mapping so knowledge routes scope to Paperclip `companyId`

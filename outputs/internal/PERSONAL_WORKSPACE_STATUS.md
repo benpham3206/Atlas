@@ -22,7 +22,7 @@ Public Atlas Paperclip pivot (**PA-***) takes priority over personal spine tasks
 | 4 | `object_task_public_atlas` | **in progress (PA-*)** | Public Atlas encyclopedia MVP via Paperclip fork + Atlas graft — see PA-P1–P4 in TASKS.md |
 | 5 | `object_task_enterprise_workspace` | **todo** | Tenant / org foundations |
 
-**Live next-action (repo):** **PA-P1a** snapshot tag — see `outputs/internal/NEXT_ACTION.md`.
+**Live next-action (repo):** **PA-P1b** Paperclip import — see `outputs/internal/NEXT_ACTION.md` (tag **PA-P1a** done).
 
 ## Parallel: Matrix polish program (not personal tasks)
 

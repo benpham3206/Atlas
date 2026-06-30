@@ -65,7 +65,7 @@ PA-P0.1 → PA-P1a → PA-P1b…P1g → PA-P2M0…P2M7 → PA-P2a…P2h → PA-P
 
 ## Next action
 
-**PA-P2a** — Activity ↔ hash-chain integration ADR. Import map: `docs/bricks/2026-06-30-atlas-moo-import-map.md` (PA-P2M0 done).
+**PA-P2d** — Company ↔ workspace mapping. Audit ADR + `packages/atlas-ontology/` done (PA-P2a–c).
 
 ## Test commands (post-import)
 

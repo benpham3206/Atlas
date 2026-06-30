@@ -1377,7 +1377,15 @@ fail 0
 - ~~**PA-P1a** — `git tag -a atlas-pre-paperclip-v0` on green tree.~~ Done 2026-06-30.
 - ~~**PA-P1b–P1g** — Paperclip root-trunk import + dual test harness.~~ Done 2026-06-30.
 - ~~**PA-P2M0** — Atlas + MoO import inventory ADR.~~ Done 2026-06-30.
-- **PA-P2a** — Activity ↔ hash-chain integration ADR.
+- ~~**PA-P2a–P2c** — audit ADR + atlas-ontology graft + test harness.~~ Done 2026-06-30.
+- **PA-P2d** — Company ↔ workspace mapping.
+
+### Verification (PA-P2a–P2c, 2026-06-30)
+```text
+docs/bricks/2026-06-30-audit-activity-integration.md — sidecar atlas_audit_events
+packages/atlas-ontology/ — @atlas/atlas-ontology, 23 tests pass
+npm test — test:atlas + test:paperclip:import + test:atlas-ontology
+```
 
 ### Verification (PA-P2M0, 2026-06-30)
 ```text

@@ -8,14 +8,12 @@
 
 ## Next Action (Public Atlas — Paperclip pivot)
 
-**Do:** **PA-P2a** — Activity ↔ hash-chain integration ADR (`docs/bricks/2026-06-30-audit-activity-integration.md`).
-**Because:** Import map (PA-P2M0) is merged; audit graft design must be locked before atlas-ontology mount (PA-P2b).
-**Context:** `docs/bricks/2026-06-30-atlas-moo-import-map.md` §6 · `TASKS.md` § PA-P2
-**Verification:** ADR merged; no implementation until reviewed
+**Do:** **PA-P2d** — ADR + implement Company ↔ `workspace_id` mapping for knowledge routes.
+**Because:** atlas-ontology is mounted and tested; knowledge routes need company scope before CRUD (PA-P2e).
 
 ## Deferred: personal workspace spine
 
-**Unblocked:** PS-P1 may start; sequenced after PA-P2a unless Ben reprioritizes.
+**Unblocked:** PS-P1 may start; sequenced after PA-P2c unless Ben reprioritizes.
 **Pointer:** `outputs/internal/PERSONAL_WORKSPACE_STATUS.md`
 
 ## Parallel track (polish program)

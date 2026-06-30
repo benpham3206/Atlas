@@ -1,0 +1,18 @@
+{
+  "name": "@atlas/atlas-ontology",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "description": "Atlas proof-closed ontology registry and hash-chained audit helpers (grafted for Paperclip fork)."
+}
