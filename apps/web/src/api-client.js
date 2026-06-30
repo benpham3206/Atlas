@@ -70,6 +70,10 @@ export async function fetchPersonalNextAction(apiBaseUrl) {
   return apiRequest(apiBaseUrl, "/personal/next-action");
 }
 
+export async function fetchPersonalSessionContext(apiBaseUrl) {
+  return apiRequest(apiBaseUrl, "/personal/session-context");
+}
+
 export async function fetchWorkspaces(apiBaseUrl) {
   return apiRequest(apiBaseUrl, "/workspaces");
 }
@@ -145,4 +149,31 @@ export async function completePersonalTask(apiBaseUrl, taskId, input) {
       evidence_note: input.evidence_note
     })
   });
+}
+
+export async function fetchAgentManifest(apiBaseUrl) {
+  return apiRequest(apiBaseUrl, "/agent/manifest");
+}
+
+export async function fetchAgents(apiBaseUrl) {
+  return apiRequest(apiBaseUrl, "/agents");
+}
+
+export async function fetchWorkspaceGoalContracts(apiBaseUrl, workspaceId) {
+  return apiRequest(apiBaseUrl, `/workspaces/${encodeURIComponent(workspaceId)}/goal-contracts`);
+}
+
+export async function fetchWorkspaceAgentDelegations(apiBaseUrl, workspaceId) {
+  return apiRequest(apiBaseUrl, `/workspaces/${encodeURIComponent(workspaceId)}/agent-delegations`);
+}
+
+export async function revokeWorkspaceAgentDelegation(apiBaseUrl, workspaceId, delegationId, input = {}) {
+  return apiRequest(
+    apiBaseUrl,
+    `/workspaces/${encodeURIComponent(workspaceId)}/agent-delegations/${encodeURIComponent(delegationId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ status: "revoked", ...input })
+    }
+  );
 }

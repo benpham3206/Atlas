@@ -9,8 +9,11 @@ import {
   bootstrapPersonalAtlas,
   completePersonalTask,
   getPersonalOverview,
+  getPersonalSessionContext,
+  getPersonalTasksCatalog,
   guardPersonalActionRun,
   guardPersonalObjectPatch,
+  patchPersonalObject,
   selectNextAction,
   PERSONAL_WORKSPACE_ID
 } from "./personal-atlas.js";
@@ -36,7 +39,17 @@ export function createApiServer(options = {}) {
   }
 
   return createServer((request, response) => {
-    handleRequest({ request, response, now, store, githubClient, githubPolicy, slackClient, slackPolicy })
+    handleRequest({
+      request,
+      response,
+      now,
+      store,
+      githubClient,
+      githubPolicy,
+      slackClient,
+      slackPolicy,
+      persistState: Boolean(persistence)
+    })
       .then(() => {
         if (persistence && request.method && request.method !== "GET") {
           try {
@@ -64,7 +77,17 @@ export function createApiServer(options = {}) {
   });
 }
 
-async function handleRequest({ request, response, now, store, githubClient, githubPolicy, slackClient, slackPolicy }) {
+async function handleRequest({
+  request,
+  response,
+  now,
+  store,
+  githubClient,
+  githubPolicy,
+  slackClient,
+  slackPolicy,
+  persistState = false
+}) {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
   const segments = url.pathname.split("/").filter(Boolean);
 
@@ -175,6 +198,22 @@ async function handleRequest({ request, response, now, store, githubClient, gith
     if (segments.length === 4 && request.method === "GET") {
       return sendJson(response, 200, {
         data: store.getAgentDelegation(workspaceId, segments[3])
+      });
+    }
+
+    if (segments.length === 4 && request.method === "PATCH") {
+      const body = await readJsonBody(request);
+
+      if (body.status !== "revoked") {
+        throw new ApiError(
+          400,
+          "invalid_request",
+          "AgentDelegation PATCH supports status=revoked only (Board pause; no agent self-revoke tool)"
+        );
+      }
+
+      return sendJson(response, 200, {
+        data: store.revokeAgentDelegation(workspaceId, segments[3], body)
       });
     }
   }
@@ -574,13 +613,37 @@ async function handleRequest({ request, response, now, store, githubClient, gith
 
   if (request.method === "GET" && url.pathname === "/personal/overview") {
     return sendJson(response, 200, {
-      data: getPersonalOverview(store)
+      data: getPersonalOverview(store, { persistState })
     });
   }
 
   if (request.method === "GET" && url.pathname === "/personal/next-action") {
     return sendJson(response, 200, {
       data: selectNextAction(store, PERSONAL_WORKSPACE_ID)
+    });
+  }
+
+  if (request.method === "GET" && url.pathname === "/personal/tasks") {
+    return sendJson(response, 200, {
+      data: getPersonalTasksCatalog(store)
+    });
+  }
+
+  if (request.method === "GET" && url.pathname === "/personal/session-context") {
+    return sendJson(response, 200, {
+      data: getPersonalSessionContext(store, { persistState })
+    });
+  }
+
+  if (
+    segments[0] === "personal" &&
+    segments[1] === "objects" &&
+    segments[2] &&
+    segments.length === 3 &&
+    request.method === "PATCH"
+  ) {
+    return sendJson(response, 200, {
+      data: patchPersonalObject(store, segments[2], await readJsonBody(request))
     });
   }
 

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.benpham.atlas.personal</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__HERMES_ATLAS_WRAPPER__</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>WorkingDirectory</key>
+  <string>__ATLAS_ROOT__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ATLAS_ROOT</key>
+    <string>__ATLAS_ROOT__</string>
+    <key>ATLAS_DATA_FILE</key>
+    <string>__ATLAS_ROOT__/.atlas/personal-store.json</string>
+    <key>ATLAS_DAEMON_WEB</key>
+    <string>1</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>__HERMES_LOGS__/atlas-personal.stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HERMES_LOGS__/atlas-personal.stderr.log</string>
+</dict>
+</plist>

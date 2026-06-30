@@ -147,6 +147,8 @@ export const MOO_PLATFORM_TREE = {
       label: "Product Surfaces",
       children: [
         { label: "orchestration console", view: "home", status: "live" },
+        { label: "board (Paperclip)", view: "board", status: "live" },
+        { label: "company hires", view: "company", status: "live" },
         { label: "goal contract editor", view: "goal-contracts", status: "stub" },
         { label: "strategy inspector", status: "stub" },
         { label: "orchestrator registry", view: "ontology", status: "partial" },
@@ -186,6 +188,8 @@ export const DEFAULT_VIEW = "home";
 export function normalizeView(view) {
   const allowed = new Set([
     "home",
+    "board",
+    "company",
     "next-action",
     "carbon-copy",
     "tasks",

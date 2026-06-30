@@ -262,6 +262,33 @@ function pageShell(title, body, layoutOptions = {}) {
         border-color: #4a5a40;
       }
 
+      .session-context-bar {
+        margin: 12px 0 16px;
+        padding: 10px 12px;
+        border: 1px solid #3a5a48;
+        border-radius: 4px;
+        background: #101816;
+        font-size: 12px;
+        display: grid;
+        gap: 6px;
+      }
+
+      .session-context-bar .session-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        align-items: baseline;
+      }
+
+      .session-context-bar .label {
+        color: var(--muted);
+        min-width: 7rem;
+      }
+
+      .session-context-bar code {
+        font-size: 11px;
+      }
+
       .error {
         border-color: #8a4040;
         color: #f0c0c0;
@@ -669,7 +696,239 @@ function renderLinkItems(links) {
   </li>`).join("");
 }
 
-function renderObjectDetail({ object, links, error } = {}) {
+function delegationDisplayStatus(delegation) {
+  if (delegation.status === "revoked") {
+    return "paused";
+  }
+
+  if (delegation.expires_at && Date.parse(delegation.expires_at) <= Date.now()) {
+    return "expired";
+  }
+
+  return "active";
+}
+
+function formatBudgetStub(record, label) {
+  const budget = record?.budget_json ?? {};
+  const cap = budget.monthly_usd ?? budget.cap_usd ?? "—";
+  return `<p class="muted"><strong>${escapeHtml(label)} budget (v0 display — enforcement deferred):</strong> $${escapeHtml(String(cap))}/mo cap</p>`;
+}
+
+function renderGoalAlignment({ goalContracts = [], selectedObject, queryParams = {} } = {}) {
+  if (!selectedObject || selectedObject.object_type_id !== "object_type_personal_task") {
+    return "";
+  }
+
+  const activeContracts = goalContracts.filter((contract) => contract.status === "active");
+
+  if (activeContracts.length === 0) {
+    return `<div class="task-meta">
+      <strong>Goal alignment:</strong>
+      No GoalContract linked. Run <code>npm run operational:bootstrap</code> or POST <code>/workspaces/:id/goal-contracts</code>.
+    </div>`;
+  }
+
+  const contract = activeContracts[0];
+  const q = new URLSearchParams({ ...queryParams, view: "goal-contracts" });
+  return `<div class="task-meta">
+    <strong>Goal alignment:</strong>
+    <a class="review-link" href="/?${escapeHtml(q.toString())}">Traces to GoalContract ${escapeHtml(contract.id)}</a>
+    — ${escapeHtml(contract.objective ?? "")}
+  </div>`;
+}
+
+function renderCompanyLoopSection() {
+  const steps = [
+    ["01", "Intent", "Carbon Copy + user request"],
+    ["02", "GoalContract", "Objective, allowed/blocked actions"],
+    ["03", "Next action", "Highest-priority unblocked task"],
+    ["04", "Dispatch", "Scoped delegation + Tool Router"],
+    ["05", "Tool call", "MCP/API governed execution"],
+    ["06", "Proof", "Artifact, evidence, audit verify"],
+    ["07", "Review", "ReviewPacket + human inbox"],
+    ["08", "Priority", "Complete task → rotate next action"]
+  ];
+
+  const items = steps
+    .map(
+      ([num, title, detail]) =>
+        `<li><span class="badge">${escapeHtml(num)}</span> <strong>${escapeHtml(title)}</strong> — ${escapeHtml(detail)}</li>`
+    )
+    .join("");
+
+  return `<section>
+    <h2>Company loop (Matrix → Atlas)</h2>
+    <p class="muted">Apply the Algorithm: question each step, delete what does not prove value, then automate the survivors.</p>
+    <ol class="task-list">${items}</ol>
+  </section>`;
+}
+
+function renderMatrixRolesFooter() {
+  return `<section class="notice">
+    <h2>Matrix roles</h2>
+    <p><strong>Owner</strong> — review inbox · <strong>Lead</strong> — GoalContract · <strong>Worker</strong> — Tool Router · <strong>System</strong> — bootstrap + audit</p>
+    <p class="muted">See <code>outputs/docs/ROLES.md</code></p>
+  </section>`;
+}
+
+function renderProjectsSection(projects = []) {
+  if (projects.length === 0) {
+    return "";
+  }
+
+  const items = projects
+    .map((project) => {
+      const name = readProperty(project, "name") ?? project.id;
+      const goal = readProperty(project, "goal") ?? "—";
+      return `<li><strong>${escapeHtml(name)}</strong> (${escapeHtml(project.id)}) — ${escapeHtml(goal)}</li>`;
+    })
+    .join("");
+
+  return `<section>
+    <h2>Departments (projects)</h2>
+    <ul class="task-list">${items}</ul>
+  </section>`;
+}
+
+function renderBoardPanel({
+  selectedWorkspaceId,
+  goalContracts = [],
+  delegations = [],
+  agents = [],
+  reviewInboxHref = "/?view=review-inbox",
+  error
+} = {}) {
+  const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+  const agentById = new Map(agents.map((agent) => [agent.id, agent]));
+
+  const contractItems =
+    goalContracts.length === 0
+      ? "<li><p>No active GoalContracts.</p></li>"
+      : goalContracts
+          .map(
+            (contract) => `<li>
+          <strong>${escapeHtml(contract.id)}</strong>
+          <span class="badge">${escapeHtml(contract.status ?? "unknown")}</span>
+          <p>${escapeHtml(contract.objective ?? "")}</p>
+          ${formatBudgetStub(contract, "GoalContract")}
+        </li>`
+          )
+          .join("");
+
+  const delegationItems =
+    delegations.length === 0
+      ? "<li><p>No hires (delegations) yet. Run <code>npm run operational:bootstrap</code>.</p></li>"
+      : delegations
+          .map((delegation) => {
+            const agent = agentById.get(delegation.agent_id);
+            const status = delegationDisplayStatus(delegation);
+            const pauseForm =
+              status === "active" && selectedWorkspaceId
+                ? `<form method="post" action="/workspaces/${escapeHtml(encodeURIComponent(selectedWorkspaceId))}/agent-delegations/${escapeHtml(encodeURIComponent(delegation.id))}/revoke">
+              <button type="submit">Pause delegation (Board)</button>
+            </form>`
+                : "";
+
+            return `<li>
+          <strong>${escapeHtml(agent?.display_name ?? delegation.agent_id)}</strong>
+          <span class="badge">${escapeHtml(status)}</span>
+          <p>${escapeHtml(delegation.id)} · goal ${escapeHtml(delegation.goal_contract_id ?? "—")}</p>
+          ${formatBudgetStub(delegation, "Delegation")}
+          ${pauseForm}
+        </li>`;
+          })
+          .join("");
+
+  return `<section>
+    <h2>Board (Paperclip control plane)</h2>
+    ${errorHtml}
+    <p class="muted">Board powers: pause delegations, override via <a class="review-link" href="${escapeHtml(reviewInboxHref)}">Review inbox</a>. Revoke is human-only — no agent Tool Router tool (Algorithm: safety-by-absence).</p>
+    <h3>GoalContracts</h3>
+    <ul class="ontology-list">${contractItems}</ul>
+    <h3>Active hires</h3>
+    <ul class="ontology-list">${delegationItems}</ul>
+  </section>`;
+}
+
+function renderCompanyPanel({ agents = [], delegations = [], error } = {}) {
+  const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+  const agentById = new Map(agents.map((agent) => [agent.id, agent]));
+
+  const treeLines = ["Company", "|- Agents (manifest)", ...agents.map((agent, index) => {
+    const prefix = index === agents.length - 1 && delegations.length === 0 ? "`- " : "|- ";
+    return `${prefix}${agent.display_name ?? agent.id} [${agent.status ?? "unknown"}]`;
+  })];
+
+  if (delegations.length > 0) {
+    treeLines.push("`- Delegations (scoped)");
+    delegations.forEach((delegation, index) => {
+      const prefix = index === delegations.length - 1 ? "   `- " : "   |- ";
+      const agent = agentById.get(delegation.agent_id);
+      treeLines.push(
+        `${prefix}${agent?.display_name ?? delegation.agent_id} · ${delegationDisplayStatus(delegation)} · ${delegation.id}`
+      );
+    });
+  }
+
+  return `<section>
+    <h2>Company org</h2>
+    ${errorHtml}
+    <pre class="ascii-tree">${escapeHtml(treeLines.join("\n"))}</pre>
+  </section>`;
+}
+
+function renderGoalContractsPanel({ goalContracts = [], error } = {}) {
+  const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+
+  if (goalContracts.length === 0) {
+    return `<section>
+      <h2>Goal contracts</h2>
+      ${errorHtml}
+      <p>No GoalContracts. Bootstrap operational session or POST to the API.</p>
+    </section>`;
+  }
+
+  const items = goalContracts
+    .map(
+      (contract) => `<li>
+      <strong>${escapeHtml(contract.id)}</strong>
+      <span class="badge">${escapeHtml(contract.status ?? "unknown")}</span>
+      <p>${escapeHtml(contract.objective ?? "")}</p>
+      ${formatBudgetStub(contract, "GoalContract")}
+    </li>`
+    )
+    .join("");
+
+  return `<section>
+    <h2>Goal contracts</h2>
+    ${errorHtml}
+    <ul class="ontology-list">${items}</ul>
+  </section>`;
+}
+
+function renderDelegationPanel({ manifest, error } = {}) {
+  const errorHtml = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+  const tools = manifest?.tools ?? [];
+
+  const items =
+    tools.length === 0
+      ? "<li><p>Manifest unavailable.</p></li>"
+      : tools
+          .map(
+            (tool) =>
+              `<li><strong>${escapeHtml(tool.name)}</strong> <span class="badge">${escapeHtml(tool.required_scope ?? "")}</span> — ${escapeHtml(tool.description ?? "")}</li>`
+          )
+          .join("");
+
+  return `<section>
+    <h2>Tool registry</h2>
+    ${errorHtml}
+    <p class="muted">Governed tools via Bearer delegation. No merge tool by design.</p>
+    <ul class="ontology-list">${items}</ul>
+  </section>`;
+}
+
+function renderObjectDetail({ object, links, goalContracts, queryParams, error } = {}) {
   if (!object && !error) {
     return "";
   }
@@ -692,6 +951,7 @@ function renderObjectDetail({ object, links, error } = {}) {
       <span class="badge">${escapeHtml(object.object_type_id ?? "unknown_type")}</span>
       <span>${escapeHtml(object.external_id ?? "no_external_id")}</span>
     </div>
+    ${renderGoalAlignment({ goalContracts, selectedObject: object, queryParams })}
     <div class="review-grid">
       <p><strong>Properties:</strong> ${escapeHtml(summarizeProperties(object.properties_json))}</p>
       <div>
@@ -979,6 +1239,48 @@ export function renderBootstrapPage(options = {}) {
   );
 }
 
+export function renderSessionContextBar(sessionContext, mcpSession = null, options = {}) {
+  if (!sessionContext) {
+    return "";
+  }
+
+  const spine = sessionContext.personal_spine ?? {};
+  const polish = sessionContext.parallel_polish ?? {};
+  const personalId = sessionContext.workspace_personal_id ?? "workspace_personal";
+  const opHint = sessionContext.operational_workspace_hint ?? "workspace_operational_dogfood";
+
+  const mcpWs = mcpSession?.missing
+    ? "MCP session missing"
+    : mcpSession?.envelope?.workspace_id ?? "—";
+  const deleg = mcpSession?.missing
+    ? "—"
+    : mcpSession?.envelope?.delegation_id
+      ? `${String(mcpSession.envelope.delegation_id).slice(0, 14)}…`
+      : "—";
+  const mcpExpired =
+    !mcpSession?.missing && mcpSession?.expired ? " · delegation expired" : "";
+
+  const cwd = options.projectCwd ?? "";
+  const gate = options.gateStatusHint ?? {};
+  const gateLine = gate.missing
+    ? gate.hint ?? "Gate ledger not found"
+    : `ledger ${gate.mtime_iso?.slice(0, 10) ?? "—"}`;
+
+  const dualMode =
+    mcpWs === personalId
+      ? "personal-aligned (unusual for Hermes dogfood)"
+      : "dual-spine · personal tasks + operational MCP delegation";
+
+  return `<header class="session-context-bar" aria-label="Session context">
+      <div class="session-row"><span class="label">Mode</span><span>${escapeHtml(dualMode)}</span></div>
+      <div class="session-row"><span class="label">Personal spine</span><span><code>${escapeHtml(personalId)}</code> · next <code>${escapeHtml(spine.next_action_id ?? "—")}</code> · ${escapeHtml(spine.next_action_title ?? "—")} · open ${escapeHtml(String(spine.open_task_count ?? "—"))}</span></div>
+      <div class="session-row"><span class="label">Polish (parallel)</span><span>${escapeHtml(polish.track_uri ?? "outputs/internal/NEXT_ACTION.md")}</span></div>
+      <div class="session-row"><span class="label">MCP delegation</span><span><code>${escapeHtml(mcpWs)}</code> · id ${escapeHtml(deleg)}${escapeHtml(mcpExpired)} · expected op <code>${escapeHtml(opHint)}</code></span></div>
+      <div class="session-row"><span class="label">Project cwd</span><span><code>${escapeHtml(cwd || "—")}</code></span></div>
+      <div class="session-row"><span class="label">Last gate</span><span>${escapeHtml(gateLine)}</span></div>
+    </header>`;
+}
+
 export function renderPersonalDashboard(overview, options = {}) {
   const errorBanner = renderErrorBanner(options.error);
   const securityBoundary = overview.security_boundary ?? "Local in-memory personal state.";
@@ -1042,13 +1344,30 @@ export function renderPersonalDashboard(overview, options = {}) {
     auditEvents: options.auditEvents ?? [],
     error: options.auditTimelineError
   };
+  const controlPlane = {
+    goalContracts: options.goalContracts ?? [],
+    delegations: options.agentDelegations ?? [],
+    agents: options.agents ?? [],
+    manifest: options.agentManifest ?? null,
+    error: options.controlPlaneError
+  };
   const resolvedNextAction = resolveNextAction(overview.next_action);
   const nextActionId = resolvedNextAction?.id;
 
   const carbonGoal = readProperty(carbonCopy, "goal") ?? "—";
   const carbonConstraints = readProperty(carbonCopy, "constraints") ?? "—";
-  const projectName = readProperty(project, "name") ?? "—";
-  const projectGoal = readProperty(project, "goal") ?? "—";
+  const progressMap = readProperty(carbonCopy, "progress_map");
+  const polishTrack = readProperty(carbonCopy, "polish_track");
+
+  const progressSection =
+    progressMap || polishTrack
+      ? `<section class="notice">
+        <h2>Where we are</h2>
+        ${progressMap ? `<p><strong>Personal spine map:</strong> <code>${escapeHtml(progressMap)}</code></p>` : ""}
+        ${polishTrack ? `<p><strong>Polish (parallel):</strong> ${escapeHtml(polishTrack)}</p>` : ""}
+        <p class="muted">Next action below is the governed personal task — not the polish epic list.</p>
+      </section>`
+      : "";
 
   const taskItems = tasks
     .map((task) => {
@@ -1059,6 +1378,15 @@ export function renderPersonalDashboard(overview, options = {}) {
         blockers.length > 0
           ? `<div class="task-meta"><strong>Blockers:</strong> ${blockers.map((blocker) => escapeHtml(formatBlockerLabel(blocker))).join(", ")}</div>`
           : "";
+      const progressNote = readProperty(task, "progress_note");
+      const progressHtml = progressNote
+        ? `<div class="task-meta"><strong>Progress:</strong> ${escapeHtml(progressNote)}</div>`
+        : "";
+      const acceptance = readProperty(task, "acceptance_criteria");
+      const acceptanceHtml =
+        taskStatus(task) !== "done" && acceptance
+          ? `<div class="task-meta"><strong>Acceptance:</strong> ${escapeHtml(acceptance)}</div>`
+          : "";
 
       return `<li class="task-item${isNext ? " is-next" : ""}">
           <h3>${escapeHtml(taskTitle(task))}</h3>
@@ -1066,6 +1394,8 @@ export function renderPersonalDashboard(overview, options = {}) {
             <span class="badge">${escapeHtml(taskStatus(task))}</span>
             <span>${escapeHtml(taskId)}</span>
           </div>
+          ${acceptanceHtml}
+          ${progressHtml}
           ${blockersHtml}
         </li>`;
     })
@@ -1084,46 +1414,63 @@ export function renderPersonalDashboard(overview, options = {}) {
         <p><strong>Constraints:</strong> ${escapeHtml(carbonConstraints)}</p>
       </section>`;
 
-  const projectSection = `<section>
-        <h2>Active project</h2>
-        <p><strong>${escapeHtml(projectName)}</strong></p>
-        <p>${escapeHtml(projectGoal)}</p>
-      </section>`;
+  const projectSection = renderProjectsSection(overview.projects ?? (project ? [project] : []));
 
   const securitySection = `<section class="notice">
         <h2>Security boundary</h2>
         <p>${escapeHtml(securityBoundary)}</p>
       </section>`;
 
+  const reviewLink = `/?${new URLSearchParams({ ...queryParams, view: "review-inbox" }).toString()}`;
+
   const viewPanels = {
-    home: `${securitySection}${projectSection}${carbonSection}${tasksSection}${renderNextActionSection(resolvedNextAction)}`,
+    home: `${renderCompanyLoopSection()}${progressSection}${securitySection}${projectSection}${carbonSection}${tasksSection}${renderNextActionSection(resolvedNextAction)}${renderMatrixRolesFooter()}`,
+    board: renderBoardPanel({
+      selectedWorkspaceId,
+      goalContracts: controlPlane.goalContracts,
+      delegations: controlPlane.delegations,
+      agents: controlPlane.agents,
+      reviewInboxHref: reviewLink,
+      error: controlPlane.error
+    }),
+    company: renderCompanyPanel({
+      agents: controlPlane.agents,
+      delegations: controlPlane.delegations,
+      error: controlPlane.error
+    }),
     "next-action": renderNextActionSection(resolvedNextAction),
-    "carbon-copy": `${carbonSection}${projectSection}`,
+    "carbon-copy": `${carbonSection}${projectSection}${renderMatrixRolesFooter()}`,
     tasks: tasksSection,
     workspaces: renderWorkspaceSelector(workspaceSelector),
     ontology: renderOntologyManager(ontologyManager),
     objects: renderObjectList(objectList),
-    "object-detail": renderObjectDetail(objectDetail),
+    "object-detail": renderObjectDetail({ ...objectDetail, goalContracts: controlPlane.goalContracts, queryParams }),
     graph: renderGraphExplorer(graphExplorer),
     actions: renderActionRunner(actionRunner),
     "review-inbox": renderReviewInbox(reviewInbox),
     audit: renderAuditTimeline(auditTimeline),
-    "goal-contracts": renderStubPanel(
-      "Goal contracts",
-      "v0: use operational bootstrap + delegation tokens (see docs/bricks). Editor UI is a stub; data lives in API GoalContract objects."
-    ),
-    delegation: renderStubPanel(
-      "Delegation / tool registry",
-      "v0: agent manifest at /agent/manifest; governed tools via Bearer delegation id. Full registry UI not built yet."
-    ),
+    "goal-contracts": renderGoalContractsPanel({
+      goalContracts: controlPlane.goalContracts,
+      error: controlPlane.error
+    }),
+    delegation: renderDelegationPanel({
+      manifest: controlPlane.manifest,
+      error: controlPlane.error
+    }),
     repo: renderRepoPathPanel(repoPath || "docs/PRD.md")
   };
 
   const detailBody = viewPanels[activeView] ?? viewPanels.home;
   const treeHtml = renderPlatformSidebarHtml(activeView, queryParams, repoPath);
+  const sessionBar = renderSessionContextBar(options.sessionContext, options.mcpSession, {
+    projectCwd: options.projectCwd,
+    gateStatusHint: options.gateStatusHint
+  });
 
   const viewTitles = {
     home: "Orchestration console",
+    board: "Board",
+    company: "Company org",
     "next-action": "Next-action selector",
     "carbon-copy": "User and goal layer",
     tasks: "Workflow steps",
@@ -1144,6 +1491,7 @@ export function renderPersonalDashboard(overview, options = {}) {
     `Atlas — ${viewTitles[activeView] ?? "Console"}`,
     `<h1>${escapeHtml(viewTitles[activeView] ?? "Personal Atlas")}</h1>
       <p class="muted">Mixture of Orchestrators Platform · local v0</p>
+      ${sessionBar}
       ${errorBanner}
       ${detailBody}`,
     { treeHtml }
