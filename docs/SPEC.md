@@ -38,6 +38,8 @@ pnpm run paperclipai run       # onboard + run
 
 ## Atlas differentiators (stub → PA-P2+)
 
+**Import inventory (PA-P2M0):** [Atlas + MoO graft map](../docs/bricks/2026-06-30-atlas-moo-import-map.md)
+
 | Capability | Migration reference | Graft target | Status |
 | --- | --- | --- | --- |
 | Ontology registry + lifecycle | `packages/ontology-core/` | `packages/atlas-ontology/` | **stub** (PA-P2b) |

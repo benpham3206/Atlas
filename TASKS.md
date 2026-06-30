@@ -19,7 +19,7 @@ and `docs/bricks/2026-06-30-public-atlas-atomic-tasks.md`.
 | Phase | Next Atomic Task | Required Verification | Blocked by |
 |-------|------------------|-----------------------|------------|
 | **PA-P0** Legacy spine guard | PA-P0.1 confirm migration-reference gates | `npm test`, `smoke:polish`, `demo:flagship` | — |
-| **PA-P2M** Atlas + MoO import | **PA-P2M0** import inventory ADR | graft map in brick doc | PA-P1 done |
+| **PA-P2M** Atlas + MoO import | **PA-P2a** Activity audit ADR | audit integration doc | PA-P2M0 done |
 | **PA-P2** Knowledge + proof graft | PA-P2a Activity audit ADR | ADR merged | PA-P2M0 |
 | **PA-P3** Staff + knowledge pack | PA-P3a staff manifest | fixture loads | PA-P2 |
 | **PA-P4** Re-hero + public slice | PA-P4a encyclopedia hero copy | site-smoke | PA-P3 |
@@ -143,11 +143,12 @@ otherwise. One PR per task; ~300 LOC target except PA-P1b fork import.
 **Status:** queued — do not start until PA-P1 epic gate passes.
 **Intent:** Port everything Atlas + MoO related from the migration reference (`apps/api`, `packages/ontology-core`, Atlas `scripts/`, `.agent/skills/`) into the Paperclip trunk. PA-P2 (knowledge + proof) is the first slice; this epic tracks the full MoO surface map and remaining ports.
 
-- [ ] PA-P2M0 Import inventory ADR — graft map: legacy path → Paperclip target, live vs retire vs defer
+- [x] PA-P2M0 Import inventory ADR — graft map: legacy path → Paperclip target, live vs retire vs defer
   - Implement: `docs/bricks/2026-06-30-atlas-moo-import-map.md` — cover ontology, agent gateway tools, MCP, policy, GoalContract/review packet, personal/operational bootstrap, Hermes skills, GitHub/Slack adapters
   - Tests: SPEC.md links inventory; every `apps/api/src/*` differentiator file appears in map
   - Non-goals: no code ports in this task
   - Depends-on: PA-P1 epic gate
+  - Evidence: import map ADR; `scripts/test/import-map.test.js` green
 
 - [ ] PA-P2M1 Port agent tool surface (`search_records`, `attach_evidence`, manifest) → Paperclip tool/adapter registry
   - Source: `apps/api/src/agent-gateway.js`

@@ -65,7 +65,7 @@ PA-P0.1 → PA-P1a → PA-P1b…P1g → PA-P2M0…P2M7 → PA-P2a…P2h → PA-P
 
 ## Next action
 
-Finish **PA-P1b–P1g** (import commit + dual test harness), then **PA-P2M0** import inventory ADR.
+**PA-P2a** — Activity ↔ hash-chain integration ADR. Import map: `docs/bricks/2026-06-30-atlas-moo-import-map.md` (PA-P2M0 done).
 
 ## Test commands (post-import)
 

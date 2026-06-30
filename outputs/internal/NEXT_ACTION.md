@@ -8,14 +8,14 @@
 
 ## Next Action (Public Atlas — Paperclip pivot)
 
-**Do:** **PA-P2M0** — write Atlas + MoO import inventory ADR (`docs/bricks/2026-06-30-atlas-moo-import-map.md`).
-**Because:** PA-P1 epic gate passed; full Atlas/MoO port into Paperclip is queued and must be mapped before code graft (PA-P2/P2M).
-**Context:** `TASKS.md` § PA-P2M · `docs/bricks/2026-06-30-public-atlas-atomic-tasks.md`
-**Verification:** every `apps/api` differentiator appears in graft map; SPEC.md links inventory
+**Do:** **PA-P2a** — Activity ↔ hash-chain integration ADR (`docs/bricks/2026-06-30-audit-activity-integration.md`).
+**Because:** Import map (PA-P2M0) is merged; audit graft design must be locked before atlas-ontology mount (PA-P2b).
+**Context:** `docs/bricks/2026-06-30-atlas-moo-import-map.md` §6 · `TASKS.md` § PA-P2
+**Verification:** ADR merged; no implementation until reviewed
 
 ## Deferred: personal workspace spine
 
-**Unblocked:** PS-P1 may start after PA-P1 (done); still sequenced after PA-P2M inventory unless Ben reprioritizes.
+**Unblocked:** PS-P1 may start; sequenced after PA-P2a unless Ben reprioritizes.
 **Pointer:** `outputs/internal/PERSONAL_WORKSPACE_STATUS.md`
 
 ## Parallel track (polish program)
