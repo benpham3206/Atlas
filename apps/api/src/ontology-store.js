@@ -1102,6 +1102,38 @@ export function createOntologyStore(options = {}) {
     return clone(delegation);
   }
 
+  function revokeAgentDelegation(workspaceId, delegationId, input = {}) {
+    assertWorkspaceExists(workspaceId);
+    assertPlainObject(input, "request body");
+    const delegation = agentDelegations.get(delegationId);
+
+    if (!delegation || delegation.workspace_id !== workspaceId) {
+      throw new ApiError(404, "delegation_not_found", "AgentDelegation not found in workspace");
+    }
+
+    if (delegation.status === "revoked") {
+      return clone(delegation);
+    }
+
+    delegation.status = "revoked";
+    delegation.updated_at = now();
+    agentDelegations.set(delegationId, delegation);
+    appendAuditEvent({
+      workspace_id: workspaceId,
+      actor: optionalString(input.actor, "actor") ?? "human_authority",
+      event_type: "agent.delegation_revoked",
+      resource_type: "agent_delegation",
+      resource_id: delegationId,
+      decision: "allow",
+      metadata: {
+        agent_id: delegation.agent_id,
+        goal_contract_id: delegation.goal_contract_id,
+        reason: optionalString(input.reason, "reason") ?? "board_pause"
+      }
+    });
+    return clone(delegation);
+  }
+
   function authorizeAgentTool(delegationId, request) {
     assertPlainObject(request, "request");
     const tool = requireString(request.tool, "tool");
@@ -1935,6 +1967,7 @@ export function createOntologyStore(options = {}) {
     createAgentDelegation,
     listAgentDelegations,
     getAgentDelegation,
+    revokeAgentDelegation,
     authorizeAgentTool,
     createObjectType,
     listObjectTypes,

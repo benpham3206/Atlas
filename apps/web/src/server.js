@@ -5,19 +5,30 @@ import {
   completePersonalTask,
   createWorkspaceActionRun,
   createWorkspaceObjectType,
+  fetchAgentManifest,
+  fetchAgents,
   fetchPersonalOverview,
+  fetchPersonalSessionContext,
   fetchWorkspaces,
   fetchWorkspaceActionTypes,
+  fetchWorkspaceAgentDelegations,
   fetchWorkspaceAuditEvents,
+  fetchWorkspaceGoalContracts,
   fetchWorkspaceObject,
   fetchWorkspaceObjectLinks,
   fetchWorkspaceObjectTypes,
   fetchWorkspaceObjects,
   fetchWorkspaceLinks,
   fetchWorkspacePullRequestArtifacts,
-  fetchWorkspaceReviewPackets
+  fetchWorkspaceReviewPackets,
+  revokeWorkspaceAgentDelegation
 } from "./api-client.js";
 import { renderBootstrapPage, renderPersonalDashboard } from "./render.js";
+import {
+  readGateStatusHint,
+  readLocalMcpSession,
+  resolveRepoRoot
+} from "./read-local-mcp-session.js";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 3000;
@@ -41,6 +52,9 @@ export function createWebServer(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const apiUrl = options.apiUrl ?? process.env.ATLAS_API_URL ?? "http://127.0.0.1:4000";
   const fetchOverview = options.fetchPersonalOverview ?? fetchPersonalOverview;
+  const fetchSessionContext = options.fetchPersonalSessionContext ?? fetchPersonalSessionContext;
+  const readMcpSession = options.readLocalMcpSession ?? readLocalMcpSession;
+  const repoRootResolver = options.resolveRepoRoot ?? resolveRepoRoot;
   const fetchWorkspaceList = options.fetchWorkspaces ?? fetchWorkspaces;
   const fetchReviewPackets = options.fetchWorkspaceReviewPackets ?? fetchWorkspaceReviewPackets;
   const fetchPullRequestArtifacts = options.fetchWorkspacePullRequestArtifacts ?? fetchWorkspacePullRequestArtifacts;
@@ -51,6 +65,11 @@ export function createWebServer(options = {}) {
   const fetchObjectLinks = options.fetchWorkspaceObjectLinks ?? fetchWorkspaceObjectLinks;
   const fetchLinks = options.fetchWorkspaceLinks ?? fetchWorkspaceLinks;
   const fetchActionTypes = options.fetchWorkspaceActionTypes ?? fetchWorkspaceActionTypes;
+  const fetchGoalContracts = options.fetchWorkspaceGoalContracts ?? fetchWorkspaceGoalContracts;
+  const fetchAgentDelegations = options.fetchWorkspaceAgentDelegations ?? fetchWorkspaceAgentDelegations;
+  const fetchAgentList = options.fetchAgents ?? fetchAgents;
+  const fetchManifest = options.fetchAgentManifest ?? fetchAgentManifest;
+  const revokeDelegation = options.revokeWorkspaceAgentDelegation ?? revokeWorkspaceAgentDelegation;
   const createActionRun = options.createWorkspaceActionRun ?? createWorkspaceActionRun;
   const createObjectType = options.createWorkspaceObjectType ?? createWorkspaceObjectType;
   const bootstrapAtlas = options.bootstrapPersonalAtlas ?? bootstrapPersonalAtlas;
@@ -63,6 +82,9 @@ export function createWebServer(options = {}) {
       now,
       apiUrl,
       fetchOverview,
+      fetchSessionContext,
+      readMcpSession,
+      repoRootResolver,
       fetchWorkspaceList,
       fetchReviewPackets,
       fetchPullRequestArtifacts,
@@ -73,6 +95,11 @@ export function createWebServer(options = {}) {
       fetchObjectLinks,
       fetchLinks,
       fetchActionTypes,
+      fetchGoalContracts,
+      fetchAgentDelegations,
+      fetchAgentList,
+      fetchManifest,
+      revokeDelegation,
       createActionRun,
       createObjectType,
       bootstrapAtlas,
@@ -98,6 +125,9 @@ async function handleRequest({
   now,
   apiUrl,
   fetchOverview,
+  fetchSessionContext,
+  readMcpSession,
+  repoRootResolver,
   fetchWorkspaceList,
   fetchReviewPackets,
   fetchPullRequestArtifacts,
@@ -108,6 +138,11 @@ async function handleRequest({
   fetchObjectLinks,
   fetchLinks,
   fetchActionTypes,
+  fetchGoalContracts,
+  fetchAgentDelegations,
+  fetchAgentList,
+  fetchManifest,
+  revokeDelegation,
   createActionRun,
   createObjectType,
   bootstrapAtlas,
@@ -122,6 +157,10 @@ async function handleRequest({
   if (request.method === "GET" && url.pathname === "/") {
     const queryError = url.searchParams.get("error");
     const overviewResult = await fetchOverview(apiUrl);
+    const sessionContextResult = await fetchSessionContext(apiUrl);
+    const mcpSession = readMcpSession();
+    const repoRoot = repoRootResolver();
+    const gateStatusHint = readGateStatusHint(repoRoot);
 
     if (!overviewResult.ok) {
       const notBootstrapped =
@@ -176,6 +215,11 @@ async function handleRequest({
     let objectDetailError = null;
     let graphExplorerError = null;
     let actionRunnerError = null;
+    let goalContracts = [];
+    let agentDelegations = [];
+    let agents = [];
+    let agentManifest = null;
+    let controlPlaneError = null;
 
     const workspacesResult = await fetchWorkspaceList(apiUrl);
     if (workspacesResult.ok) {
@@ -250,6 +294,35 @@ async function handleRequest({
         actionRunnerError = actionTypesResult.error?.message ?? "Failed to load action types";
       }
 
+      const [goalContractsResult, delegationsResult, agentsResult, manifestResult] = await Promise.all([
+        fetchGoalContracts(apiUrl, selectedWorkspaceId),
+        fetchAgentDelegations(apiUrl, selectedWorkspaceId),
+        fetchAgentList(apiUrl),
+        fetchManifest(apiUrl)
+      ]);
+
+      if (goalContractsResult.ok) {
+        goalContracts = goalContractsResult.data ?? [];
+      } else {
+        controlPlaneError = goalContractsResult.error?.message ?? "Failed to load GoalContracts";
+      }
+
+      if (delegationsResult.ok) {
+        agentDelegations = delegationsResult.data ?? [];
+      } else {
+        controlPlaneError = controlPlaneError ?? delegationsResult.error?.message ?? "Failed to load delegations";
+      }
+
+      if (agentsResult.ok) {
+        agents = agentsResult.data ?? [];
+      } else {
+        controlPlaneError = controlPlaneError ?? agentsResult.error?.message ?? "Failed to load agents";
+      }
+
+      if (manifestResult.ok) {
+        agentManifest = manifestResult.data ?? null;
+      }
+
       if (requestedObjectId) {
         const [objectResult, objectLinksResult] = await Promise.all([
           fetchObject(apiUrl, selectedWorkspaceId, requestedObjectId),
@@ -293,9 +366,18 @@ async function handleRequest({
         graphExplorerError,
         actionTypes,
         actionRunnerError,
+        goalContracts,
+        agentDelegations,
+        agents,
+        agentManifest,
+        controlPlaneError,
         selectedObject,
         selectedObjectLinks,
-        objectDetailError
+        objectDetailError,
+        sessionContext: sessionContextResult.ok ? sessionContextResult.data : null,
+        mcpSession,
+        projectCwd: repoRoot,
+        gateStatusHint
       })
     );
   }
@@ -407,6 +489,36 @@ async function handleRequest({
 
     response.writeHead(303, {
       location: `${redirectPath}&object_id=${encodeURIComponent(form.target_object_id ?? "")}`,
+      "cache-control": "no-store"
+    });
+    response.end();
+    return;
+  }
+
+  const revokeDelegationMatch = url.pathname.match(
+    /^\/workspaces\/([^/]+)\/agent-delegations\/([^/]+)\/revoke$/
+  );
+  if (request.method === "POST" && revokeDelegationMatch) {
+    const workspaceId = decodeURIComponent(revokeDelegationMatch[1]);
+    const delegationId = decodeURIComponent(revokeDelegationMatch[2]);
+    const redirectPath = `/?view=board&workspace_id=${encodeURIComponent(workspaceId)}`;
+    const revokeResult = await revokeDelegation(apiUrl, workspaceId, delegationId, {
+      actor: "human_board",
+      reason: "board_pause"
+    });
+
+    if (!revokeResult.ok) {
+      const message = encodeURIComponent(revokeResult.error?.message ?? "Failed to pause delegation");
+      response.writeHead(303, {
+        location: `${redirectPath}&error=${message}`,
+        "cache-control": "no-store"
+      });
+      response.end();
+      return;
+    }
+
+    response.writeHead(303, {
+      location: redirectPath,
       "cache-control": "no-store"
     });
     response.end();

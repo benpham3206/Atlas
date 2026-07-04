@@ -9,8 +9,14 @@ const OBJECT_TYPE_PERSONAL_TASK = "object_type_personal_task";
 const LINK_TYPE_TASK_BLOCKS_TASK = "link_type_task_blocks_task";
 const ACTION_TYPE_COMPLETE_PERSONAL_TASK = "action_type_complete_personal_task";
 
-const SECURITY_BOUNDARY =
-  "Local in-memory personal state. No authentication. Data resets on API restart. Route scoping is not privacy protection.";
+const SECURITY_BOUNDARY_VOLATILE =
+  "Local personal state. No authentication. Data resets on API restart unless ATLAS_DATA_FILE is set. Route scoping is not privacy protection.";
+const SECURITY_BOUNDARY_PERSISTENT =
+  "Local personal state. No authentication. State persists via ATLAS_DATA_FILE on this host. Route scoping is not privacy protection.";
+
+export function getPersonalSecurityBoundary({ persistState = false } = {}) {
+  return persistState ? SECURITY_BOUNDARY_PERSISTENT : SECURITY_BOUNDARY_VOLATILE;
+}
 
 const PROJECT_GOAL = "Use Personal Atlas to build the public and enterprise Atlas versions";
 
@@ -32,6 +38,14 @@ function getPersonalTasks(store, workspaceId = PERSONAL_WORKSPACE_ID) {
   return store.listObjectInstances(workspaceId, {
     object_type_id: OBJECT_TYPE_PERSONAL_TASK
   });
+}
+
+function getPersonalProjects(store, workspaceId = PERSONAL_WORKSPACE_ID) {
+  return store
+    .listObjectInstances(workspaceId, {
+      object_type_id: OBJECT_TYPE_PERSONAL_PROJECT
+    })
+    .sort((left, right) => left.id.localeCompare(right.id));
 }
 
 function getTaskBlockers(store, workspaceId, taskId) {
@@ -92,6 +106,12 @@ export function guardPersonalObjectPatch(store, workspaceId, objectInstanceId, i
     "governed_action_required",
     "Personal tasks must be completed via POST /personal/tasks/:task_id/complete"
   );
+}
+
+export function patchPersonalObject(store, objectInstanceId, input) {
+  assertPersonalBootstrap(store);
+  guardPersonalObjectPatch(store, PERSONAL_WORKSPACE_ID, objectInstanceId, input);
+  return store.updateObjectInstance(PERSONAL_WORKSPACE_ID, objectInstanceId, input);
 }
 
 function assertPersonalTaskCanComplete(store, taskId) {
@@ -204,7 +224,9 @@ export function bootstrapPersonalAtlas(store) {
     properties_json: {
       goal: "Build Atlas into a Palantir-class ontology platform",
       constraints: "Use Personal Atlas as the cockpit; promote only reviewed records into public or enterprise layers",
-      preferences: "Keep lifecycle gates, evidence, review packets, and tests visible in the local workflow"
+      preferences: "Keep lifecycle gates, evidence, review packets, and tests visible in the local workflow",
+      progress_map: "outputs/internal/PERSONAL_WORKSPACE_STATUS.md",
+      polish_track: "outputs/internal/NEXT_ACTION.md (parallel polish program)"
     }
   });
 
@@ -386,24 +408,89 @@ export function selectNextAction(store, workspaceId = PERSONAL_WORKSPACE_ID) {
   });
 }
 
-export function getPersonalOverview(store) {
+export function getPersonalOverview(store, options = {}) {
   assertPersonalBootstrap(store);
 
   const workspace = store.getWorkspace(PERSONAL_WORKSPACE_ID);
   const carbon_copy = store.getObjectInstance(PERSONAL_WORKSPACE_ID, "object_personal_carbon_copy");
-  const project = store.getObjectInstance(PERSONAL_WORKSPACE_ID, "object_personal_project_atlas");
+  const projects = getPersonalProjects(store);
+  const project =
+    projects.find((entry) => entry.id === "object_personal_project_atlas") ?? projects[0] ?? null;
   const tasks = getPersonalTasks(store);
   const blockers = buildBlockersMap(store, PERSONAL_WORKSPACE_ID, tasks);
   const next_action = selectNextAction(store, PERSONAL_WORKSPACE_ID);
 
   return {
     workspace,
+    workspace_id: workspace.id,
     carbon_copy,
     project,
+    projects,
     tasks,
     blockers,
     next_action,
-    security_boundary: SECURITY_BOUNDARY
+    security_boundary: getPersonalSecurityBoundary(options)
+  };
+}
+
+export function getPersonalTasksCatalog(store) {
+  assertPersonalBootstrap(store);
+
+  const tasks = getPersonalTasks(store);
+
+  return {
+    workspace_id: PERSONAL_WORKSPACE_ID,
+    tasks,
+    blockers: buildBlockersMap(store, PERSONAL_WORKSPACE_ID, tasks),
+    task_count: tasks.length,
+    open_task_count: tasks.filter((task) => task.properties_json.status === "todo").length
+  };
+}
+
+/** Dual-spine header for agents and web: personal tasks vs parallel polish vs operational delegation. */
+export function getPersonalSessionContext(store, options = {}) {
+  assertPersonalBootstrap(store);
+
+  const catalog = getPersonalTasksCatalog(store);
+  const next_action = selectNextAction(store, PERSONAL_WORKSPACE_ID);
+  const carbon_copy = store.getObjectInstance(PERSONAL_WORKSPACE_ID, "object_personal_carbon_copy");
+  const props = carbon_copy.properties_json ?? {};
+  const nextTitle = next_action?.properties_json?.title ?? null;
+
+  return {
+    header_version: 1,
+    workspace_personal_id: PERSONAL_WORKSPACE_ID,
+    operational_workspace_hint:
+      options.operational_workspace_hint ?? "workspace_operational_dogfood",
+    persist_state: Boolean(options.persistState),
+    personal_spine: {
+      next_action,
+      next_action_id: next_action?.id ?? null,
+      next_action_title: nextTitle,
+      open_task_count: catalog.open_task_count,
+      task_count: catalog.task_count,
+      progress_map_uri: props.progress_map ?? null
+    },
+    parallel_polish: {
+      track_uri: props.polish_track ?? null,
+      mode: "parallel",
+      note:
+        "Polish program epics live in outputs/internal/NEXT_ACTION.md — not governed personal task completion."
+    },
+    agent_contract: {
+      personal_planning: [
+        "Use personal.list_tasks, personal.get_overview, personal.get_next_action, or personal.get_session_context (MCP).",
+        "Or atlas.api.get with path /personal/tasks, /personal/overview, /personal/next-action, or /personal/session-context.",
+        "Do not call GET /workspaces/workspace_personal/... with an operational delegation session (workspace_scope_mismatch)."
+      ],
+      operational_governance: [
+        "get_workspace_overview and get_next_action use the MCP session delegation workspace (e.g. workspace_operational_dogfood), not workspace_personal.",
+        "Ontology reads/writes on operational dogfood use /workspaces/:session_workspace_id/... via delegation scope."
+      ],
+      task_completion:
+        "POST /personal/tasks/:task_id/complete with artifact_uri and evidence_note — never PATCH personal task status to done."
+    },
+    security_boundary: getPersonalSecurityBoundary(options)
   };
 }
 

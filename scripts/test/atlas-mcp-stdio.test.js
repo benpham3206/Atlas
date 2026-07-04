@@ -54,6 +54,9 @@ test("MCP tools/list proxies manifest without delegation", async () => {
     assert.ok(toolNames.includes("atlas.api.get"));
     assert.ok(toolNames.includes("atlas.api.post"));
     assert.ok(toolNames.includes("atlas.api.patch"));
+    assert.ok(toolNames.includes("personal.list_tasks"));
+    assert.ok(toolNames.includes("personal.get_session_context"));
+    assert.equal(response.result.tools.length, manifest.tools.length + 8);
   } finally {
     await runtime.close();
   }
@@ -79,7 +82,13 @@ test("MCP direct API tools expose route catalog and require a local session for 
     assert.ok(catalog.routes.some((route) => route.method === "POST" && route.path === "/workspaces/:workspace_id/objects"));
     assert.equal(
       catalog.routes.some((route) => route.method === "POST" && route.path === "/workspaces/:workspace_id/agent-delegations"),
-      false
+      true
+    );
+    assert.equal(
+      catalog.routes.some(
+        (route) => route.method === "PATCH" && route.path === "/workspaces/:workspace_id/agent-delegations/:delegation_id"
+      ),
+      true
     );
     assert.equal(
       catalog.routes.some((route) => route.method === "POST" && route.path === "/workspaces/:workspace_id/policies"),
@@ -89,6 +98,21 @@ test("MCP direct API tools expose route catalog and require a local session for 
       catalog.routes.some((route) => route.method === "POST" && route.path === "/workspaces/:workspace_id/memberships"),
       false
     );
+    assert.equal(
+      catalog.routes.some(
+        (route) => route.method === "PATCH" && route.path === "/personal/objects/:object_id"
+      ),
+      true
+    );
+    assert.equal(
+      catalog.routes.some((route) => route.method === "GET" && route.path === "/personal/tasks"),
+      true
+    );
+    assert.equal(
+      catalog.routes.some((route) => route.method === "GET" && route.path === "/personal/session-context"),
+      true
+    );
+    assert.ok(catalog.agent_contract?.prefer_tools?.includes("personal.get_session_context"));
 
     const missingSession = await runMcpExchange(
       {
@@ -617,6 +641,74 @@ test("MCP stdio script handles framed initialize/list/call over subprocess IO", 
     assert.ok(responses[1].result.tools.length > 0);
     assert.equal(responses[2].result.isError, undefined);
     assert.ok(responses[2].result.content[0].text.includes("goal_contract_id"));
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("MCP atlas.api.patch updates personal objects without workspace_scope_mismatch", async () => {
+  const runtime = await startMcpSmokeRuntime();
+
+  try {
+    const { sessionFile } = await createSmokeSession(runtime);
+
+    const bootstrap = await runMcpExchange(
+      {
+        jsonrpc: "2.0",
+        id: 40,
+        method: "tools/call",
+        params: {
+          name: "atlas.api.post",
+          arguments: { path: "/personal/bootstrap", body: {} }
+        }
+      },
+      { ATLAS_SESSION_FILE: sessionFile, ATLAS_API_URL: runtime.baseUrl }
+    );
+
+    assert.equal(bootstrap.isError, false);
+
+    const listed = await runMcpExchange(
+      {
+        jsonrpc: "2.0",
+        id: 40.5,
+        method: "tools/call",
+        params: {
+          name: "atlas.api.get",
+          arguments: { path: "/personal/tasks" }
+        }
+      },
+      { ATLAS_SESSION_FILE: sessionFile, ATLAS_API_URL: runtime.baseUrl }
+    );
+
+    assert.equal(listed.isError, false);
+    const listedPayload = JSON.parse(listed.result.content[0].text);
+    assert.equal(listedPayload.tasks.length, 5);
+    assert.equal(listedPayload.workspace_id, "workspace_personal");
+
+    const patched = await runMcpExchange(
+      {
+        jsonrpc: "2.0",
+        id: 41,
+        method: "tools/call",
+        params: {
+          name: "atlas.api.patch",
+          arguments: {
+            path: "/personal/objects/object_task_runtime_foundation",
+            body: {
+              properties_json: {
+                progress_note: "patched via MCP personal route"
+              }
+            }
+          }
+        }
+      },
+      { ATLAS_SESSION_FILE: sessionFile, ATLAS_API_URL: runtime.baseUrl }
+    );
+
+    assert.equal(patched.isError, false);
+    const payload = JSON.parse(patched.result.content[0].text);
+    assert.equal(payload.id, "object_task_runtime_foundation");
+    assert.equal(payload.properties_json.progress_note, "patched via MCP personal route");
   } finally {
     await runtime.close();
   }

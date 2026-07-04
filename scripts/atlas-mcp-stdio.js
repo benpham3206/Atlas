@@ -26,6 +26,11 @@ async function drainMessages() {
     }
 
     inputBuffer = inputBuffer.subarray(parsed.nextOffset);
+
+    if (!parsed.message) {
+      continue;
+    }
+
     await dispatchMessage(parsed.message);
   }
 }

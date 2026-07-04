@@ -3,11 +3,14 @@ node_modules/
 .kimi/
 .hermes/
 evidence/
-outputs/
+outputs/internal/STATE.md
+outputs/proofs/*.log
 .env
 .env.*
 .atlas/
 .tmp-operational-smoke-session.json
+.tmp-polish-quickstart-session.json
+.tmp-flagship-loop-session.json
 coverage/
 dist/
 build/

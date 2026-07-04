@@ -7,7 +7,7 @@ import {
   fetchPersonalNextAction,
   fetchPersonalOverview
 } from "../src/api-client.js";
-import { renderBootstrapPage, renderPersonalDashboard } from "../src/render.js";
+import { renderBootstrapPage, renderPersonalDashboard, renderSessionContextBar } from "../src/render.js";
 
 const sampleOverview = {
   security_boundary:
@@ -26,6 +26,22 @@ const sampleOverview = {
       goal: "Use Personal Atlas to build the public and enterprise Atlas versions"
     }
   },
+  projects: [
+    {
+      id: "object_personal_project_atlas",
+      properties_json: {
+        name: "Atlas self-hosting roadmap",
+        goal: "Use Personal Atlas to build the public and enterprise Atlas versions"
+      }
+    },
+    {
+      id: "object_personal_project_alice_duo",
+      properties_json: {
+        name: "Alice Duo keyboard",
+        goal: "Ship v1 wired keyboard"
+      }
+    }
+  ],
   tasks: [
     {
       id: "object_task_harden_personal_loop",
@@ -96,10 +112,11 @@ test("dashboard renders API-shaped next action", () => {
       }
     },
     tasks: [
-      {
-        id: "object_task_harden_personal_loop",
-        properties_json: { title: "Harden Personal Atlas self-hosting loop", status: "todo" }
-      },
+    {
+      id: "object_task_harden_personal_loop",
+      object_type_id: "object_type_personal_task",
+      properties_json: { title: "Harden Personal Atlas self-hosting loop", status: "todo" }
+    },
       {
         id: "object_task_runtime_foundation",
         properties_json: { title: "Add durable Atlas runtime foundation", status: "todo" }
@@ -126,6 +143,39 @@ test("dashboard renders API-shaped next action", () => {
 
   assert.match(html, /<form method="post" action="\/tasks\/object_task_harden_personal_loop\/complete">/);
   assert.match(html, /Harden Personal Atlas self-hosting loop/);
+});
+
+test("dashboard renders session context bar when sessionContext provided", () => {
+  const sessionContext = {
+    workspace_personal_id: "workspace_personal",
+    operational_workspace_hint: "workspace_operational_dogfood",
+    personal_spine: {
+      next_action_id: "object_task_harden_personal_loop",
+      next_action_title: "Harden Personal Atlas self-hosting loop",
+      open_task_count: 5
+    },
+    parallel_polish: { track_uri: "outputs/internal/NEXT_ACTION.md" }
+  };
+  const mcpSession = {
+    missing: false,
+    envelope: {
+      workspace_id: "workspace_operational_dogfood",
+      delegation_id: "delegation_smoke_1234567890"
+    }
+  };
+
+  const bar = renderSessionContextBar(sessionContext, mcpSession, {
+    projectCwd: "/Users/ben/Documents/Atlas",
+    gateStatusHint: { mtime_iso: "2026-06-29T12:00:00.000Z" }
+  });
+
+  assert.match(bar, /session-context-bar/);
+  assert.match(bar, /dual-spine/);
+  assert.match(bar, /object_task_harden_personal_loop/);
+  assert.match(bar, /workspace_operational_dogfood/);
+
+  const html = renderPersonalDashboard(sampleOverview, { sessionContext, mcpSession });
+  assert.match(html, /session-context-bar/);
 });
 
 test("bootstrap page renders security boundary notice", () => {
@@ -405,6 +455,70 @@ test("dashboard renders audit timeline events", () => {
   assert.match(html, /agent\.tool_call/);
   assert.match(html, /hash_002/);
   assert.match(html, /process-local integrity/);
+});
+
+test("home view renders Matrix company loop and GoalContract step", () => {
+  const html = renderPersonalDashboard(sampleOverview, { view: "home" });
+  assert.match(html, />01</);
+  assert.match(html, /GoalContract/);
+  assert.match(html, /Apply the Algorithm/);
+  assert.match(html, /Alice Duo keyboard/);
+});
+
+test("board view renders Review link and delegation pause", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "board",
+    selectedWorkspaceId: "workspace_personal",
+    goalContracts: [{ id: "goal_contract_001", status: "active", objective: "Polish E3" }],
+    agentDelegations: [
+      {
+        id: "delegation_001",
+        agent_id: "agent_001",
+        status: "active",
+        expires_at: "2099-01-01T00:00:00.000Z"
+      }
+    ],
+    agents: [{ id: "agent_001", display_name: "Operational Agent", status: "active" }]
+  });
+
+  assert.match(html, /Review inbox/);
+  assert.match(html, /Pause delegation/);
+  assert.match(html, /goal_contract_001/);
+  assert.match(html, /safety-by-absence/);
+});
+
+test("company view renders hires tree without raw JSON dump", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "company",
+    agentDelegations: [
+      {
+        id: "delegation_001",
+        agent_id: "agent_001",
+        status: "active",
+        expires_at: "2099-01-01T00:00:00.000Z"
+      }
+    ],
+    agents: [{ id: "agent_001", display_name: "Operational Agent", status: "active" }]
+  });
+
+  assert.match(html, /Company org/);
+  assert.match(html, /Operational Agent/);
+  assert.match(html, /Delegations \(scoped\)/);
+  assert.doesNotMatch(html, /"delegation_001":/);
+});
+
+test("object detail shows GoalContract alignment empty state", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "object-detail",
+    selectedObject: {
+      ...sampleOverview.tasks[0],
+      object_type_id: "object_type_personal_task"
+    },
+    goalContracts: []
+  });
+
+  assert.match(html, /Goal alignment/);
+  assert.match(html, /No GoalContract linked/);
 });
 
 test("GET /health returns web ok", async (t) => {

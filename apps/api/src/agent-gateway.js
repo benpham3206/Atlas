@@ -12,7 +12,8 @@ export const AGENT_TOOLS = Object.freeze([
     name: "get_workspace_overview",
     category: "read",
     required_scope: SCOPE_READ,
-    description: "List object types, object counts, action types, and policy status for the delegated workspace.",
+    description:
+      "List object types, object counts, action types, and policy status for the MCP session delegation workspace (e.g. workspace_operational_dogfood). For workspace_personal tasks use personal.get_overview or personal.list_tasks — not this tool.",
     input_schema: { type: "object", properties: {} }
   },
   {
@@ -72,7 +73,8 @@ export const AGENT_TOOLS = Object.freeze([
     name: "get_next_action",
     category: "read",
     required_scope: SCOPE_READ,
-    description: "Select the highest-priority unblocked task in the workspace, given a task object type and a blocks link type.",
+    description:
+      "Select the highest-priority unblocked task in the MCP session delegation workspace (operational dogfood). For the personal five-task spine use personal.get_next_action or GET /personal/next-action.",
     input_schema: {
       type: "object",
       required: ["task_object_type_id", "blocks_link_type_id"],
@@ -195,6 +197,20 @@ export const AGENT_TOOLS = Object.freeze([
     category: "read",
     required_scope: SCOPE_READ,
     description: "Verify the integrity of the append-only, hash-chained audit log.",
+    input_schema: { type: "object", properties: {} }
+  },
+  {
+    name: "list_goal_contracts",
+    category: "read",
+    required_scope: SCOPE_READ,
+    description: "List GoalContracts in the delegated workspace (Paperclip goal alignment; read-only).",
+    input_schema: { type: "object", properties: {} }
+  },
+  {
+    name: "list_delegations",
+    category: "read",
+    required_scope: SCOPE_READ,
+    description: "List agent delegations in the delegated workspace (Company hires; read-only).",
     input_schema: { type: "object", properties: {} }
   }
 ]);
@@ -466,6 +482,14 @@ const TOOL_IMPLEMENTATIONS = {
 
   verify_audit_chain(store) {
     return store.verifyAuditChain();
+  },
+
+  list_goal_contracts(store, delegation) {
+    return store.listGoalContracts(delegation.workspace_id);
+  },
+
+  list_delegations(store, delegation) {
+    return store.listAgentDelegations(delegation.workspace_id);
   }
 };
 

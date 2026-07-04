@@ -21,6 +21,8 @@ import {
 } from "../src/api-client.js";
 
 const sampleOverview = {
+  workspace: { id: "workspace_personal", name: "Personal Atlas" },
+  workspace_id: "workspace_personal",
   security_boundary: "Local in-memory personal state.",
   carbon_copy: {
     properties_json: {
@@ -877,4 +879,51 @@ test("server completes task and redirects home", async (t) => {
   assert.equal(response.status, 303);
   assert.equal(response.headers.get("location"), "/");
   assert.equal(completed, true);
+});
+
+test("server renders board view with Review and delegation status", async (t) => {
+  const baseUrl = await startServer(t, {
+    fetchPersonalOverview: async () => ({ ok: true, data: sampleOverview, error: null }),
+    fetchWorkspaceGoalContracts: async () => ({
+      ok: true,
+      data: [{ id: "goal_contract_001", status: "active", objective: "Polish" }],
+      error: null
+    }),
+    fetchWorkspaceAgentDelegations: async () => ({
+      ok: true,
+      data: [
+        {
+          id: "delegation_001",
+          agent_id: "agent_001",
+          status: "active",
+          expires_at: "2099-01-01T00:00:00.000Z"
+        }
+      ],
+      error: null
+    }),
+    fetchAgents: async () => ({
+      ok: true,
+      data: [{ id: "agent_001", display_name: "Worker", status: "active" }],
+      error: null
+    }),
+    fetchAgentManifest: async () => ({ ok: true, data: { tools: [] }, error: null })
+  });
+
+  const response = await fetch(`${baseUrl}/?view=board`);
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /Board \(Paperclip control plane\)/);
+  assert.match(html, /Review inbox/);
+  assert.match(html, /Pause delegation/);
+});
+
+test("server renders home company loop", async (t) => {
+  const baseUrl = await startServer(t, {
+    fetchPersonalOverview: async () => ({ ok: true, data: sampleOverview, error: null })
+  });
+
+  const response = await fetch(`${baseUrl}/?view=home`);
+  const html = await response.text();
+  assert.match(html, />01</);
+  assert.match(html, /GoalContract/);
 });

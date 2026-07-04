@@ -168,7 +168,23 @@ async function main() {
       { ATLAS_API_URL: runtime.baseUrl }
     );
     assert.equal(listed.isError, false);
-    assert.equal(listed.result.tools.length, manifest.tools.length);
+    const mcpToolNames = listed.result.tools.map((tool) => tool.name);
+    for (const tool of manifest.tools) {
+      assert.ok(mcpToolNames.includes(tool.name), `MCP tools/list missing manifest tool ${tool.name}`);
+    }
+    for (const name of [
+      "atlas.api.routes",
+      "atlas.api.get",
+      "atlas.api.post",
+      "atlas.api.patch",
+      "personal.list_tasks",
+      "personal.get_overview",
+      "personal.get_next_action",
+      "personal.get_session_context"
+    ]) {
+      assert.ok(mcpToolNames.includes(name), `MCP tools/list missing direct tool ${name}`);
+    }
+    assert.equal(listed.result.tools.length, manifest.tools.length + 8);
     ok("MCP tools/list");
 
     const called = await runMcpExchange(
