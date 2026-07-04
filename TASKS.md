@@ -1,7 +1,9 @@
 # Atlas Task Tracker
 
-Current objective: align current Atlas implementation with the three PRD vision while keeping the
-next executable slice limited to tasks, architecture, and tests until implementation is approved.
+Current objective: **Public Atlas first** — fork Paperclip (MIT) as repo-root trunk, graft Atlas
+knowledge + proof layer, ship encyclopedia MVP; then resume personal-spine hardening (PS-*) and
+trust backlog (H-*). Planning source: `outputs/docs/ARCHITECTURE_COMPETITIVE_FRAMEWORK_2026-06-30.md`
+and `docs/bricks/2026-06-30-public-atlas-atomic-tasks.md`.
 
 ## Completion Rules
 
@@ -13,6 +15,16 @@ next executable slice limited to tasks, architecture, and tests until implementa
 - For each phase, complete tasks in order unless a dependency forces a different sequence.
 
 ## Upcoming Work Map
+
+| Phase | Next Atomic Task | Required Verification | Blocked by |
+|-------|------------------|-----------------------|------------|
+| **PA-P0** Legacy spine guard | PA-P0.1 confirm migration-reference gates | `npm test`, `smoke:polish`, `demo:flagship` | — |
+| **PA-P1** Paperclip trunk | **PA-P1b** import Paperclip to root | Paperclip layout + upstream remote | PA-P1a |
+| **PA-P2** Knowledge + proof graft | PA-P2a Activity audit ADR | ADR merged | PA-P1 |
+| **PA-P3** Staff + knowledge pack | PA-P3a staff manifest | fixture loads | PA-P2 |
+| **PA-P4** Re-hero + public slice | PA-P4a encyclopedia hero copy | site-smoke | PA-P3 |
+| **PS-*** Personal spine | PS-P1 runtime foundation | `gate:test` + object history | **PA-P1** |
+| **H-*** Trust hardening | H1 structured failure payloads | path-specific tests | PA-P4 (sprint order) |
 
 | Phase | Next Atomic Task | Required Verification | Likely Challenges |
 |-------|------------------|-----------------------|-------------------|
@@ -50,15 +62,227 @@ Goal: a system any agent can actually drive and trust. Completed this turn (all 
 Deliberately deferred to hardening (target architecture, not yet implemented): signed JWT delegation,
 Postgres + Row-Level Security, OS-level tool sandboxing, classification propagation/redaction.
 
-## What's Next (prioritized)
+## Public Atlas (Paperclip pivot) — active sprint
+
+**Lane prefix:** `PA-*` (Public Atlas). **Deferred lanes:** `PS-*` (personal spine Postgres/policy),
+`H-*` (trust hardening on legacy or fork). Complete PA tasks in order unless a dependency note says
+otherwise. One PR per task; ~300 LOC target except PA-P1b fork import.
+
+**Root-trunk layout (locked):** Paperclip at repo root (`server/`, `ui/`, `cli/`,
+`packages/adapters/`); graft target `packages/atlas-ontology/`; migration reference unchanged
+(`apps/api`, `packages/ontology-core`).
+
+### PA-P0 — Legacy spine guard (mostly done)
+
+- [x] PA-P0.1 Confirm migration-reference gates green; no new features on `apps/api`
+  - Implement: run full legacy gate suite; document baseline in CONTEXT_LOG if not already tagged
+  - Tests: `npm test`, `npm run lint`, `npm run smoke:polish`, `npm run demo:flagship`
+  - Non-goals: no Paperclip import; no API feature work
+  - Depends-on: none
+  - Challenges: uncommitted polish branch should land or be explicitly excluded before PA-P1a tag
+  - Evidence: 2026-06-30 — `npm test` 199 pass; lint; smoke:polish `audit_valid: true`; demo:flagship ok
+
+### PA-P1 — Snapshot + Paperclip trunk — **start here**
+
+- [x] PA-P1a Tag pre-paperclip snapshot
+  - Implement: commit working tree; `git tag -a atlas-pre-paperclip-v0 -m "Baseline before Paperclip root trunk"`
+  - Tests: `git tag -l atlas-pre-paperclip-v0`; legacy gates still green
+  - Verification: `npm test && npm run lint && npm run smoke:polish && npm run demo:flagship`
+  - Non-goals: no Paperclip import; no file moves
+  - Depends-on: PA-P0.1
+  - Challenges: tag must point at recoverable green tree
+  - Evidence: tag `atlas-pre-paperclip-v0` on commit with atomic task backlog + green gates
+
+- [ ] PA-P1b Import Paperclip MIT repo to repo root
+  - Implement: add `server/`, `ui/`, `cli/`, `packages/adapters/` from `https://github.com/paperclipai/paperclip`; add git remote `upstream` → Paperclip; do not literal unrelated-histories merge
+  - Tests: Paperclip directory layout present; `upstream` remote configured
+  - Non-goals: no ontology graft; no schema edits; no deletion of `apps/api` or `packages/ontology-core`
+  - Depends-on: PA-P1a
+  - Challenges: resolve root `package.json` / workspace conflicts with existing monorepo scripts
+
+- [ ] PA-P1c Preserve MIT license and Atlas attribution
+  - Implement: preserve Paperclip `LICENSE` + NOTICE; add `ATTRIBUTION.md` delineating Paperclip base vs Atlas additions
+  - Tests: LICENSE and NOTICE present at root; ATTRIBUTION.md references both projects
+  - Non-goals: no license substitution
+  - Depends-on: PA-P1b
+
+- [ ] PA-P1d Wire root install and local boot (`paperclipai onboard` + `run`)
+  - Implement: root workspace/package wiring per Paperclip docs so onboard and run succeed locally
+  - Tests: `paperclipai onboard` (or documented non-interactive equivalent) and `paperclipai run` start without error
+  - Non-goals: no knowledge routes; no custom Atlas env beyond documented defaults
+  - Depends-on: PA-P1c
+  - Challenges: dependency install vs Atlas zero-dep scripts coexistence at root
+
+- [ ] PA-P1e Smoke Paperclip API health and OpenAPI contract
+  - Implement: `scripts/test/paperclip-boot.test.js` (or smoke script) asserting `GET /api/health` ok and `GET /api/openapi.json` retrievable
+  - Tests: new boot smoke passes against running Paperclip server
+  - Non-goals: no Atlas route assertions yet
+  - Depends-on: PA-P1d
+
+- [ ] PA-P1f Add `docs/SPEC.md` index (Paperclip base vs Atlas additions)
+  - Implement: index sections for Paperclip primitives (live), Atlas differentiators (stub until PA-P2), migration reference (`apps/api`)
+  - Tests: `scripts/test/spec-index.test.js` asserts required Atlas differentiator headings exist
+  - Non-goals: full API reference duplication
+  - Depends-on: PA-P1b
+
+- [ ] PA-P1g Confirm Paperclip test suite green alongside legacy gates
+  - Implement: document Paperclip test command in SPEC.md; ensure CI/local gate runs both suites where feasible
+  - Tests: Paperclip suite green; legacy `npm test` still green for `apps/api` / `packages/ontology-core`
+  - Non-goals: no graft code
+  - Depends-on: PA-P1e, PA-P1f
+  - **Epic gate (PA-P1 done):** P1a–P1g complete; fork boots; SPEC index live; legacy reference spine green
+
+### PA-P2 — Graft knowledge + proof layer
+
+- [ ] PA-P2a ADR: Activity ↔ hash-chain integration
+  - Implement: `docs/bricks/2026-06-30-audit-activity-integration.md` — choose sidecar table, dual-write, or replace; document write path and verify contract
+  - Tests: ADR reviewed; no code until merged
+  - Non-goals: no implementation in this task
+  - Depends-on: PA-P1 epic gate
+  - Challenges: Paperclip Activity ≠ hash-chain; proof moat must survive migration
+
+- [ ] PA-P2b Copy `packages/ontology-core` → `packages/atlas-ontology`
+  - Implement: zero-dep package copy; update package name; keep registry + lifecycle + hash helpers
+  - Tests: `packages/atlas-ontology` exports match ontology-core surface needed for graft
+  - Non-goals: no Paperclip server routes yet
+  - Depends-on: PA-P2a
+
+- [ ] PA-P2c Port ontology-core tests into fork harness
+  - Implement: wire atlas-ontology tests into root `npm test`
+  - Tests: all ported ontology-core tests pass
+  - Non-goals: no new record types
+  - Depends-on: PA-P2b
+
+- [ ] PA-P2d ADR + implement Company ↔ workspace_id mapping
+  - Implement: document and implement mapping so knowledge routes scope to Paperclip `companyId`
+  - Tests: cross-company knowledge access returns 403/404; same-company access succeeds
+  - Non-goals: no second parallel tenant model
+  - Depends-on: PA-P2b
+  - Challenges: single authority chain (Paperclip Company isolation + Atlas lifecycle)
+
+- [ ] PA-P2e Knowledge routes: entity CRUD (company-scoped)
+  - Implement: `server/.../knowledge/` entity routes; port patterns from `apps/api/src/ontology-store.js`
+  - Tests: create/list/fetch entity within company; cross-company denied
+  - Non-goals: no multi-hop traverse yet
+  - Depends-on: PA-P2d
+
+- [ ] PA-P2f Knowledge routes: statement, source, evidence (company-scoped)
+  - Implement: CRUD/list routes per `docs/ONTOLOGY_SPEC.md` record types
+  - Tests: statement requires valid entity; evidence links to source; lifecycle defaults to candidate
+  - Non-goals: no ingestion pipeline
+  - Depends-on: PA-P2e
+
+- [ ] PA-P2g Audit-chain module + `GET /audit/verify`
+  - Implement: per PA-P2a ADR; port `verifyAuditEventChain` from atlas-ontology; expose verify endpoint
+  - Tests: mutations append hash-chained events; verify returns `{ valid: true }`; tamper detected
+  - Non-goals: no Lean/ZK hooks
+  - Depends-on: PA-P2a, PA-P2f
+
+- [ ] PA-P2h Wire `validate:records` into fork root scripts
+  - Implement: root `package.json` script; run against existing fixtures
+  - Tests: `npm run validate:records` PASS in fork context
+  - Non-goals: no new fixture types beyond existing registry
+  - Depends-on: PA-P2c
+  - **Epic gate (PA-P2 done):** knowledge routes live; audit verify green; validate:records PASS
+
+### PA-P3 — Staff + one knowledge pack (encyclopedia MVP)
+
+- [ ] PA-P3a Staff manifest: seven Paperclip agent fixtures
+  - Implement: `tests/fixtures/public-atlas-staff.json` (or YAML) for librarian, researcher, citation, editor, verifier, curator, owner/board per framework §3
+  - Tests: fixture loads; each role has documented scopes
+  - Non-goals: no autonomous multi-agent orchestration
+  - Depends-on: PA-P2 epic gate
+
+- [ ] PA-P3b Seed knowledge pack fixture
+  - Implement: bounded domain seed (entities + candidate statements + sources) under `tests/fixtures/`
+  - Tests: fixture validates against atlas-ontology registry
+  - Non-goals: no external ingestion
+  - Depends-on: PA-P3a
+
+- [ ] PA-P3c Lifecycle gate test: candidate cannot publish
+  - Implement: test proving candidate + unreviewed records cannot become operational/public without verifier path
+  - Tests: promotion blocked without evidence + review; operational requires approved + evidence
+  - Non-goals: no new lifecycle states
+  - Depends-on: PA-P3b
+
+- [ ] PA-P3d Port `search_records` + `attach_evidence` to Paperclip tool surface
+  - Implement: port from `apps/api/src/agent-gateway.js` to Paperclip adapter/tool registry; MCP-discoverable
+  - Tests: authorized agent can search seeded pack; attach_evidence creates evidence + audit event
+  - Non-goals: no write tools beyond governed attach_evidence
+  - Depends-on: PA-P3b
+
+- [ ] PA-P3e Bounded multi-hop graph traverse
+  - Implement: traverse with explicit depth cap (document max depth in test)
+  - Tests: returns seeded subgraph; does not leak cross-company nodes; depth limit enforced
+  - Non-goals: no unbounded graph query language
+  - Depends-on: PA-P3d
+
+- [ ] PA-P3f Derived entity page renderer
+  - Implement: graph → human-readable entity page (server route or ui view)
+  - Tests: seeded entity renders operational statements with source refs
+  - Non-goals: no full public CMS
+  - Depends-on: PA-P3b
+
+- [ ] PA-P3g End-to-end `scripts/test/knowledge-pack.test.js`
+  - Implement: Researcher drafts → Citation attaches → Editor reviews → Verifier promotes → Curator renders; every step in hash-chained audit
+  - Tests: search returns seeded statements with `source_refs`; candidate cannot publish; full path green
+  - Non-goals: no external APIs
+  - Depends-on: PA-P3c, PA-P3d, PA-P3f
+  - **Epic gate (PA-P3 done):** one knowledge pack dogfood loop proven end-to-end
+
+### PA-P4 — Re-hero + public slice
+
+- [ ] PA-P4a Dashboard hero copy → encyclopedia tier (framework §1.1)
+  - Implement: Paperclip dashboard landing leads with proof-closed knowledge framing, not agent-company metaphor
+  - Tests: snapshot or string test for required hero terms
+  - Non-goals: full redesign
+  - Depends-on: PA-P3 epic gate
+
+- [ ] PA-P4b Update `outputs/site/index.html` encyclopedia framing
+  - Implement: public shelf copy aligned with §1.1 knowledge-tier table
+  - Tests: site-smoke passes
+  - Non-goals: no new npm deps for site
+  - Depends-on: PA-P4a
+
+- [ ] PA-P4c Fork quickstart doc (`onboard` → entity → page → audit verify)
+  - Implement: step-by-step in `outputs/docs/` or `docs/` for forkers
+  - Tests: doc paths referenced in spec-index test
+  - Non-goals: no video/marketing assets
+  - Depends-on: PA-P3 epic gate
+
+- [ ] PA-P4d Extend site-smoke for knowledge/evidence/audit terms
+  - Implement: assert page contains "knowledge", "evidence", "audit"
+  - Tests: site-smoke green
+  - Non-goals: no agent-company hero strings as primary framing
+  - Depends-on: PA-P4b
+  - **Epic gate (PA-P4 done):** public slice shippable; forker quickstart documented
+
+### PA-P5 — Full Atlas hardening (deferred stub)
+
+Resume after PA-P4. Backlog pointer: `docs/PRD_ALIGNMENT_NEXT_STEPS_2026-06-29.md` — signed JWT
+subset delegation, classification propagation, Postgres RLS parity, sandbox profiles, Lean/ZK hooks.
+Do not add unchecked PA-P5 tasks until PA-P4 epic gate passes.
+
+### PS-* — Personal spine (deferred until PA-P1 epic gate)
+
+- [ ] PS-P1 Runtime foundation (Postgres + migration runner + object history)
+  - Implement: wire Postgres when configured; transaction boundary; migration runner; object history tests — was `object_task_runtime_foundation`
+  - Tests: `npm run gate:test`; object history tests under `node --test`
+  - Non-goals: no duplicate of Paperclip company model on legacy API
+  - Depends-on: **PA-P1 epic gate**
+  - Challenges: may reconcile with Paperclip DB schema instead of standalone legacy path — decide at PS-P1 start
+  - Pointer: `docs/bricks/2026-06-30-runtime-foundation-handoff.md`
+
+## What's Next (prioritized) — trust hardening lane (H-*)
+
+*Sprint order superseded by PA-* until PA-P4 epic gate. Resume H-* after Public Atlas MVP or on fork in parallel only when explicitly unblocked.*
 
 Apply `.agent/skills/the-algorithm` before each item: question the requirement, prefer
-safety-by-absence, build the smallest verifiable inch. Order reflects meaning-per-line, not the
-phase numbering above.
+safety-by-absence, build the smallest verifiable inch.
 
-Planning source for the next implementation pass: `docs/PRD_ALIGNMENT_NEXT_STEPS_2026-06-29.md`.
+Planning source: `docs/PRD_ALIGNMENT_NEXT_STEPS_2026-06-29.md`.
 
-### P0. Default-on MCP runtime contract — Complete
+### H0. Default-on MCP runtime contract — Complete
 - Goal: make the existing MCP stdio adapter the default local agent operating surface whenever Atlas
   operational runtime is started.
 - Architecture: MCP remains transport-only over `GET /agent/manifest` and `POST /agent/tools/:tool`;
@@ -76,25 +300,25 @@ Planning source for the next implementation pass: `docs/PRD_ALIGNMENT_NEXT_STEPS
 - Non-goals: no MCP-side delegation minting, no separate MCP permission model, no external npm
   package, no merge/deploy/secret/permission/destructive/public-export tool.
 
-### P1. Structured failure payload standard — Planned
+### H1. Structured failure payload standard — Planned
 - Goal: every MCP/API/Tool Router failure reachable by an agent returns `component`, `root_cause`,
   `failure_type`, and `message`.
 - Tests required: authorization, validation, dependency, upstream-client, policy, and GoalContract
   denial paths.
 - Non-goal: do not rewrite success payloads or introduce a framework.
 
-### P2. Signed delegation hardening — Planned
+### H2. Signed delegation hardening — Planned
 - Goal: replace local unsigned bearer delegations with short-lived signed JWT-style delegation.
 - Tests required: signature, issuer, audience, expiry, not-before, workspace, scope, tool allowlist,
   and replay/invalid-token denials.
 - Non-goal: no full end-user login in this slice.
 
-### P3. Postgres + RLS runtime proof — Planned
+### H3. Postgres + RLS runtime proof — Planned
 - Goal: prove DB-enforced tenant/workspace isolation for the records already modeled.
 - Tests required: cross-workspace and cross-tenant denial at the database policy layer.
 - Non-goal: no broad future-record migration, search upgrade, or graph database replacement.
 
-### P4. Minimal MoO runtime trace records — Planned
+### H4. Minimal MoO runtime trace records — Planned
 - Goal: make every tool-executed action traceable through `GoalContract -> MetaOrchestrationRun ->
   OrchestratorRun -> AgentSession -> ToolCall -> AuditEvent`.
 - Tests required: run trace continuity, review packet links, denied tool trace, and audit-chain

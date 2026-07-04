@@ -32,6 +32,7 @@
     "smoke:mcp": "node --test scripts/test/atlas-local-session.test.js scripts/test/atlas-mcp-stdio.test.js",
     "smoke:polish": "node scripts/polish-quickstart-smoke.js",
     "demo:flagship": "node scripts/flagship-loop-demo.js",
+    "momentum:pulse": "node scripts/momentum-pulse.js",
     "gate:test": "node scripts/run-gate-ledger.js test",
     "gate:lint": "node scripts/run-gate-ledger.js lint",
     "gate:operational": "node scripts/run-gate-ledger.js operational",
