@@ -7,7 +7,7 @@ import {
   fetchPersonalNextAction,
   fetchPersonalOverview
 } from "../src/api-client.js";
-import { renderBootstrapPage, renderPersonalDashboard } from "../src/render.js";
+import { renderBootstrapPage, renderPersonalDashboard, renderSessionContextBar } from "../src/render.js";
 
 const sampleOverview = {
   security_boundary:
@@ -26,6 +26,22 @@ const sampleOverview = {
       goal: "Use Personal Atlas to build the public and enterprise Atlas versions"
     }
   },
+  projects: [
+    {
+      id: "object_personal_project_atlas",
+      properties_json: {
+        name: "Atlas self-hosting roadmap",
+        goal: "Use Personal Atlas to build the public and enterprise Atlas versions"
+      }
+    },
+    {
+      id: "object_personal_project_alice_duo",
+      properties_json: {
+        name: "Alice Duo keyboard",
+        goal: "Ship v1 wired keyboard"
+      }
+    }
+  ],
   tasks: [
     {
       id: "object_task_harden_personal_loop",
@@ -60,6 +76,22 @@ test("bootstrap page renders form", () => {
   assert.match(html, /<h1>Personal Atlas<\/h1>/);
   assert.match(html, /Bootstrap Personal Atlas/);
   assert.match(html, /<form method="post" action="\/bootstrap">/);
+  assert.match(html, /layout-bootstrap/);
+  assert.match(html, /bootstrap-sticky/);
+});
+
+test("bootstrap page shows API hint when unreachable", () => {
+  const html = renderBootstrapPage({ error: "fetch failed", apiUnreachable: true });
+  assert.match(html, /npm run dev:api/);
+});
+
+test("bootstrap page keeps tree left and detail right in markup", () => {
+  const html = renderBootstrapPage();
+  const treeIndex = html.indexOf('class="tree-panel"');
+  const detailIndex = html.indexOf('class="detail-panel"');
+  assert.ok(treeIndex > 0 && detailIndex > 0);
+  assert.match(html, /grid-template-areas/);
+  assert.match(html, /atlas-layout-critical/);
 });
 
 test("dashboard renders API-shaped next action", () => {
@@ -80,10 +112,11 @@ test("dashboard renders API-shaped next action", () => {
       }
     },
     tasks: [
-      {
-        id: "object_task_harden_personal_loop",
-        properties_json: { title: "Harden Personal Atlas self-hosting loop", status: "todo" }
-      },
+    {
+      id: "object_task_harden_personal_loop",
+      object_type_id: "object_type_personal_task",
+      properties_json: { title: "Harden Personal Atlas self-hosting loop", status: "todo" }
+    },
       {
         id: "object_task_runtime_foundation",
         properties_json: { title: "Add durable Atlas runtime foundation", status: "todo" }
@@ -112,6 +145,39 @@ test("dashboard renders API-shaped next action", () => {
   assert.match(html, /Harden Personal Atlas self-hosting loop/);
 });
 
+test("dashboard renders session context bar when sessionContext provided", () => {
+  const sessionContext = {
+    workspace_personal_id: "workspace_personal",
+    operational_workspace_hint: "workspace_operational_dogfood",
+    personal_spine: {
+      next_action_id: "object_task_harden_personal_loop",
+      next_action_title: "Harden Personal Atlas self-hosting loop",
+      open_task_count: 5
+    },
+    parallel_polish: { track_uri: "outputs/internal/NEXT_ACTION.md" }
+  };
+  const mcpSession = {
+    missing: false,
+    envelope: {
+      workspace_id: "workspace_operational_dogfood",
+      delegation_id: "delegation_smoke_1234567890"
+    }
+  };
+
+  const bar = renderSessionContextBar(sessionContext, mcpSession, {
+    projectCwd: "/Users/ben/Documents/Atlas",
+    gateStatusHint: { mtime_iso: "2026-06-29T12:00:00.000Z" }
+  });
+
+  assert.match(bar, /session-context-bar/);
+  assert.match(bar, /dual-spine/);
+  assert.match(bar, /object_task_harden_personal_loop/);
+  assert.match(bar, /workspace_operational_dogfood/);
+
+  const html = renderPersonalDashboard(sampleOverview, { sessionContext, mcpSession });
+  assert.match(html, /session-context-bar/);
+});
+
 test("bootstrap page renders security boundary notice", () => {
   const html = renderBootstrapPage();
 
@@ -134,6 +200,325 @@ test("dashboard renders next action, blockers, and complete form", () => {
   assert.match(html, /<form method="post" action="\/tasks\/object_task_harden_personal_loop\/complete">/);
   assert.match(html, /name="artifact_uri"/);
   assert.match(html, /name="evidence_note"/);
+});
+
+test("dashboard renders workspace selector with selected state", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "workspaces",
+    workspaces: [
+      { id: "workspace_personal", name: "Personal Atlas" },
+      { id: "workspace_game_studio", name: "AAA Game Studio" }
+    ],
+    selectedWorkspaceId: "workspace_game_studio"
+  });
+
+  assert.match(html, /Workspaces/);
+  assert.match(html, /Personal Atlas/);
+  assert.match(html, /AAA Game Studio/);
+  assert.match(html, /href="\/\?view=workspaces&amp;workspace_id=workspace_game_studio"/);
+  assert.match(html, /class="workspace-link is-selected"/);
+  assert.match(html, /Personal next-action stays on Personal Atlas/);
+});
+
+test("dashboard renders ontology manager object type inventory", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "ontology",
+    selectedWorkspaceId: "workspace_game_studio",
+    objectTypes: [
+      {
+        id: "object_type_bug",
+        workspace_id: "workspace_game_studio",
+        name: "Bug",
+        schema_json: {
+          type: "object",
+          required: ["title", "status"],
+          properties: {
+            title: { type: "string" },
+            status: { type: "string" },
+            severity: { type: "string" }
+          }
+        }
+      }
+    ]
+  });
+
+  assert.match(html, /Ontology manager/);
+  assert.match(html, /Read-only object type inventory/);
+  assert.match(html, /Bug/);
+  assert.match(html, /object_type_bug/);
+  assert.match(html, /title, status/);
+  assert.match(html, /title, status, severity/);
+  assert.match(html, /<form method="post" action="\/workspaces\/workspace_game_studio\/object-types">/);
+  assert.match(html, /Create object type/);
+  assert.match(html, /name="schema_json"/);
+});
+
+test("dashboard renders object instance list", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "objects",
+    selectedWorkspaceId: "workspace_game_studio",
+    objects: [
+      {
+        id: "object_bug_camera_clip",
+        object_type_id: "object_type_bug",
+        external_id: "BUG-1",
+        properties_json: {
+          title: "Camera clips through wall",
+          status: "open",
+          severity: 2
+        }
+      }
+    ]
+  });
+
+  assert.match(html, /Objects/);
+  assert.match(html, /object_bug_camera_clip/);
+  assert.match(html, /object_type_bug/);
+  assert.match(html, /BUG-1/);
+  assert.match(html, /title: Camera clips through wall/);
+  assert.match(html, /status: open/);
+  assert.match(html, /severity: 2/);
+  assert.match(html, /href="\/\?view=object-detail&amp;workspace_id=workspace_game_studio&amp;object_id=object_bug_camera_clip"/);
+});
+
+test("dashboard renders selected object detail and one-hop links", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "object-detail",
+    selectedObject: {
+      id: "object_bug_camera_clip",
+      object_type_id: "object_type_bug",
+      external_id: "BUG-1",
+      properties_json: {
+        title: "Camera clips through wall",
+        status: "open"
+      }
+    },
+    selectedObjectLinks: {
+      object_id: "object_bug_camera_clip",
+      inbound: [],
+      outbound: [
+        {
+          id: "link_bug_affects_build",
+          link_type_id: "link_type_bug_affects_build",
+          from_object_id: "object_bug_camera_clip",
+          to_object_id: "object_build_v001"
+        }
+      ]
+    }
+  });
+
+  assert.match(html, /Object detail/);
+  assert.match(html, /object_bug_camera_clip/);
+  assert.match(html, /Properties:/);
+  assert.match(html, /title: Camera clips through wall/);
+  assert.match(html, /Outbound links/);
+  assert.match(html, /link_type_bug_affects_build/);
+  assert.match(html, /object_bug_camera_clip -> object_build_v001/);
+  assert.match(html, /Inbound links/);
+});
+
+test("dashboard renders graph explorer nodes and edges", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "graph",
+    selectedWorkspaceId: "workspace_game_studio",
+    objects: [
+      {
+        id: "object_bug_camera_clip",
+        object_type_id: "object_type_bug",
+        properties_json: { title: "Camera clips through wall" }
+      },
+      {
+        id: "object_build_v001",
+        object_type_id: "object_type_build",
+        properties_json: { version: "v001" }
+      }
+    ],
+    links: [
+      {
+        id: "link_bug_affects_build",
+        link_type_id: "link_type_bug_affects_build",
+        from_object_id: "object_bug_camera_clip",
+        to_object_id: "object_build_v001"
+      }
+    ]
+  });
+
+  assert.match(html, /Graph explorer/);
+  assert.match(html, /Nodes/);
+  assert.match(html, /Edges/);
+  assert.match(html, /href="\/\?view=object-detail&amp;workspace_id=workspace_game_studio&amp;object_id=object_bug_camera_clip"/);
+  assert.match(html, /object_type_build/);
+  assert.match(html, /link_type_bug_affects_build/);
+  assert.match(html, /object_bug_camera_clip -> object_build_v001/);
+});
+
+test("dashboard renders action runner form", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "actions",
+    selectedWorkspaceId: "workspace_game_studio",
+    objects: [
+      {
+        id: "object_task_1",
+        object_type_id: "object_type_task",
+        properties_json: { status: "todo" }
+      }
+    ],
+    actionTypes: [
+      {
+        id: "action_type_complete_task",
+        name: "Complete task",
+        target_object_type_id: "object_type_task"
+      }
+    ]
+  });
+
+  assert.match(html, /Action runner/);
+  assert.match(html, /Runs unsigned local ActionRun requests/);
+  assert.match(html, /<form method="post" action="\/workspaces\/workspace_game_studio\/action-runs">/);
+  assert.match(html, /action_type_complete_task/);
+  assert.match(html, /object_task_1/);
+  assert.doesNotMatch(html, /name="principal_type"/);
+  assert.doesNotMatch(html, /name="principal_id"/);
+  assert.doesNotMatch(html, /name="role"/);
+  assert.match(html, /Run action/);
+});
+
+test("dashboard renders review inbox packet and pending human action", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "review-inbox",
+    reviewPackets: [
+      {
+        id: "review_packet_001",
+        pull_request_artifact_id: "pull_request_artifact_001",
+        summary: "Review-ready agent branch",
+        status: "review_ready",
+        verification_commands: ["npm test"],
+        critic_findings: ["No merge tool exposed"],
+        safety_findings: ["GoalContract blocks merge"],
+        pending_human_actions: ["protected_branch_merge"]
+      }
+    ],
+    pullRequestArtifacts: [
+      {
+        id: "pull_request_artifact_001",
+        repository: "benpham3206/Atlas",
+        title: "Agent branch",
+        head_branch: "codex/n4",
+        base_branch: "main",
+        external_url: "https://github.com/benpham3206/Atlas/pull/99",
+        state: "open"
+      }
+    ]
+  });
+
+  assert.match(html, /Review inbox/);
+  assert.match(html, /Review-ready agent branch/);
+  assert.match(html, /protected_branch_merge/);
+  assert.match(html, /npm test/);
+  assert.match(html, /No merge tool exposed/);
+  assert.match(html, /GoalContract blocks merge/);
+});
+
+test("dashboard renders audit timeline events", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "audit",
+    auditEvents: [
+      {
+        id: "audit_event_001",
+        sequence: 1,
+        actor: "agent_coder",
+        event_type: "agent.tool_call",
+        resource_type: "agent_tool",
+        resource_id: "github.open_pr",
+        decision: "allow",
+        event_hash: "hash_001",
+        previous_event_hash: null,
+        created_at: "2026-06-28T00:00:00.000Z"
+      },
+      {
+        id: "audit_event_002",
+        sequence: 2,
+        actor: "system",
+        event_type: "review_packet.created",
+        resource_type: "review_packet",
+        resource_id: "review_packet_001",
+        decision: "allow",
+        event_hash: "hash_002",
+        previous_event_hash: "hash_001",
+        created_at: "2026-06-28T00:00:01.000Z"
+      }
+    ]
+  });
+
+  assert.match(html, /Audit timeline/);
+  assert.match(html, /review_packet\.created/);
+  assert.match(html, /agent\.tool_call/);
+  assert.match(html, /hash_002/);
+  assert.match(html, /process-local integrity/);
+});
+
+test("home view renders Matrix company loop and GoalContract step", () => {
+  const html = renderPersonalDashboard(sampleOverview, { view: "home" });
+  assert.match(html, />01</);
+  assert.match(html, /GoalContract/);
+  assert.match(html, /Apply the Algorithm/);
+  assert.match(html, /Alice Duo keyboard/);
+});
+
+test("board view renders Review link and delegation pause", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "board",
+    selectedWorkspaceId: "workspace_personal",
+    goalContracts: [{ id: "goal_contract_001", status: "active", objective: "Polish E3" }],
+    agentDelegations: [
+      {
+        id: "delegation_001",
+        agent_id: "agent_001",
+        status: "active",
+        expires_at: "2099-01-01T00:00:00.000Z"
+      }
+    ],
+    agents: [{ id: "agent_001", display_name: "Operational Agent", status: "active" }]
+  });
+
+  assert.match(html, /Review inbox/);
+  assert.match(html, /Pause delegation/);
+  assert.match(html, /goal_contract_001/);
+  assert.match(html, /safety-by-absence/);
+});
+
+test("company view renders hires tree without raw JSON dump", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "company",
+    agentDelegations: [
+      {
+        id: "delegation_001",
+        agent_id: "agent_001",
+        status: "active",
+        expires_at: "2099-01-01T00:00:00.000Z"
+      }
+    ],
+    agents: [{ id: "agent_001", display_name: "Operational Agent", status: "active" }]
+  });
+
+  assert.match(html, /Company org/);
+  assert.match(html, /Operational Agent/);
+  assert.match(html, /Delegations \(scoped\)/);
+  assert.doesNotMatch(html, /"delegation_001":/);
+});
+
+test("object detail shows GoalContract alignment empty state", () => {
+  const html = renderPersonalDashboard(sampleOverview, {
+    view: "object-detail",
+    selectedObject: {
+      ...sampleOverview.tasks[0],
+      object_type_id: "object_type_personal_task"
+    },
+    goalContracts: []
+  });
+
+  assert.match(html, /Goal alignment/);
+  assert.match(html, /No GoalContract linked/);
 });
 
 test("GET /health returns web ok", async (t) => {

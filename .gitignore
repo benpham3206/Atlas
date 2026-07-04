@@ -1,8 +1,16 @@
 node_modules/
 .DS_Store
 .kimi/
+.hermes/
+evidence/
+outputs/internal/STATE.md
+outputs/proofs/*.log
 .env
 .env.*
+.atlas/
+.tmp-operational-smoke-session.json
+.tmp-polish-quickstart-session.json
+.tmp-flagship-loop-session.json
 coverage/
 dist/
 build/

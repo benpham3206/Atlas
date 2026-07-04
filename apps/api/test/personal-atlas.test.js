@@ -78,12 +78,15 @@ test("personal read endpoints do not bootstrap workspace", async (t) => {
 
   const overview = await requestJson(baseUrl, "/personal/overview");
   const nextAction = await requestJson(baseUrl, "/personal/next-action");
+  const tasks = await requestJson(baseUrl, "/personal/tasks");
   const workspaces = await requestJson(baseUrl, "/workspaces");
 
   assert.equal(overview.status, 404);
   assert.equal(overview.payload.error, "workspace_not_bootstrapped");
   assert.equal(nextAction.status, 404);
   assert.equal(nextAction.payload.error, "workspace_not_bootstrapped");
+  assert.equal(tasks.status, 404);
+  assert.equal(tasks.payload.error, "workspace_not_bootstrapped");
   assert.equal(workspaces.status, 200);
   assert.deepEqual(workspaces.payload.data, []);
 });
@@ -227,6 +230,68 @@ test("GET /personal/overview returns workspace, tasks, and next action", async (
     overview.payload.data.tasks.every((task) => task.properties_json.acceptance_criteria.length > 0),
     true
   );
+  assert.equal(overview.payload.data.projects.length, 1);
+  assert.equal(overview.payload.data.projects[0].id, "object_personal_project_atlas");
+});
+
+test("GET /personal/tasks returns tasks and blockers without full overview", async (t) => {
+  const baseUrl = await startTestServer(t);
+
+  await requestJson(baseUrl, "/personal/bootstrap", {
+    method: "POST"
+  });
+
+  const catalog = await requestJson(baseUrl, "/personal/tasks");
+  const overview = await requestJson(baseUrl, "/personal/overview");
+
+  assert.equal(catalog.status, 200);
+  assert.equal(catalog.payload.data.workspace_id, "workspace_personal");
+  assert.equal(catalog.payload.data.tasks.length, 5);
+  assert.equal(catalog.payload.data.task_count, 5);
+  assert.equal(catalog.payload.data.open_task_count, 5);
+  assert.deepEqual(
+    catalog.payload.data.tasks.map((task) => task.id),
+    overview.payload.data.tasks.map((task) => task.id)
+  );
+  assert.ok(Array.isArray(catalog.payload.data.blockers.object_task_runtime_foundation));
+  assert.equal(catalog.payload.data.blockers.object_task_runtime_foundation[0].id, "object_task_harden_personal_loop");
+});
+
+test("GET /personal/session-context returns dual-spine header and agent_contract", async (t) => {
+  const baseUrl = await startTestServer(t);
+
+  await requestJson(baseUrl, "/personal/bootstrap", { method: "POST" });
+
+  const ctx = await requestJson(baseUrl, "/personal/session-context");
+
+  assert.equal(ctx.status, 200);
+  assert.equal(ctx.payload.data.workspace_personal_id, "workspace_personal");
+  assert.ok(ctx.payload.data.personal_spine);
+  assert.ok(ctx.payload.data.parallel_polish);
+  assert.ok(Array.isArray(ctx.payload.data.agent_contract.personal_planning));
+  assert.match(ctx.payload.data.agent_contract.task_completion, /complete/);
+});
+
+test("GET /personal/overview lists all personal projects", async (t) => {
+  const baseUrl = await startTestServer(t);
+
+  await requestJson(baseUrl, "/personal/bootstrap", { method: "POST" });
+  await requestJson(baseUrl, "/workspaces/workspace_personal/objects", {
+    method: "POST",
+    body: {
+      id: "object_personal_project_alice_duo",
+      object_type_id: "object_type_personal_project",
+      properties_json: {
+        name: "Alice Duo keyboard",
+        description: "Custom build",
+        goal: "Ship v1 wired keyboard"
+      }
+    }
+  });
+
+  const overview = await requestJson(baseUrl, "/personal/overview");
+  assert.equal(overview.status, 200);
+  assert.equal(overview.payload.data.projects.length, 2);
 });
 
 test("PATCH cannot bypass governed personal task completion", async (t) => {
@@ -251,6 +316,40 @@ test("PATCH cannot bypass governed personal task completion", async (t) => {
   const task = await requestJson(baseUrl, "/workspaces/workspace_personal/objects/object_task_harden_personal_loop");
 
   assert.equal(task.payload.data.properties_json.status, "todo");
+});
+
+test("PATCH /personal/objects updates task fields without workspace session scope", async (t) => {
+  const baseUrl = await startTestServer(t);
+
+  await requestJson(baseUrl, "/personal/bootstrap", {
+    method: "POST"
+  });
+
+  const patched = await requestJson(baseUrl, "/personal/objects/object_task_runtime_foundation", {
+    method: "PATCH",
+    body: {
+      properties_json: {
+        status: "todo",
+        progress_note: "MCP patch route test"
+      }
+    }
+  });
+
+  assert.equal(patched.status, 200);
+  assert.equal(patched.payload.data.id, "object_task_runtime_foundation");
+  assert.equal(patched.payload.data.properties_json.progress_note, "MCP patch route test");
+
+  const governed = await requestJson(baseUrl, "/personal/objects/object_task_harden_personal_loop", {
+    method: "PATCH",
+    body: {
+      properties_json: {
+        status: "done"
+      }
+    }
+  });
+
+  assert.equal(governed.status, 400);
+  assert.equal(governed.payload.error, "governed_action_required");
 });
 
 test("blocked tasks cannot be completed directly", async (t) => {

@@ -41,8 +41,6 @@ Long-running implementation toward the Atlas enterprise PRD in `ChatGPT Lean Acc
 - No database runtime exists yet; migrations will be schema artifacts while the API uses in-memory storage.
 - No auth exists yet; workspace scoping is route-based, not identity-based.
 
----
-
 ## Turn 1: Outcome
 
 **Status:** Success
@@ -895,5 +893,465 @@ Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> pe
 ### Next Action
 - Human decision: push the branch / open a PR (deferred per approval-fatigue-filter — irreversible/remote boundary).
 - Then begin hardening: signed JWT delegation, then Postgres + RLS wiring (migrations `0005`–`0009` already define the schema).
+
+---
+
+## Turn 13: Audit UI Completion (2026-06-28)
+**Target:** close T5.8/U6.9 without expanding the authority surface.
+
+### Completed Actions
+- [x] Added `fetchWorkspaceAuditEvents` to the dependency-free web API client.
+- [x] Loaded audit events alongside review packets and PR artifacts in the dashboard server path.
+- [x] Rendered a compact audit timeline sorted by latest sequence, showing event type, actor, decision, resource, sequence, hash, and previous hash.
+- [x] Kept trust wording bounded to local hash-chain evidence; no external compliance-retention claim.
+- [x] Marked T5.8, U6.1, and U6.9 complete in `TASKS.md`.
+
+### Verification
+```text
+npm run test:web
+tests 17
+pass 17
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue Phase 6 with U6.2 workspace selector.
+
+---
+
+## Turn 14: Workspace Selector Completion (2026-06-28)
+**Target:** close U6.2 as a read-only context selector without creating a general ontology UI early.
+
+### Completed Actions
+- [x] Added `fetchWorkspaces` to the web API client.
+- [x] Added `?workspace_id=` selection on the dashboard server route.
+- [x] Rendered workspace selector links with selected state.
+- [x] Bound selected workspace only to review packets, PR artifacts, and audit timeline panels; Personal Atlas next-action completion remains bound to the Personal overview.
+
+### Verification
+```text
+npm run test:web
+tests 19
+pass 19
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue Phase 6 with U6.3 ontology manager page.
+
+---
+
+## Turn 15: Read-Only Ontology Manager Completion (2026-06-28)
+**Target:** close U6.3 without prematurely adding ontology mutation UI.
+
+### Completed Actions
+- [x] Added `fetchWorkspaceObjectTypes` to the web API client.
+- [x] Loaded object types for the selected workspace context on the dashboard route.
+- [x] Rendered a read-only object type inventory with type id, workspace id, required fields, and schema property names.
+- [x] Kept creation/editing out of this slice; U6.4 remains the object type creation form.
+
+### Verification
+```text
+npm run test:web
+tests 21
+pass 21
+fail 0
+```
+
+### Next Action
+- Continue Phase 6 with U6.4 object type creation form.
+
+---
+
+## Turn 16: Object Type Creation Form Completion (2026-06-28)
+**Target:** close U6.4 with the smallest mutation path that preserves API authority.
+
+### Completed Actions
+- [x] Added `createWorkspaceObjectType` to the web API client.
+- [x] Added a selected-workspace object type creation form to the ontology manager section.
+- [x] Added a web POST proxy at `/workspaces/:workspace_id/object-types`.
+- [x] Validated `schema_json` as JSON before calling the API and redirected API/validation errors back into the dashboard error path.
+
+### Verification
+```text
+npm run test:web
+tests 23
+pass 23
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue Phase 6 with U6.5 object instance list.
+
+---
+
+## Turn 17: Object Instance List Completion (2026-06-28)
+**Target:** close U6.5 as a selected-workspace, read-only object summary list.
+
+### Completed Actions
+- [x] Added `fetchWorkspaceObjects` to the web API client.
+- [x] Loaded object instances for the selected workspace context on the dashboard route.
+- [x] Rendered object id, object type id, external id, and a compact dynamic property summary.
+- [x] Avoided a generic editable table; U6.6 remains the detail page.
+
+### Verification
+```text
+npm run test:web
+tests 25
+pass 25
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue Phase 6 with U6.6 object detail page.
+
+---
+
+## Turn 18: Object Detail Completion (2026-06-28)
+**Target:** close U6.6 with a read-only selected-object panel and one-hop links.
+
+### Completed Actions
+- [x] Added `fetchWorkspaceObject` and `fetchWorkspaceObjectLinks` to the web API client.
+- [x] Added `object_id` dashboard selection under the selected workspace context.
+- [x] Rendered selected object id, type, external id, properties, outbound links, and inbound links.
+- [x] Linked object list rows into the selected-object detail panel.
+
+### Verification
+```text
+npm run test:web
+tests 27
+pass 27
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue Phase 6 with U6.7 graph explorer.
+
+---
+
+## Turn 19: Graph Explorer Completion (2026-06-28)
+**Target:** close U6.7 without adding frontend dependencies or a visual graph library.
+
+### Completed Actions
+- [x] Added `fetchWorkspaceLinks` to the web API client.
+- [x] Loaded selected-workspace links alongside object instances.
+- [x] Rendered a dependency-free Graph explorer with linked nodes and edge rows.
+- [x] Kept graph exploration read-only and scoped to the selected workspace.
+
+### Verification
+```text
+npm run test:web
+tests 29
+pass 29
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue Phase 6 with U6.8 action runner.
+
+---
+
+## Turn 20: Action Runner And Phase 6 Completion (2026-06-28)
+**Target:** close U6.8 and reconcile the already-implemented next-action dashboard task.
+
+### Completed Actions
+- [x] Added `fetchWorkspaceActionTypes` and `createWorkspaceActionRun` to the web API client.
+- [x] Loaded selected-workspace ActionTypes for the dashboard.
+- [x] Rendered an Action runner form with action type, target object, and `input_json`.
+- [x] Added a web POST proxy at `/workspaces/:workspace_id/action-runs`, validating `input_json` locally before calling the API; later hardening removed browser-controlled actor/principal/role forwarding.
+- [x] Confirmed U6.10 was already satisfied by the existing next-action dashboard and marked it complete with evidence.
+
+### Verification
+```text
+npm run test:web
+tests 33
+pass 33
+fail 0
+
+npm run lint
+Lint passed
+```
+
+### Next Action
+- Continue with Phase 7 remaining task AG7.9 artifact/evidence tools, then revisit Phase 4 G4.7/G4.8.
+
+---
+
+## Turn 21: Operational MCP/API Path (2026-06-28)
+**Target:** complete the operational bootstrap, smoke, MCP adapter, and docs slice from the Cursor plan.
+
+### Completed Actions
+- [x] Confirmed PR #12 was merged to `main` and fast-forwarded local `main` before starting.
+- [x] Added `scripts/operational-support.js` shared HTTP/bootstrap helper.
+- [x] Added `scripts/operational-bootstrap.js` and `npm run operational:bootstrap` to create/reuse the operational workspace scaffold, mint a fresh GoalContract + delegation, and print a connection kit.
+- [x] Added `scripts/operational-smoke.js` and `npm run smoke:operational` proving bootstrap -> tools -> review packet -> dry-run PR -> audit verify.
+- [x] Added `scripts/atlas-mcp-stdio.js` and `npm run mcp:atlas` as a zero-dependency MCP stdio adapter for `initialize`, `tools/list`, and `tools/call`.
+- [x] Updated README and TASKS.md with the operational quickstart and O1-O3 evidence.
+
+### Verification
+```text
+npm run smoke:operational
+Operational smoke complete: bootstrap -> tools -> review packet -> dry-run PR -> audit verify.
+
+ATLAS_API_URL=http://127.0.0.1:4017 npm run operational:bootstrap
+Printed ATLAS_API_URL, ATLAS_DELEGATION_ID, workspace id, GoalContract id, sample curl, and Cursor MCP config.
+
+MCP stdio smoke
+initialize -> tools/list -> tools/call get_workspace_overview passed against the temporary API.
+
+git diff --check
+passed
+
+npm run lint
+Lint passed
+
+npm test
+tests 145
+pass 145
+fail 0
+
+npm run verify:migrations
+Verified 10 migration files
+
+npm run validate:records
+Validated 20 records
+
+npm run smoke:agent
+Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> persist.
+
+npm run smoke:github-open-pr
+GitHub open-PR boundary smoke complete (allowlist + dry-run + audit).
+```
+
+### Next Action
+- Run full repo verification, then open a PR for the operational MCP/API path.
+
+---
+
+## Turn 22: G4.7 Workspace Scope Regression (2026-06-28)
+**Target:** prove every current workspace-scoped data endpoint rejects cross-workspace route access.
+
+### Completed Actions
+- [x] Applied the design-discipline rule: no new product surface; G4.7 needed a regression proof and one route fix.
+- [x] Added `apps/api/test/workspace-scope-regression.test.js` to seed two workspaces and exercise scoped list/fetch routes through HTTP.
+- [x] Covered memberships, policies, permission checks, object types, objects, object links, link types, links, object sets, object-set objects, action types, action runs, agent delegations, GoalContracts, PR artifacts, review packets, and audit events.
+- [x] Added write-path regression attempts for body workspace mismatch and cross-workspace references.
+- [x] Fixed `GET /workspaces/:workspace_id/audit-events/:event_id` so it returns `audit_event_not_found` when the event belongs to another workspace.
+- [x] Marked G4.7 complete in `TASKS.md`; next Phase 4 item is G4.8 permission matrix.
+
+### Verification
+```text
+node --test apps/api/test/workspace-scope-regression.test.js
+tests 2
+pass 2
+fail 0
+
+npm run test:api
+tests 87
+pass 87
+fail 0
+
+git diff --check
+passed
+
+npm run lint
+Lint passed
+
+npm test
+tests 147
+pass 147
+fail 0
+
+npm run verify:migrations
+Verified 10 migration files
+
+npm run validate:records
+Validated 20 records
+
+npm run smoke:agent
+Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> persist.
+```
+
+### Atomic Next Steps
+- Commit and open a PR for G4.7.
+- Continue to G4.8 with a role/action/resource permission matrix.
+
+---
+
+## Turn 23: G4.8 Permission Matrix (2026-06-28)
+**Target:** close Governance Phase 4 with a table-driven permission regression suite.
+
+### Completed Actions
+- [x] Applied the design-discipline rule: no new roles, flags, policy states, or policy-engine abstraction were needed.
+- [x] Added a role/action/resource matrix to `apps/api/test/policy-enforcement.test.js`.
+- [x] Covered owner/admin/editor allow on task actions, viewer deny on task actions, wildcard read-style permission, explicit destructive denial, unknown action denial, and missing-role denial in governed workspaces.
+- [x] Marked G4.8 complete in `TASKS.md`; Phase 4 Governance is now complete on this stacked branch.
+
+### Verification
+```text
+node --test apps/api/test/policy-enforcement.test.js
+tests 6
+pass 6
+fail 0
+
+git diff --check
+passed
+
+npm run lint
+Lint passed
+
+npm test
+tests 148
+pass 148
+fail 0
+
+npm run verify:migrations
+Verified 10 migration files
+
+npm run validate:records
+Validated 20 records
+
+npm run smoke:agent
+Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> persist.
+```
+
+### Atomic Next Steps
+- Merge PR #15 (G4.7) then PR #16 (G4.8).
+- After PR #14 lands, continue with D8.1 seed game-development domain.
+
+---
+
+## Turn 24: Artifact/Evidence Agent Tools (2026-06-28)
+**Target:** close AG7.9 with minimal metadata-only artifact/evidence tools through the existing Tool Router.
+
+### Completed Actions
+- [x] Added workspace-scoped `Artifact` records to the API store with `artifact.submitted` audit events.
+- [x] Added workspace-scoped `EvidenceRecord` records that validate the referenced subject exists before attaching evidence.
+- [x] Added `GET/POST /workspaces/:workspace_id/artifacts` and `GET/POST /workspaces/:workspace_id/evidence-records` inspection routes.
+- [x] Added `submit_artifact` and `attach_evidence` to the agent manifest behind `atlas.act`.
+- [x] Extended operational bootstrap defaults and `npm run smoke:operational` to exercise artifact/evidence tools.
+- [x] Marked AG7.9 complete in TASKS.md with concrete evidence.
+
+### Verification
+```text
+npm run lint
+Lint passed
+
+npm test
+tests 147
+pass 147
+fail 0
+
+npm run verify:migrations
+Verified 10 migration files
+
+npm run validate:records
+Validated 20 records
+
+npm run smoke:operational
+Operational smoke complete: bootstrap -> tools -> review packet -> dry-run PR -> audit verify.
+
+npm run smoke:agent
+Agent smoke loop complete: discover -> delegate -> read -> govern -> audit -> persist.
+
+npm run smoke:github-open-pr
+GitHub open-PR boundary smoke complete (allowlist + dry-run + audit).
+```
+
+### Atomic Next Steps
+- Rebase PR #14 onto `main` and merge AG7.9.
+- Continue with D8.1 seed game-development domain.
+
+---
+
+## Turn 25 — Hermes + Ben live dogfood (2026-06-29)
+
+**INTENT:** Use built Personal/operational Atlas on live API (not design-only).
+
+**EXECUTE:**
+- Started `dev:api`; `operational:bootstrap` with Ben objective; `smoke:operational` green on delegation `delegation_001`.
+- `POST /personal/bootstrap` → `workspace_personal`, 5 tasks, blocker links.
+- `GET /personal/next-action` → `object_task_harden_personal_loop`.
+- Governed tool overview + `audit/verify` valid.
+
+**OUTCOME:** System is runnable and trustworthy for daily dogfood. Handoff brick doc: `docs/bricks/HERMES_DOGFOOD_2026-06-29.md`. Codex/Cursor implement next; Hermes owns architecture.
+
+**NEXT:** Wire Cursor MCP from handoff; implement personal-loop hardening **or** D8.1 per brick doc.
+
+---
+
+## Turn 26: Outputs And Long-Running Work Surface (2026-06-29)
+**Target:** create a durable outputs surface for finished work, recovery, proof, web handoff, and METR-style long-running task continuity.
+
+### Completed Actions
+- [x] Added `outputs/README.md` as the first outputs contract and folder index.
+- [x] Added state, next-action, proof, long-running-work, and web-output notes.
+- [x] Added `outputs` to `scripts/lint.js` coverage and updated README/TASKS to make the surface official.
+
+### Verification
+```text
+npm run lint
+Lint passed
+
+git diff --check
+passed
+
+npm test
+tests 173
+pass 173
+fail 0
+```
+
+### Correction
+- Turn 27 reframes this output surface from internal work recovery to customer-facing deliverables.
+
+---
+
+## Turn 27: Customer-Facing Outputs Reframe (2026-06-29)
+**Target:** correct `outputs/` so it represents customer-facing deliverables: site, app, docs, codebase, demos, and proof.
+
+### Completed Actions
+- [x] Reframed `outputs/README.md` as the customer-facing product shelf.
+- [x] Added `outputs/site/README.md` for Matrix-style public website direction.
+- [x] Added `outputs/app/README.md` for the runnable Atlas app surface.
+- [x] Added `outputs/codebase/README.md` for the technical implementation package.
+- [x] Added `outputs/demos/README.md` for customer-facing demo scenarios.
+- [x] Moved internal state and restart files under `outputs/internal/`.
+- [x] Removed the old top-level `outputs/STATE.md`, `outputs/NEXT_ACTION.md`, and `outputs/web/README.md` shape.
+
+### Verification
+```text
+npm run lint
+Lint passed
+
+git diff --check
+passed
+
+npm test
+tests 173
+pass 173
+fail 0
+```
+
+### Atomic Next Steps
+- Create the first polished customer-facing Atlas site/app output slice under `outputs/site/` or `outputs/app/`.
 
 ---

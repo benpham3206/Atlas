@@ -1,6 +1,7 @@
 # Atlas Task Tracker
 
-Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until implementation behavior matches the requested Atlas requirements.
+Current objective: align current Atlas implementation with the three PRD vision while keeping the
+next executable slice limited to tasks, architecture, and tests until implementation is approved.
 
 ## Completion Rules
 
@@ -17,10 +18,13 @@ Current objective: complete the Atlas tasks from `ChatGPT Lean Access.md` until 
 |-------|------------------|-----------------------|-------------------|
 | Phase 2: Capability Graph Records | Complete | `npm test`, `npm run validate:records` | Keep future schema additions registry-based |
 | Phase 3: Actions | Complete | `npm test`, `npm run verify:migrations` | Policy and audit still need to wrap action execution in later phases |
-| Phase 4: Governance | G4.7 enforce scope on every endpoint; G4.8 permission matrix | Cross-workspace + role/action/resource tests | G4.5/G4.6 done: PermissionCheck recorded and policy enforced before action execution |
-| Phase 5: Audit And Trust | T5.8 add audit UI view | Web render test for an audit timeline | T5.1–T5.7 done: append-only, hash-chained, tamper-evident, queryable audit log |
-| Phase 6: Human UI | U6.1 add web API client module | Web unit tests for URL building and JSON error handling | Current frontend is dependency-free and may strain under richer state |
-| Phase 7: Agent Layer | AG7.9 add artifact/evidence tools | Tests for evidence/artifact tool calls | AG7.1–AG7.8 + AG7.10 done: identity, scoped delegation, registry, governed gateway, manifest |
+| Phase 4: Governance | Complete | Cross-workspace + role/action/resource tests | Keep policy changes matrix-tested and deny-by-default in governed workspaces |
+| Phase 5: Audit And Trust | Complete | `npm run test:web`, `npm run lint` | Keep audit UI honest: local hash-chain evidence, not external compliance retention |
+| Phase 6: Human UI | Complete | `npm test`, `npm run lint` | Keep richer UI additions dependency-free unless a stable backend contract requires otherwise |
+| Phase 7: Agent Layer | Complete | `npm run test:api`, `npm run smoke:operational` | Keep future tool additions least-privilege and absent unless proven useful |
+| Operational MCP/API | Complete | `npm run smoke:operational`, MCP stdio smoke, `npm run operational:bootstrap` | Keep MCP transport-only; do not add orchestration machinery before dogfood proof |
+| Default-On MCP Runtime | Complete | `npm run smoke:mcp`, `npm run smoke:operational`, `npm run operational:bootstrap` | MCP reads platform-written `.atlas/local-session.json`; env overrides remain for tests |
+| Customer-Facing Outputs | **In progress** — `outputs/` shelf (site, app, docs, codebase, demos, proofs, internal) | `npm run lint`, `npm test -- outputs-shelf` | Keep internal runtime state under `outputs/internal/`; `STATE.md` is bootstrap-refreshed and gitignored |
 | Persistence | Wire Postgres + RLS runtime | DB migration apply + isolation tests | File-backed snapshot persistence (`ATLAS_DATA_FILE`) now bridges restarts |
 | Phase 8: Domain Pack And Next Action | D8.1 seed game-development domain | Seed validation tests and fixture count checks | Content must drive concrete AAA next actions, not generic taxonomy |
 | Phase 9: Ingestion, Search, Graph, Workflow | I9.1 add `DataSource` and `IngestionJob` schemas | Fixture validation tests with credentials excluded | Ingested data must remain candidate until reviewed |
@@ -44,7 +48,167 @@ Goal: a system any agent can actually drive and trust. Completed this turn (all 
 - End-to-end proof: `scripts/agent-smoke.js` walks discover -> delegate -> read -> govern -> audit -> persist.
 
 Deliberately deferred to hardening (target architecture, not yet implemented): signed JWT delegation,
-Postgres + Row-Level Security, OS-level tool sandboxing, classification propagation, audit UI.
+Postgres + Row-Level Security, OS-level tool sandboxing, classification propagation/redaction.
+
+## What's Next (prioritized)
+
+Apply `.agent/skills/the-algorithm` before each item: question the requirement, prefer
+safety-by-absence, build the smallest verifiable inch. Order reflects meaning-per-line, not the
+phase numbering above.
+
+Planning source for the next implementation pass: `docs/PRD_ALIGNMENT_NEXT_STEPS_2026-06-29.md`.
+
+### P0. Default-on MCP runtime contract — Complete
+- Goal: make the existing MCP stdio adapter the default local agent operating surface whenever Atlas
+  operational runtime is started.
+- Architecture: MCP remains transport-only over `GET /agent/manifest` and `POST /agent/tools/:tool`;
+  platform-side runtime owns bootstrap/delegation, and all tools still execute through the Tool Router.
+- Session file: platform runtime writes `.atlas/local-session.json` (gitignored); MCP reads it and
+  fails closed when absent or expired. Env overrides (`ATLAS_API_URL`, `ATLAS_DELEGATION_ID`,
+  `ATLAS_SESSION_FILE`) remain for tests and advanced setups.
+- Tests required: framed MCP initialize/list/call smoke, missing delegation structured failure,
+  API-unreachable structured failure, expired delegation failure, denied-tool failure, audit evidence
+  for allowed and denied calls, and manifest regression proving no merge or Slack write tool exists.
+- Evidence: `scripts/atlas-local-session.js`, `scripts/atlas-mcp-lib.js`, `publishOperationalSession`
+  in `scripts/operational-support.js`, session refresh in `scripts/dev-personal.js`,
+  `scripts/test/atlas-local-session.test.js`, `scripts/test/atlas-mcp-stdio.test.js`,
+  `npm run smoke:mcp`, extended `npm run smoke:operational`, `npm test` (168 tests).
+- Non-goals: no MCP-side delegation minting, no separate MCP permission model, no external npm
+  package, no merge/deploy/secret/permission/destructive/public-export tool.
+
+### P1. Structured failure payload standard — Planned
+- Goal: every MCP/API/Tool Router failure reachable by an agent returns `component`, `root_cause`,
+  `failure_type`, and `message`.
+- Tests required: authorization, validation, dependency, upstream-client, policy, and GoalContract
+  denial paths.
+- Non-goal: do not rewrite success payloads or introduce a framework.
+
+### P2. Signed delegation hardening — Planned
+- Goal: replace local unsigned bearer delegations with short-lived signed JWT-style delegation.
+- Tests required: signature, issuer, audience, expiry, not-before, workspace, scope, tool allowlist,
+  and replay/invalid-token denials.
+- Non-goal: no full end-user login in this slice.
+
+### P3. Postgres + RLS runtime proof — Planned
+- Goal: prove DB-enforced tenant/workspace isolation for the records already modeled.
+- Tests required: cross-workspace and cross-tenant denial at the database policy layer.
+- Non-goal: no broad future-record migration, search upgrade, or graph database replacement.
+
+### P4. Minimal MoO runtime trace records — Planned
+- Goal: make every tool-executed action traceable through `GoalContract -> MetaOrchestrationRun ->
+  OrchestratorRun -> AgentSession -> ToolCall -> AuditEvent`.
+- Tests required: run trace continuity, review packet links, denied tool trace, and audit-chain
+  verification.
+- Non-goal: no autonomous multi-agent execution before trace records exist.
+
+Agent review and hardening boundary: Coding, Critic, red-team, and Safety-Verification agents may
+run inside the PR loop before human review, as scoped, audited, non-merge actors. They can prepare
+patches, run tests, record findings, harden the branch, open a PR, and produce a review packet. The
+protected-branch merge, production deploy, public export, permission change, secret/key operation,
+and destructive delete remain human-only boundaries; do not add merge tools or merge scopes.
+
+### N0. Land the design-discipline docs (tiny, do first) — Complete
+- Commit `the-algorithm` skill + `AGENTS.md` wiring (algorithm + MoO architecture references).
+- Why: this is the discipline that governs every item below; it should be in place before the next build.
+- Evidence: `.agent/skills/the-algorithm/SKILL.md`, `AGENTS.md`, PR #9, `npm run lint`, `npm test`.
+
+### N1. First real Tool Router integration — GitHub "open-PR-not-merge" (keystone) — Complete
+- Implement a scoped GitHub tool exposed through the agent gateway: open a PR / push to a branch
+  namespace, with **no merge tool and no merge scope in any agent delegation**.
+- Verification: an `editor`-role agent can open a PR; there is no code path by which it can merge to a
+  protected branch (capability absent, not approval-gated). Audit event recorded for the tool call.
+- Why first: converts safety-by-absence from an in-Atlas model into a guarantee over a real external
+  system. It is the direct structural answer to the "agent force-merged to dev" incident and the
+  highest meaning-per-line increment in the repo. Everything else is plumbing for or polish on this.
+- Challenges: real network/credentials cross the sandbox boundary and need scoped tokens; keep the
+  tool contract narrow (no merge, no force-push, branch namespace allowlist).
+- Evidence: `github.open_pr` in `apps/api/src/agent-gateway.js`, `github.pr:create` scope, `codex/`
+  and `agent/` head-branch namespace guard, `PullRequestArtifact`, `github.pull_request.opened`
+  audit event, `GITHUB_TOKEN` runtime adapter, and tests proving the manifest has no merge tool or
+  merge scope. Live GitHub calls require a scoped `GITHUB_TOKEN`; tests use an injected client.
+
+### N2. GoalContract object (front door) — Complete
+- Add a `GoalContract` ontology object: objective, constraints, allowed/blocked actions, risk class,
+  budget, done-definition; route a vague goal into a bounded task graph.
+- Verification: a GoalContract drives next-action selection and constrains which actions are allowed.
+- Why second: it is the single human approval moment that makes this leadership, not autocomplete —
+  but it is worth more once N1 lets a contract drive a real external action.
+- Evidence: `GoalContract` store/API support, delegations can bind `goal_contract_id`, authorization
+  checks `allowed_actions` / `blocked_actions`, and `get_next_action` can use `next_action_json` from
+  the bound contract.
+
+### N3. Review-ready packet / approval surface — Complete
+- Produce a bundled "what changed + evidence + audit refs + the one irreversible thing pending"
+  artifact, surfaced once per loop (not per step).
+- Verification: a completed loop yields a packet listing changed objects, audit events, and the
+  pending human-only action.
+- Why third: this is the "interrupt the human exactly once, at the boundary" payoff; it depends on
+  N1 producing real artifacts worth reviewing.
+- Evidence: `generate_review_packet` agent tool creates `ReviewPacket` records with changed files,
+  verification commands, critic findings, safety findings, audit event ids, and default
+  `pending_human_actions: ["protected_branch_merge"]`.
+
+### N4. Prove and harden the GitHub PR boundary — Complete
+- Add repository and base-branch allowlists for `github.open_pr`, so a delegation cannot open PRs
+  against arbitrary repositories or protected branches.
+- Add dry-run mode for the same gateway/audit path without calling GitHub.
+- Audit every GitHub PR attempt, including success, dry-run, allowlist denial, and client failure.
+- Open live PRs as **draft** by default (no merge capability exists in the gateway).
+- Evidence: `github.open_pr` requires `githubPolicy.allowed_repositories` and
+  `githubPolicy.allowed_base_branches`, runtime env supports `GITHUB_ALLOWED_REPOSITORIES`,
+  `GITHUB_ALLOWED_BASE_BRANCHES`, and `GITHUB_DRY_RUN`, tests cover allowlist denial, dry-run
+  without client call, and client failure audit, and `npm run smoke:github-open-pr` proves the
+  boundary without network. Optional live proof: `GITHUB_LIVE_SMOKE=1` with scoped token + existing
+  `GITHUB_HEAD_BRANCH`.
+
+### N5. Second Tool Router integration — read-only Slack — Complete
+- Add one read-only external tool to prove the gateway pattern is not GitHub-specific.
+- Start with no write side effects, explicit resource allowlist, and audit on success/failure.
+- Evidence: `slack.get_channel_info` uses the Slack `conversations.info` read path behind
+  `slack.read`, requires `SLACK_ALLOWED_CHANNELS` / `slackPolicy.allowed_channel_ids`, exposes no
+  Slack write tool, and tests cover allowlisted success, channel denial before client call, and
+  client failure audit.
+
+### N6. Minimal review inbox UI — Complete
+- Surface review packets and PR artifacts in the web app so a human can see what the agent did and
+  the one pending human-only action.
+- Evidence: web API client fetches `review-packets` and `pull-request-artifacts`, the dashboard
+  renders a compact Review inbox with PR URL, verification commands, critic/safety findings, and
+  `pending_human_actions`, and web tests cover render plus server paths.
+
+### O1. Operational bootstrap connection kit — Complete
+- Add `scripts/operational-bootstrap.js` and `npm run operational:bootstrap`.
+- Create or reuse the operational workspace scaffold, create a fresh GoalContract, mint a scoped
+  delegation, and print `ATLAS_API_URL`, `ATLAS_DELEGATION_ID`, sample curl, and Cursor MCP config.
+- Evidence: temporary API verification on `http://127.0.0.1:4017` ran `npm run operational:bootstrap`
+  and printed a usable connection kit.
+
+### O2. Operational smoke proof — Complete
+- Add `scripts/operational-smoke.js` and `npm run smoke:operational`.
+- Prove bootstrap -> Tool Router calls -> review packet -> dry-run PR -> audit verify without a
+  live GitHub call by default.
+- Evidence: `npm run smoke:operational` passed, creating a review packet, dry-run PR artifact, valid
+  audit chain, and audit events linked to both `delegation_id` and `goal_contract_id`.
+
+### O3. Zero-dependency MCP stdio adapter — Complete
+- Add `scripts/atlas-mcp-stdio.js` and `npm run mcp:atlas`.
+- Implement only `initialize`, `tools/list`, and `tools/call`; proxy `GET /agent/manifest` and
+  `POST /agent/tools/:tool` over HTTP with `ATLAS_DELEGATION_ID`.
+- Evidence: framed MCP smoke passed against the temporary API: initialize, tools/list, and
+  tools/call `get_workspace_overview`.
+
+### O4. Operational docs/tracker/context — Complete
+- Add README Operational Quickstart, update this tracker with O1-O3 evidence, and append the
+  verification turn to `CONTEXT_LOG.md`.
+- Evidence: README documents bootstrap, smoke, MCP config, and operational env vars; CONTEXT_LOG
+  Turn 21 records the completed actions and verification.
+
+### Deferred hardening (do not start until N1 proves the loop)
+- Signed JWT delegation (replace unsigned local bearer).
+- Postgres + Row-Level Security runtime (replace app-level scope + file snapshot).
+- Sandboxed tool execution profiles; classification propagation/redaction.
+- Why deferred: these harden guarantees that already exist in model form. By the algorithm, do not
+  optimize/secure a part until N1 has proven the product loop is worth hardening.
 
 ## What's Next (prioritized)
 
@@ -277,12 +441,14 @@ phase numbering above.
   - Tests: viewer denied, editor allowed; denial recorded and target not mutated.
   - Challenges: action engine must call policy engine before mutation.
   - Evidence: `apps/api/src/ontology-store.js` (`authorize`/`evaluatePolicy` wired into `createActionRun`), `apps/api/test/policy-enforcement.test.js`, `apps/api/test/agent-gateway.test.js`.
-- [ ] G4.7 Enforce workspace scope on every data endpoint.
+- [x] G4.7 Enforce workspace scope on every data endpoint.
   - Tests: cross-workspace reads and writes fail.
   - Challenges: future query/search endpoints must inherit the same guardrail.
-- [ ] G4.8 Add permission regression suite.
+  - Evidence: `apps/api/test/workspace-scope-regression.test.js` covers workspace-scoped list/fetch routes and cross-workspace write references; `apps/api/src/server.js` now rejects audit-event fetches whose event workspace does not match the route workspace.
+- [x] G4.8 Add permission regression suite.
   - Tests: matrix of role/action/resource outcomes.
   - Challenges: avoid brittle tests while roles evolve.
+  - Evidence: `apps/api/test/policy-enforcement.test.js` includes a table-driven matrix for owner/admin/editor/viewer roles, action/resource matching, wildcard read-style permissions, explicit destructive denial, unknown action denial, and missing-role denial.
 
 ## Phase 5: Audit And Trust
 
@@ -323,9 +489,10 @@ phase numbering above.
   - Tests: list events by workspace and resource; verify chain.
   - Challenges: queries must respect permissions later.
   - Evidence: `apps/api/src/server.js` (`/audit/verify`, `/workspaces/:id/audit-events`).
-- [ ] T5.8 Add audit UI view.
+- [x] T5.8 Add audit UI view.
   - Tests: web render test shows audit event list.
   - Challenges: UI must not overstate trust before persistence exists.
+  - Evidence: `apps/web/src/api-client.js` (`fetchWorkspaceAuditEvents`), `apps/web/src/render.js` (`renderAuditTimeline`), `apps/web/src/server.js` dashboard fetch path, `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
 
 ## Phase 6: Human UI
 
@@ -338,36 +505,46 @@ phase numbering above.
 
 ### Next Atomic Tasks
 
-- [ ] U6.1 Add API client module in web app.
+- [x] U6.1 Add API client module in web app.
   - Tests: client builds URLs and handles JSON errors.
   - Challenges: current web app is dependency-free server-rendered HTML.
-- [ ] U6.2 Add workspace selector.
+  - Evidence: `apps/web/src/api-client.js`, `apps/web/test/dashboard.test.js` (`api client handles API errors without throwing`, network failure coverage), `npm run test:web`.
+- [x] U6.2 Add workspace selector.
   - Tests: render workspace list and selected state.
   - Challenges: state handling without a frontend framework may become awkward.
-- [ ] U6.3 Add ontology manager page.
+  - Evidence: `apps/web/src/api-client.js` (`fetchWorkspaces`), `apps/web/src/server.js` (`?workspace_id=` selection for workspace-scoped panels), `apps/web/src/render.js` (`renderWorkspaceSelector`), `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
+- [x] U6.3 Add ontology manager page.
   - Tests: render object types for a workspace.
   - Challenges: keep UI minimal until core model stabilizes.
-- [ ] U6.4 Add object type creation form.
+  - Evidence: `apps/web/src/api-client.js` (`fetchWorkspaceObjectTypes`), `apps/web/src/server.js` selected-workspace object type fetch, `apps/web/src/render.js` (`renderOntologyManager`), `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`.
+- [x] U6.4 Add object type creation form.
   - Tests: form posts valid schema and shows validation errors.
   - Challenges: JSON schema editing is error-prone.
-- [ ] U6.5 Add object instance list.
+  - Evidence: `apps/web/src/api-client.js` (`createWorkspaceObjectType`), `apps/web/src/server.js` object type POST proxy with local schema JSON validation, `apps/web/src/render.js` create form, `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
+- [x] U6.5 Add object instance list.
   - Tests: render objects scoped to workspace.
   - Challenges: properties are dynamic.
-- [ ] U6.6 Add object detail page.
+  - Evidence: `apps/web/src/api-client.js` (`fetchWorkspaceObjects`), `apps/web/src/server.js` selected-workspace object fetch, `apps/web/src/render.js` (`renderObjectList`), `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
+- [x] U6.6 Add object detail page.
   - Tests: render object, properties, and links.
   - Challenges: needs link traversal from Phase 1.
-- [ ] U6.7 Add graph explorer.
+  - Evidence: `apps/web/src/api-client.js` (`fetchWorkspaceObject`, `fetchWorkspaceObjectLinks`), `apps/web/src/server.js` selected `object_id` detail fetch, `apps/web/src/render.js` (`renderObjectDetail`), `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
+- [x] U6.7 Add graph explorer.
   - Tests: render nodes/edges from link data.
   - Challenges: visual graph library likely needs dependencies.
-- [ ] U6.8 Add action runner.
+  - Evidence: dependency-free node/edge explorer using existing object/link lists in `apps/web/src/render.js`, selected-workspace link fetch via `apps/web/src/api-client.js` and `apps/web/src/server.js`, `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
+- [x] U6.8 Add action runner.
   - Tests: run action and show result.
   - Challenges: depends on Phase 3/4.
-- [ ] U6.9 Add audit viewer.
+  - Evidence: `apps/web/src/api-client.js` (`fetchWorkspaceActionTypes`, `createWorkspaceActionRun`), `apps/web/src/server.js` governed ActionRun POST proxy with local `input_json` validation, `apps/web/src/render.js` (`renderActionRunner`), `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`, `npm run lint`.
+- [x] U6.9 Add audit viewer.
   - Tests: render audit timeline.
   - Challenges: depends on Phase 5.
-- [ ] U6.10 Add next-action dashboard.
+  - Evidence: `apps/web/src/render.js` (`renderAuditTimeline`), `apps/web/test/render.test.js`, `apps/web/test/dashboard.test.js`, `npm run test:web`.
+- [x] U6.10 Add next-action dashboard.
   - Tests: render recommended action and reason.
   - Challenges: depends on Phase 8.
+  - Evidence: `apps/web/src/render.js` (`renderPersonalDashboard` next-action section), `apps/web/test/render.test.js` (`dashboard renders next action, blockers, and complete form`), `apps/web/test/dashboard.test.js` (`server renders dashboard when overview is available`), `npm run test:web`.
 
 ## Phase 7: Agent Layer
 
@@ -412,9 +589,10 @@ phase numbering above.
   - Tests: agent action runs through policy and audit; viewer denied, editor allowed.
   - Challenges: prompt/tool injection isolation is not yet implemented.
   - Evidence: `apps/api/test/agent-gateway.test.js`, `npm run smoke:agent`.
-- [ ] AG7.9 Add artifact/evidence tools.
+- [x] AG7.9 Add artifact/evidence tools.
   - Tests: attach evidence and submit artifact creates records.
   - Challenges: depends on Capability Graph schemas.
+  - Evidence: `submit_artifact` and `attach_evidence` are in the agent manifest, create workspace-scoped `Artifact` / `EvidenceRecord` records, audit `artifact.submitted` / `evidence.attached`, reject dangling evidence subjects, and are exercised by `apps/api/test/agent-gateway.test.js` plus `npm run smoke:operational`.
 - [x] AG7.10 Add MCP-style manifest.
   - Tests: manifest lists callable tools, scopes, and verification order.
   - Challenges: avoid exposing incomplete tools as production-ready.

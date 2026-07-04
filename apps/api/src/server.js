@@ -2,13 +2,18 @@ import { createServer } from "node:http";
 import { createHealthStatus } from "../../../packages/ontology-core/src/index.js";
 import { ApiError, createOntologyStore } from "./ontology-store.js";
 import { dispatchAgentTool, getAgentManifest } from "./agent-gateway.js";
+import { createGitHubClientFromEnv, createGitHubPolicyFromEnv } from "./github-client.js";
 import { createFilePersistence } from "./persistence.js";
+import { createSlackClientFromEnv, createSlackPolicyFromEnv } from "./slack-client.js";
 import {
   bootstrapPersonalAtlas,
   completePersonalTask,
   getPersonalOverview,
+  getPersonalSessionContext,
+  getPersonalTasksCatalog,
   guardPersonalActionRun,
   guardPersonalObjectPatch,
+  patchPersonalObject,
   selectNextAction,
   PERSONAL_WORKSPACE_ID
 } from "./personal-atlas.js";
@@ -20,6 +25,10 @@ export function createApiServer(options = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const store = options.store ?? createOntologyStore({ now });
   const persistence = options.persistence ?? null;
+  const githubClient = options.githubClient ?? null;
+  const githubPolicy = options.githubPolicy ?? { allowed_repositories: [], allowed_base_branches: [], dry_run: false };
+  const slackClient = options.slackClient ?? null;
+  const slackPolicy = options.slackPolicy ?? { allowed_channel_ids: [] };
 
   if (persistence) {
     const snapshot = persistence.load();
@@ -30,7 +39,17 @@ export function createApiServer(options = {}) {
   }
 
   return createServer((request, response) => {
-    handleRequest({ request, response, now, store })
+    handleRequest({
+      request,
+      response,
+      now,
+      store,
+      githubClient,
+      githubPolicy,
+      slackClient,
+      slackPolicy,
+      persistState: Boolean(persistence)
+    })
       .then(() => {
         if (persistence && request.method && request.method !== "GET") {
           try {
@@ -58,7 +77,17 @@ export function createApiServer(options = {}) {
   });
 }
 
-async function handleRequest({ request, response, now, store }) {
+async function handleRequest({
+  request,
+  response,
+  now,
+  store,
+  githubClient,
+  githubPolicy,
+  slackClient,
+  slackPolicy,
+  persistState = false
+}) {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
   const segments = url.pathname.split("/").filter(Boolean);
 
@@ -121,11 +150,11 @@ async function handleRequest({ request, response, now, store }) {
   if (segments[0] === "agent" && segments[1] === "tools" && segments[2] && request.method === "POST") {
     const body = await readJsonBody(request);
     const delegationId = extractDelegationToken(request, body);
-    const result = dispatchAgentTool(store, {
+    const result = await dispatchAgentTool(store, {
       delegationId,
       toolName: segments[2],
       input: body.input ?? body
-    });
+    }, { githubClient, githubPolicy, slackClient, slackPolicy });
     return sendJson(response, 200, {
       data: result
     });
@@ -169,6 +198,133 @@ async function handleRequest({ request, response, now, store }) {
     if (segments.length === 4 && request.method === "GET") {
       return sendJson(response, 200, {
         data: store.getAgentDelegation(workspaceId, segments[3])
+      });
+    }
+
+    if (segments.length === 4 && request.method === "PATCH") {
+      const body = await readJsonBody(request);
+
+      if (body.status !== "revoked") {
+        throw new ApiError(
+          400,
+          "invalid_request",
+          "AgentDelegation PATCH supports status=revoked only (Board pause; no agent self-revoke tool)"
+        );
+      }
+
+      return sendJson(response, 200, {
+        data: store.revokeAgentDelegation(workspaceId, segments[3], body)
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "goal-contracts") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listGoalContracts(workspaceId)
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const goalContract = store.createGoalContract(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: goalContract
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getGoalContract(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "pull-request-artifacts") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listPullRequestArtifacts(workspaceId)
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getPullRequestArtifact(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "review-packets") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listReviewPackets(workspaceId)
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const reviewPacket = store.createReviewPacket(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: reviewPacket
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getReviewPacket(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "artifacts") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listArtifacts(workspaceId)
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const artifact = store.createArtifact(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: artifact
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getArtifact(workspaceId, segments[3])
+      });
+    }
+  }
+
+  if (segments[0] === "workspaces" && segments[1] && segments[2] === "evidence-records") {
+    const workspaceId = segments[1];
+
+    if (segments.length === 3 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.listEvidenceRecords(workspaceId, {
+          subject_id: url.searchParams.get("subject_id"),
+          artifact_id: url.searchParams.get("artifact_id")
+        })
+      });
+    }
+
+    if (segments.length === 3 && request.method === "POST") {
+      const evidenceRecord = store.createEvidenceRecord(workspaceId, await readJsonBody(request));
+      return sendJson(response, 201, {
+        data: evidenceRecord
+      });
+    }
+
+    if (segments.length === 4 && request.method === "GET") {
+      return sendJson(response, 200, {
+        data: store.getEvidenceRecord(workspaceId, segments[3])
       });
     }
   }
@@ -274,8 +430,14 @@ async function handleRequest({ request, response, now, store }) {
     }
 
     if (segments.length === 4 && request.method === "GET") {
+      const auditEvent = store.getAuditEvent(segments[3]);
+
+      if (auditEvent.workspace_id !== workspaceId) {
+        throw new ApiError(404, "audit_event_not_found", "AuditEvent not found in workspace");
+      }
+
       return sendJson(response, 200, {
-        data: store.getAuditEvent(segments[3])
+        data: auditEvent
       });
     }
   }
@@ -451,13 +613,37 @@ async function handleRequest({ request, response, now, store }) {
 
   if (request.method === "GET" && url.pathname === "/personal/overview") {
     return sendJson(response, 200, {
-      data: getPersonalOverview(store)
+      data: getPersonalOverview(store, { persistState })
     });
   }
 
   if (request.method === "GET" && url.pathname === "/personal/next-action") {
     return sendJson(response, 200, {
       data: selectNextAction(store, PERSONAL_WORKSPACE_ID)
+    });
+  }
+
+  if (request.method === "GET" && url.pathname === "/personal/tasks") {
+    return sendJson(response, 200, {
+      data: getPersonalTasksCatalog(store)
+    });
+  }
+
+  if (request.method === "GET" && url.pathname === "/personal/session-context") {
+    return sendJson(response, 200, {
+      data: getPersonalSessionContext(store, { persistState })
+    });
+  }
+
+  if (
+    segments[0] === "personal" &&
+    segments[1] === "objects" &&
+    segments[2] &&
+    segments.length === 3 &&
+    request.method === "PATCH"
+  ) {
+    return sendJson(response, 200, {
+      data: patchPersonalObject(store, segments[2], await readJsonBody(request))
     });
   }
 
@@ -558,7 +744,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number.parseInt(process.env.PORT ?? `${DEFAULT_PORT}`, 10);
   const dataFile = process.env.ATLAS_DATA_FILE;
   const persistence = dataFile ? createFilePersistence(dataFile) : null;
-  const server = createApiServer({ persistence });
+  const githubClient = createGitHubClientFromEnv();
+  const githubPolicy = createGitHubPolicyFromEnv();
+  const slackClient = createSlackClientFromEnv();
+  const slackPolicy = createSlackPolicyFromEnv();
+  const server = createApiServer({ persistence, githubClient, githubPolicy, slackClient, slackPolicy });
 
   server.listen(port, host, () => {
     console.log(`Atlas API listening at http://${host}:${port}`);

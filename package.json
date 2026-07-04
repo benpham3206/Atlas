@@ -11,6 +11,10 @@
   "scripts": {
     "dev:api": "node apps/api/src/server.js",
     "dev:web": "node apps/web/src/server.js",
+    "dev:personal": "node scripts/dev-personal.js",
+    "daemon:personal": "node scripts/atlas-personal-daemon.js",
+    "daemon:install": "bash scripts/install-atlas-launchagent.sh",
+    "daemon:handoff": "bash scripts/handoff-to-persistent-daemon.sh",
     "lint": "node scripts/lint.js",
     "start:api": "node apps/api/src/server.js",
     "start:web": "node apps/web/src/server.js",
@@ -20,7 +24,21 @@
     "test:core": "node --test packages/ontology-core/test/*.test.js",
     "validate:records": "node scripts/validate-records.js tests/fixtures/capability-records.valid.json",
     "verify:migrations": "node scripts/verify-migrations.js",
-    "smoke:agent": "node scripts/agent-smoke.js"
+    "smoke:agent": "node scripts/agent-smoke.js",
+    "smoke:github-open-pr": "node scripts/github-open-pr-smoke.js",
+    "operational:bootstrap": "node scripts/operational-bootstrap.js",
+    "smoke:operational": "node scripts/operational-smoke.js",
+    "smoke:personal": "node scripts/personal-smoke.js",
+    "smoke:mcp": "node --test scripts/test/atlas-local-session.test.js scripts/test/atlas-mcp-stdio.test.js",
+    "smoke:polish": "node scripts/polish-quickstart-smoke.js",
+    "demo:flagship": "node scripts/flagship-loop-demo.js",
+    "gate:test": "node scripts/run-gate-ledger.js test",
+    "gate:lint": "node scripts/run-gate-ledger.js lint",
+    "gate:operational": "node scripts/run-gate-ledger.js operational",
+    "gate:mcp": "node scripts/run-gate-ledger.js mcp",
+    "gate:personal": "node scripts/run-gate-ledger.js personal",
+    "gate:outputs-shelf": "node scripts/run-gate-ledger.js outputs-shelf",
+    "mcp:atlas": "node scripts/atlas-mcp-stdio.js"
   },
   "engines": {
     "node": ">=18.17"

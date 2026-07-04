@@ -176,3 +176,115 @@ test("explicit authorize reports decisions with deny rule precedence", () => {
   assert.equal(deny.decision, "deny");
   assert.equal(deny.reason, "denied_by_policy_rule");
 });
+
+test("policy matrix covers role, action, and resource outcomes", () => {
+  const store = createOntologyStore({ now: () => "2026-06-14T00:00:00.000Z" });
+  const { workspace, taskType } = seedGovernableWorkspace(store);
+  const bugType = store.createObjectType(workspace.id, {
+    name: "Bug",
+    schema_json: {
+      type: "object",
+      required: ["title", "severity"],
+      properties: {
+        title: { type: "string" },
+        severity: { type: "integer" }
+      }
+    }
+  });
+
+  store.createPolicy(workspace.id, {
+    name: "Matrix policy",
+    rules_json: [
+      { effect: "allow", action: "run_action", resource_type: taskType.id, roles: ["owner", "admin", "editor"] },
+      { effect: "deny", action: "run_action", resource_type: taskType.id, roles: ["viewer"] },
+      { effect: "allow", action: "search_records", resource_type: "*", roles: ["owner", "admin", "editor", "viewer"] },
+      { effect: "deny", action: "delete_record", resource_type: "*", roles: ["owner", "admin", "editor", "viewer"] }
+    ]
+  });
+
+  const cases = [
+    {
+      name: "owner can run task action",
+      role: "owner",
+      action: "run_action",
+      resource_type: taskType.id,
+      decision: "allow",
+      reason: "allowed_by_policy_rule"
+    },
+    {
+      name: "admin can run task action",
+      role: "admin",
+      action: "run_action",
+      resource_type: taskType.id,
+      decision: "allow",
+      reason: "allowed_by_policy_rule"
+    },
+    {
+      name: "editor can run task action",
+      role: "editor",
+      action: "run_action",
+      resource_type: taskType.id,
+      decision: "allow",
+      reason: "allowed_by_policy_rule"
+    },
+    {
+      name: "viewer cannot run task action",
+      role: "viewer",
+      action: "run_action",
+      resource_type: taskType.id,
+      decision: "deny",
+      reason: "denied_by_policy_rule"
+    },
+    {
+      name: "editor cannot run action against unlisted resource",
+      role: "editor",
+      action: "run_action",
+      resource_type: bugType.id,
+      decision: "deny",
+      reason: "no_matching_allow_rule"
+    },
+    {
+      name: "viewer can search records through wildcard resource",
+      role: "viewer",
+      action: "search_records",
+      resource_type: bugType.id,
+      decision: "allow",
+      reason: "allowed_by_policy_rule"
+    },
+    {
+      name: "owner cannot perform explicitly denied destructive action",
+      role: "owner",
+      action: "delete_record",
+      resource_type: taskType.id,
+      decision: "deny",
+      reason: "denied_by_policy_rule"
+    },
+    {
+      name: "editor cannot perform unknown action",
+      role: "editor",
+      action: "export_workspace",
+      resource_type: taskType.id,
+      decision: "deny",
+      reason: "no_matching_allow_rule"
+    },
+    {
+      name: "missing role is denied in governed workspace",
+      role: null,
+      action: "search_records",
+      resource_type: taskType.id,
+      decision: "deny",
+      reason: "role_required_in_governed_workspace"
+    }
+  ];
+
+  for (const testCase of cases) {
+    const result = store.evaluatePolicy(workspace.id, {
+      role: testCase.role,
+      action: testCase.action,
+      resource_type: testCase.resource_type
+    });
+
+    assert.equal(result.decision, testCase.decision, testCase.name);
+    assert.equal(result.reason, testCase.reason, testCase.name);
+  }
+});

@@ -16,3 +16,4 @@ Current migrations:
 - `0007_permission_checks.sql`: permission check decision records.
 - `0008_agents.sql`: agent identities and scoped, expiring delegations.
 - `0009_audit_events.sql`: append-only, hash-chained audit log (insert-only by contract).
+- `0010_goal_contracts_review_packets.sql`: GoalContracts, PullRequestArtifacts, and ReviewPackets.
