@@ -332,6 +332,8 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  packages/atlas-ontology: {}
+
   packages/db:
     dependencies:
       '@paperclipai/shared':
@@ -685,6 +687,9 @@ importers:
 
   server:
     dependencies:
+      '@atlas/atlas-ontology':
+        specifier: workspace:*
+        version: link:../packages/atlas-ontology
       '@aws-sdk/client-s3':
         specifier: ^3.1075.0
         version: 3.1075.0

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atlas — browse canon</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0d1117; --fg: #e6edf3; --muted: #8b949e; --accent: #58a6ff; --border: #30363d; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg); color: var(--fg); line-height: 1.55; }
+    main { max-width: 48rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    h1 { font-size: 1.2rem; margin: 0 0 0.25rem; }
+    p.lead { color: var(--muted); margin: 0 0 1.5rem; font-size: 0.85rem; }
+    a { color: var(--accent); }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1.5rem; font-size: 0.8rem; }
+    .toolbar input { background: #161b22; border: 1px solid var(--border); color: var(--fg); padding: 0.35rem 0.5rem; border-radius: 4px; min-width: 14rem; }
+    .toolbar button { background: #21262d; border: 1px solid var(--border); color: var(--fg); padding: 0.35rem 0.75rem; border-radius: 4px; cursor: pointer; }
+    .toolbar button:hover { border-color: var(--accent); }
+    #status { color: var(--muted); font-size: 0.8rem; margin-bottom: 1rem; }
+    #index ul { list-style: none; padding: 0; margin: 0; }
+    #index li { border-left: 2px solid var(--border); padding: 0.5rem 0 0.5rem 0.75rem; margin-bottom: 0.5rem; }
+    #index li button { background: none; border: none; color: var(--accent); cursor: pointer; font: inherit; padding: 0; text-align: left; }
+    #index li button:hover { text-decoration: underline; }
+    #index .meta { color: var(--muted); font-size: 0.75rem; }
+    #detail { margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+    #detail h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+    .stmt { margin-bottom: 1rem; padding-left: 0.75rem; border-left: 2px solid #21262d; }
+    .stmt h3 { font-size: 0.85rem; margin: 0 0 0.35rem; color: var(--accent); }
+    .stmt p { margin: 0.25rem 0; font-size: 0.85rem; }
+    .err { color: #f85149; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Atlas — canon browse</h1>
+    <p class="lead">Thin read slice: lists operational approved entities, then loads provenance-rich entity pages from the Paperclip API. <a href="index.html">Hero</a></p>
+    <div class="toolbar">
+      <label>API base <input id="apiBase" type="text" value="http://127.0.0.1:3100" /></label>
+      <label>Company <input id="companyId" type="text" placeholder="company uuid" /></label>
+      <button type="button" id="loadBtn">Load canon index</button>
+    </div>
+    <p id="status">Set company id (query <code>?company=</code>) and load.</p>
+    <section id="index" hidden>
+      <h2>Canon entries</h2>
+      <ul id="entryList"></ul>
+    </section>
+    <section id="detail" hidden>
+      <h2 id="detailTitle">Entity</h2>
+      <p id="detailMeta" class="meta"></p>
+      <div id="statements"></div>
+      <p class="meta"><a id="auditLink" href="#">Verify audit chain</a> · <a id="jsonLink" href="#" target="_blank" rel="noopener">JSON page</a></p>
+    </section>
+  </main>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const companyInput = document.getElementById("companyId");
+    const apiInput = document.getElementById("apiBase");
+    if (params.get("api")) apiInput.value = params.get("api");
+    if (params.get("company")) companyInput.value = params.get("company");
+
+    function apiUrl(path) {
+      const base = apiInput.value.replace(/\/$/, "");
+      return base + path;
+    }
+
+    function setStatus(text, isError) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = isError ? "err" : "";
+    }
+
+    async function loadIndex() {
+      const companyId = companyInput.value.trim();
+      if (!companyId) {
+        setStatus("Company id is required.", true);
+        return;
+      }
+      setStatus("Loading canon index…");
+      const res = await fetch(apiUrl(`/api/companies/${companyId}/atlas/public/canon`), { credentials: "include" });
+      if (!res.ok) {
+        setStatus(`Index failed: ${res.status} ${res.statusText}`, true);
+        return;
+      }
+      const index = await res.json();
+      const list = document.getElementById("entryList");
+      list.replaceChildren();
+      for (const entry of index.entries) {
+        const li = document.createElement("li");
+        const title = entry.title || entry.label || entry.record_id;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = title;
+        btn.addEventListener("click", () => loadEntity(companyId, entry.record_id, index.audit_verify_path));
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = `${entry.record_type} · ${entry.lifecycle} · ${entry.source_ref_count} source(s)`;
+        li.append(btn, meta);
+        list.append(li);
+      }
+      document.getElementById("index").hidden = false;
+      document.getElementById("detail").hidden = true;
+      setStatus(`${index.entries.length} canon entr${index.entries.length === 1 ? "y" : "ies"}. Click to open entity page.`);
+    }
+
+    async function loadEntity(companyId, recordId, auditPath) {
+      setStatus(`Loading entity ${recordId}…`);
+      const res = await fetch(apiUrl(`/api/companies/${companyId}/atlas/entities/${recordId}/page`), { credentials: "include" });
+      if (!res.ok) {
+        setStatus(`Entity page failed: ${res.status}`, true);
+        return;
+      }
+      const body = await res.json();
+      const page = body.page || body;
+      document.getElementById("detailTitle").textContent = page.title || page.label || page.entity_id;
+      document.getElementById("detailMeta").textContent =
+        `${page.record_type} · lifecycle ${page.lifecycle} · review ${page.review_state}`;
+      const stmts = document.getElementById("statements");
+      stmts.replaceChildren();
+      for (const st of page.statements || []) {
+        const block = document.createElement("div");
+        block.className = "stmt";
+        const src = (st.sources || []).map((s) => s.citation || s.id).join("; ") || "_(none)_";
+        const ev = (st.evidences || []).map((e) => e.id + (e.evidence_kind ? ` (${e.evidence_kind})` : "")).join("; ") || "_(none)_";
+        block.innerHTML =
+          `<h3>${st.title || st.id}</h3>` +
+          `<p class="meta">lifecycle ${st.lifecycle} · review ${st.review_state}</p>` +
+          `<p><strong>Sources:</strong> ${src}</p>` +
+          `<p><strong>Evidence:</strong> ${ev}</p>` +
+          `<p>${st.statement_text || ""}</p>`;
+        stmts.append(block);
+      }
+      const auditLink = document.getElementById("auditLink");
+      auditLink.href = apiUrl(page.audit_verify_path || auditPath);
+      document.getElementById("jsonLink").href = apiUrl(`/api/companies/${companyId}/atlas/entities/${recordId}/page`);
+      document.getElementById("detail").hidden = false;
+      setStatus("Entity loaded — trace statements to sources and evidence above.");
+    }
+
+    document.getElementById("loadBtn").addEventListener("click", loadIndex);
+    if (companyInput.value.trim()) loadIndex();
+  </script>
+</body>
+</html>

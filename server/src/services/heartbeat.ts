@@ -7996,7 +7996,7 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
         heartbeat.skipTimerWhenNoActionableWork ??
           heartbeat.requireActionableTimerWork ??
           heartbeat.issueOnlyTimer,
-        false,
+        true,
       ),
       maxDailyRuns: normalizeOptionalNonNegativeInteger(
         heartbeat.maxDailyRuns ?? heartbeat.dailyRunLimit ?? heartbeat.dailyRunCap ?? heartbeat.maxRunsPerDay,
@@ -10348,11 +10348,13 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
       sessionDisplayId: previousSessionDisplayId,
       taskKey,
     };
+    const sessionResumeOffered = runtimeForAdapter.sessionParams != null;
     const configFreshnessResultMetadata = {
       version: sessionConfigMetadata.version,
       session: {
         fingerprintVersion: sessionConfigMetadata.version,
         categories: sessionConfigMetadata.categories,
+        sessionResumeOffered,
         reset: resetTaskSession,
         resetReasons: sessionConfigFreshness.reasons,
         changedCategories: sessionConfigFreshness.changedCategories,
@@ -10871,6 +10873,7 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
               sessionReused: runtimeForAdapter.sessionId != null || runtimeForAdapter.sessionDisplayId != null,
               taskSessionReused: taskSessionForRun != null,
               freshSession: runtimeForAdapter.sessionId == null && runtimeForAdapter.sessionDisplayId == null,
+              sessionResumeOffered,
               sessionRotated: sessionCompaction.rotate,
               sessionRotationReason: sessionCompaction.reason,
               configFreshness: configFreshnessResultMetadata,

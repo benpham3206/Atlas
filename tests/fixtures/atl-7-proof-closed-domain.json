@@ -1,0 +1,121 @@
+{
+  "domain_slug": "atl7-proof-closed-lifecycle",
+  "company_id": "0929ce91-b5bc-44b3-8ac2-9000f9a1eba9",
+  "issue": "ATL-7",
+  "records": [
+    {
+      "id": "atlas_record_a8659fb4c4a2",
+      "record_type": "edge",
+      "workspace_id": "0929ce91-b5bc-44b3-8ac2-9000f9a1eba9",
+      "lifecycle": "operational",
+      "review_state": "approved",
+      "visibility": "workspace",
+      "title": "ATL-7 domain contains audit verify entity",
+      "source_refs": [
+        "atlas_record_c15301ed5503"
+      ],
+      "created_at": "2026-07-02T22:24:06.460Z",
+      "updated_at": "2026-07-02T22:24:06.559Z",
+      "reviewed_by": "knowledge_editor",
+      "reviewed_at": "2026-07-02T22:24:06.559Z",
+      "to_record_id": "atlas_record_edc0f386ed58",
+      "relation_type": "contains",
+      "from_record_id": "atlas_record_d172698db9ce"
+    },
+    {
+      "id": "atlas_record_d172698db9ce",
+      "record_type": "domain",
+      "workspace_id": "0929ce91-b5bc-44b3-8ac2-9000f9a1eba9",
+      "lifecycle": "operational",
+      "review_state": "approved",
+      "visibility": "workspace",
+      "title": "ATL-7 proof-closed flagship slice",
+      "source_refs": [
+        "atlas_record_c15301ed5503"
+      ],
+      "created_at": "2026-07-02T22:24:06.385Z",
+      "updated_at": "2026-07-02T22:24:06.545Z",
+      "reviewed_by": "knowledge_editor",
+      "reviewed_at": "2026-07-02T22:24:06.545Z",
+      "name": "atl7-proof-closed-lifecycle",
+      "focus_area": "public atlas proof closure",
+      "description": "Narrow domain proving record → evidence → review → canon → audit chain."
+    },
+    {
+      "id": "atlas_record_edc0f386ed58",
+      "record_type": "node",
+      "workspace_id": "0929ce91-b5bc-44b3-8ac2-9000f9a1eba9",
+      "lifecycle": "operational",
+      "review_state": "approved",
+      "visibility": "workspace",
+      "title": "Atlas audit verify endpoint",
+      "source_refs": [
+        "atlas_record_c15301ed5503"
+      ],
+      "created_at": "2026-07-02T22:24:06.368Z",
+      "updated_at": "2026-07-02T22:24:06.534Z",
+      "reviewed_by": "knowledge_editor",
+      "reviewed_at": "2026-07-02T22:24:06.534Z",
+      "label": "GET /companies/:id/atlas/audit/verify",
+      "node_kind": "object"
+    },
+    {
+      "id": "atlas_record_71fdad6749a9",
+      "record_type": "statement",
+      "workspace_id": "0929ce91-b5bc-44b3-8ac2-9000f9a1eba9",
+      "lifecycle": "operational",
+      "review_state": "approved",
+      "visibility": "workspace",
+      "title": "Audit verify gate",
+      "source_refs": [
+        "atlas_record_c15301ed5503"
+      ],
+      "created_at": "2026-07-02T22:24:06.404Z",
+      "updated_at": "2026-07-02T22:24:06.524Z",
+      "reviewed_by": "knowledge_editor",
+      "reviewed_at": "2026-07-02T22:24:06.524Z",
+      "evidence_refs": [
+        "atlas_record_313841878b79"
+      ],
+      "statement_text": "Public Atlas treats hash-chained audit verify (audit_valid true, event_count > 0) as a hard gate before canon promotion.",
+      "evidence_exception": "ATL-7: evidence record follows"
+    },
+    {
+      "id": "atlas_record_313841878b79",
+      "record_type": "evidence",
+      "workspace_id": "0929ce91-b5bc-44b3-8ac2-9000f9a1eba9",
+      "lifecycle": "operational",
+      "review_state": "approved",
+      "visibility": "workspace",
+      "title": "ATL-7 audit verify citation",
+      "source_refs": [
+        "atlas_record_c15301ed5503"
+      ],
+      "created_at": "2026-07-02T22:24:06.424Z",
+      "updated_at": "2026-07-02T22:24:06.504Z",
+      "reviewed_by": "knowledge_editor",
+      "reviewed_at": "2026-07-02T22:24:06.504Z",
+      "source_id": "atlas_record_c15301ed5503",
+      "statement_id": "atlas_record_71fdad6749a9",
+      "evidence_kind": "requirement"
+    },
+    {
+      "id": "atlas_record_c15301ed5503",
+      "record_type": "source",
+      "workspace_id": "0929ce91-b5bc-44b3-8ac2-9000f9a1eba9",
+      "lifecycle": "operational",
+      "review_state": "approved",
+      "visibility": "workspace",
+      "title": "ATL-7 audit integration brick",
+      "source_refs": [
+        "atlas_record_c15301ed5503"
+      ],
+      "created_at": "2026-07-02T22:24:06.344Z",
+      "updated_at": "2026-07-02T22:24:06.491Z",
+      "reviewed_by": "knowledge_editor",
+      "reviewed_at": "2026-07-02T22:24:06.491Z",
+      "citation": "docs/bricks/2026-06-30-audit-activity-integration.md",
+      "source_type": "document"
+    }
+  ]
+}

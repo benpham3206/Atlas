@@ -33,6 +33,16 @@ import { execute } from "./execute.js";
 
 const tempRoots: string[] = [];
 
+function expectSectionOrder(prompt: string, sections: string[]) {
+  let previousIndex = -1;
+  for (const section of sections) {
+    const nextIndex = prompt.indexOf(section);
+    expect(nextIndex, `missing prompt section: ${section}`).toBeGreaterThanOrEqual(0);
+    expect(nextIndex, `prompt section out of order: ${section}`).toBeGreaterThan(previousIndex);
+    previousIndex = nextIndex;
+  }
+}
+
 async function makeTempRoot() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-grok-local-"));
   tempRoots.push(root);
@@ -138,6 +148,83 @@ describe("grok_local execute", () => {
     expect(logs.map((entry) => entry.chunk)).not.toEqual([]);
   });
 
+  it("orders fresh-session prompt sections stable-first for provider prefix caching", async () => {
+    const root = await makeTempRoot();
+    let capturedPrompt = "";
+
+    runProcessMock.mockImplementation(async (_runId, _target, _command, args, options) => {
+      const singleIndex = args.indexOf("--single");
+      expect(singleIndex).toBeGreaterThanOrEqual(0);
+      capturedPrompt = String(args[singleIndex + 1] ?? "");
+      await options.onLog?.("stdout", '{"type":"text","data":"done"}\n');
+      return {
+        exitCode: 0,
+        signal: null,
+        timedOut: false,
+        stdout: [
+          JSON.stringify({ type: "text", data: "done" }),
+          JSON.stringify({ type: "end", stopReason: "EndTurn", sessionId: "sess-1", requestId: "req-1" }),
+        ].join("\n"),
+        stderr: "",
+      };
+    });
+
+    const ctx: AdapterExecutionContext = {
+      runId: "run-fresh-order",
+      agent: {
+        id: "agent-1",
+        companyId: "company-1",
+        name: "Grok Agent",
+        adapterType: "grok_local",
+        adapterConfig: {},
+      },
+      runtime: {
+        sessionId: null,
+        sessionParams: null,
+        sessionDisplayId: null,
+        taskKey: null,
+      },
+      config: {
+        cwd: root,
+        promptTemplate: [
+          "STABLE TEMPLATE START",
+          "Stable cached instructions stay at the prefix.",
+          "STABLE TEMPLATE END",
+        ].join("\n"),
+      },
+      context: {
+        paperclipSessionHandoffMarkdown: "Session handoff: latest mutable run note.",
+        paperclipWake: {
+          reason: "issue_assigned",
+          issue: {
+            id: "issue-1",
+            identifier: "PAP-11750",
+            title: "Add Grok prompt ordering regression tests",
+            status: "in_progress",
+            priority: "medium",
+            workMode: "standard",
+          },
+          checkedOutByHarness: true,
+          commentWindow: { requestedCount: 0, includedCount: 0, missingCount: 0 },
+          comments: [],
+          fallbackFetchNeeded: false,
+        },
+      },
+      authToken: "run-token",
+      onLog: async () => {},
+    };
+
+    await execute(ctx);
+
+    expectSectionOrder(capturedPrompt, [
+      "STABLE TEMPLATE START",
+      "Paperclip runtime note:",
+      "Paperclip API access note:",
+      "Session handoff: latest mutable run note.",
+      "## Paperclip Wake Payload",
+    ]);
+  });
+
   it("cleans up staged assets when setup fails before the Grok process starts", async () => {
     const root = await makeTempRoot();
     const instructionsPath = path.join(root, "managed", "AGENTS.md");
@@ -183,5 +270,86 @@ describe("grok_local execute", () => {
     expect(runProcessMock).not.toHaveBeenCalled();
     expect(await pathExists(path.join(root, "Agents.md"))).toBe(false);
     expect(await pathExists(path.join(root, ".claude", "skills", "paperclip"))).toBe(false);
+  });
+
+  it("caps oversized session handoffs in fresh and resumed prompts", async () => {
+    const root = await makeTempRoot();
+    const longHandoff = [
+      "HANDOFF-START-",
+      "A".repeat(7000),
+      "-HANDOFF-MIDDLE-",
+      "B".repeat(2500),
+      "-HANDOFF-END",
+    ].join("");
+    const omittedChars = longHandoff.length - 6000 - 1500;
+    const prompts: string[] = [];
+
+    runProcessMock.mockImplementation(async (_runId, _target, _command, _args, options) => {
+      await options.onLog?.("stdout", '{"type":"text","data":"done"}\n');
+      return {
+        exitCode: 0,
+        signal: null,
+        timedOut: false,
+        stdout: [
+          JSON.stringify({ type: "text", data: "done" }),
+          JSON.stringify({ type: "end", stopReason: "EndTurn", sessionId: "sess-next", requestId: "req-1" }),
+        ].join("\n"),
+        stderr: "",
+      };
+    });
+
+    const makeCtx = (sessionId: string | null): AdapterExecutionContext => ({
+      runId: sessionId ? "run-resume" : "run-fresh",
+      agent: {
+        id: "agent-1",
+        companyId: "company-1",
+        name: "Grok Agent",
+        adapterType: "grok_local",
+        adapterConfig: {},
+      },
+      runtime: {
+        sessionId,
+        sessionParams: null,
+        sessionDisplayId: sessionId,
+        taskKey: null,
+      },
+      config: { cwd: root },
+      context: {
+        paperclipSessionHandoffMarkdown: longHandoff,
+        paperclipWake: sessionId
+          ? {
+            reason: "issue_commented",
+            issue: {
+              id: "issue-1",
+              identifier: "PAP-11750",
+              title: "Cap Grok handoff",
+              status: "in_progress",
+              priority: "medium",
+              workMode: "standard",
+            },
+            latestCommentId: "comment-2",
+            commentWindow: { requestedCount: 1, includedCount: 1, missingCount: 0 },
+            comments: [{ id: "comment-2", body: "Resume with a capped handoff." }],
+            fallbackFetchNeeded: false,
+          }
+          : undefined,
+      },
+      authToken: "run-token",
+      onLog: async () => {},
+      onMeta: async (meta) => {
+        if (typeof meta.prompt === "string") prompts.push(meta.prompt);
+      },
+    });
+
+    await execute(makeCtx(null));
+    await execute(makeCtx("sess-existing"));
+
+    expect(prompts).toHaveLength(2);
+    for (const prompt of prompts) {
+      expect(prompt).toContain("HANDOFF-START-");
+      expect(prompt).toContain("-HANDOFF-END");
+      expect(prompt).toContain(`[... ${omittedChars} chars omitted — full handoff available via Paperclip API ...]`);
+      expect(prompt).not.toContain("-HANDOFF-MIDDLE-");
+    }
   });
 });

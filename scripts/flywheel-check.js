@@ -56,6 +56,9 @@ async function main() {
     const na = readFileSync(join(REPO, "outputs/internal/NEXT_ACTION.md"), "utf8");
     results.push(check("next_action:do", /\*\*Do:\*\*/.test(na)));
     results.push(check("next_action:giants", /GIANTS_DOGFOOD_MOMENTUM/.test(na)));
+    results.push(
+      check("next_action:sprint", /\*\*Do:\*\*.*(PS-P|PA-P|H1)/.test(na))
+    );
   } catch {
     results.push(check("next_action:do", false));
   }

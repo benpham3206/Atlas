@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "atlas": {
+      "command": "/Users/benjaminpham/Documents/Atlas/scripts/cursor-atlas-mcp.sh",
+      "args": []
+    }
+  }
+}

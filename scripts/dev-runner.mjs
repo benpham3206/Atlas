@@ -26,6 +26,7 @@ const watchedDirectories = [
   "server",
   "packages/adapter-utils",
   "packages/adapters",
+  "packages/atlas-ontology",
   "packages/db",
   "packages/skills-catalog",
   "packages/plugins/sdk",

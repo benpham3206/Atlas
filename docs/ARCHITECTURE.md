@@ -1,5 +1,8 @@
 # Atlas Architecture
 
+> **STALE — legacy reference only.** This describes the pre-Paperclip zero-dependency system (`apps/api`, `apps/web`). The live system is the Paperclip trunk + Atlas graft; see **`docs/SPEC.md`** (index) and **`AGENTS.md`**. Direction lives only in `outputs/internal/NEXT_ACTION.md`.
+
+
 Status: Personal Atlas v0 slice
 Last updated: 2026-06-28
 

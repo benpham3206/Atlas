@@ -2,6 +2,16 @@ import { expect, test } from "vitest";
 
 import { buildPrompt } from "./execute.js";
 
+function expectSectionOrder(prompt: string, sections: string[]) {
+  let previousIndex = -1;
+  for (const section of sections) {
+    const nextIndex = prompt.indexOf(section);
+    expect(nextIndex, `missing prompt section: ${section}`).toBeGreaterThanOrEqual(0);
+    expect(nextIndex, `prompt section out of order: ${section}`).toBeGreaterThan(previousIndex);
+    previousIndex = nextIndex;
+  }
+}
+
 function baseContext(overrides: Record<string, unknown> = {}) {
   return {
     agent: {
@@ -104,6 +114,27 @@ test("renders scoped planning wake authority before the Hermes default workflow"
   expect(prompt).not.toContain("status=backlog");
 });
 
+test("orders fresh-session prompt sections stable-first for provider prefix caching", () => {
+  const prompt = buildPrompt(baseContext({
+    paperclipSessionHandoffMarkdown: "Session handoff: latest mutable run note.",
+  }), {
+    promptTemplate: [
+      "STABLE TEMPLATE START",
+      "Stable cached instructions stay at the prefix.",
+      "STABLE TEMPLATE END",
+    ].join("\n"),
+  });
+
+  expectSectionOrder(prompt, [
+    "STABLE TEMPLATE START",
+    "Paperclip runtime note:",
+    "Paperclip API access note:",
+    "Session handoff: latest mutable run note.",
+    "Paperclip task context:",
+    "## Paperclip Wake Payload",
+  ]);
+});
+
 test("renders resume deltas instead of full scoped-wake boilerplate when continuing a session", () => {
   const prompt = buildPrompt(baseContext({
     paperclipWake: {
@@ -129,6 +160,88 @@ test("renders resume deltas instead of full scoped-wake boilerplate when continu
   expect(prompt).toContain("Please add the resume-delta case.");
   expect(prompt).toContain("- fallback fetch needed: no");
   expect(prompt).not.toContain("Before generic repo exploration or boilerplate heartbeat updates");
+});
+
+test("uses a slim resumed prompt instead of re-rendering the full prompt template", () => {
+  const context = baseContext({
+    paperclipSessionHandoffMarkdown: "Session handoff: continue from cached provider prefix.",
+    paperclipWake: {
+      reason: "issue_commented",
+      issue: {
+        id: "issue-1",
+        identifier: "PAP-11750",
+        title: "Add Hermes prompt rendering regression tests",
+        status: "in_progress",
+        priority: "medium",
+        workMode: "standard",
+      },
+      latestCommentId: "comment-2",
+      commentWindow: { requestedCount: 1, includedCount: 1, missingCount: 0 },
+      comments: [{ id: "comment-2", body: "Please add the resume-delta case.", createdAt: "2026-06-23T00:00:00.000Z" }],
+      fallbackFetchNeeded: false,
+    },
+  });
+  const config = {
+    promptTemplate: [
+      "FULL TEMPLATE START",
+      Array.from({ length: 30 }, (_, i) => `Stable cached instructions line ${i + 1}: keep this only on fresh turns.`).join("\n"),
+      "{{paperclipTaskMarkdown}}",
+      "FULL TEMPLATE END",
+    ].join("\n"),
+  };
+
+  const freshPrompt = buildPrompt(context, config);
+  const resumedPrompt = buildPrompt(context, config, { resumedSession: true });
+
+  expect(freshPrompt).toContain("FULL TEMPLATE START");
+  expect(freshPrompt).toContain("Paperclip task context:");
+  expect(resumedPrompt).toContain("## Paperclip Resume Delta");
+  expect(resumedPrompt).toContain("Session handoff: continue from cached provider prefix.");
+  expect(resumedPrompt).toContain("Paperclip runtime note:");
+  expect(resumedPrompt).toContain("Paperclip API access note:");
+  expect(resumedPrompt).not.toContain("FULL TEMPLATE START");
+  expect(resumedPrompt).not.toContain("Stable cached instructions line");
+  expect(resumedPrompt).not.toContain("Paperclip task context:");
+  expect(resumedPrompt.length).toBeLessThan(freshPrompt.length / 2);
+});
+
+test("caps oversized session handoffs in fresh and resumed prompts", () => {
+  const longHandoff = [
+    "HANDOFF-START-",
+    "A".repeat(7000),
+    "-HANDOFF-MIDDLE-",
+    "B".repeat(2500),
+    "-HANDOFF-END",
+  ].join("");
+  const omittedChars = longHandoff.length - 6000 - 1500;
+  const context = baseContext({
+    paperclipSessionHandoffMarkdown: longHandoff,
+    paperclipWake: {
+      reason: "issue_commented",
+      issue: {
+        id: "issue-1",
+        identifier: "PAP-11750",
+        title: "Add Hermes prompt rendering regression tests",
+        status: "in_progress",
+        priority: "medium",
+        workMode: "standard",
+      },
+      latestCommentId: "comment-2",
+      commentWindow: { requestedCount: 1, includedCount: 1, missingCount: 0 },
+      comments: [{ id: "comment-2", body: "Resume with a capped handoff.", createdAt: "2026-06-23T00:00:00.000Z" }],
+      fallbackFetchNeeded: false,
+    },
+  });
+
+  for (const prompt of [
+    buildPrompt(context, {}),
+    buildPrompt(context, {}, { resumedSession: true }),
+  ]) {
+    expect(prompt).toContain("HANDOFF-START-");
+    expect(prompt).toContain("-HANDOFF-END");
+    expect(prompt).toContain(`[... ${omittedChars} chars omitted — full handoff available via Paperclip API ...]`);
+    expect(prompt).not.toContain("-HANDOFF-MIDDLE-");
+  }
 });
 
 test("renders comment wake batch guidance without defaulting to a full-thread refetch", () => {

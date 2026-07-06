@@ -1,6 +1,6 @@
 # ADR: Atlas + MoO import map (Paperclip graft inventory)
 
-**Status:** accepted (planning — no code ports in this doc)
+**Status:** accepted — PA-P2M1–M7 + PA-P2d–h ports complete (2026-06-30)
 **Date:** 2026-06-30
 **Task:** PA-P2M0
 **Tracker:** `TASKS.md` § PA-P2M
@@ -219,6 +219,6 @@ Until then: **`apps/api` stays keep-ref** on :4000 for migration proofs.
 - [x] PA-P2M1–M7 tasks in `TASKS.md` trace to this doc.
 - [x] `scripts/test/import-map.test.js` enforces §1 file coverage.
 
-**Next task:** PA-P2a — Activity ↔ hash-chain integration ADR (`docs/bricks/2026-06-30-audit-activity-integration.md`).
+**Next task:** PA-P3a — staff manifest fixtures for encyclopedia MVP dogfood.
 
-**Audit integration (PA-P2a):** [Activity ↔ hash-chain ADR](./2026-06-30-audit-activity-integration.md) — **sidecar `atlas_audit_events` table**, dual append on governed writes.
+**Audit integration (PA-P2a):** [Activity ↔ hash-chain ADR](./2026-06-30-audit-activity-integration.md) — **sidecar `atlas_audit_events` table**, dual append on governed writes — **implemented** (PA-P2g).

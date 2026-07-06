@@ -57,6 +57,18 @@ function hasNonEmptyEnvValue(env: Record<string, string>, key: string): boolean 
   return typeof raw === "string" && raw.trim().length > 0;
 }
 
+function capSessionHandoff(text: string, maxChars = 8000): string {
+  if (text.length <= maxChars) return text;
+  const head = text.slice(0, 6000);
+  const tail = text.slice(-1500);
+  const omitted = text.length - head.length - tail.length;
+  return [
+    head,
+    `[... ${omitted} chars omitted — full handoff available via Paperclip API ...]`,
+    tail,
+  ].join("");
+}
+
 function renderPaperclipEnvNote(env: Record<string, string>): string {
   const paperclipKeys = Object.keys(env)
     .filter((key) => key.startsWith("PAPERCLIP_"))
@@ -413,16 +425,24 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     const wakePrompt = renderPaperclipWakePrompt(context.paperclipWake, { resumedSession: Boolean(sessionId) });
     const shouldUseResumeDeltaPrompt = Boolean(sessionId) && wakePrompt.length > 0;
     const renderedPrompt = shouldUseResumeDeltaPrompt ? "" : renderTemplate(promptTemplate, templateData);
-    const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+    const sessionHandoffNote = capSessionHandoff(asString(context.paperclipSessionHandoffMarkdown, "").trim());
     const paperclipEnvNote = renderPaperclipEnvNote(env);
     const apiAccessNote = renderApiAccessNote(env);
-    const prompt = joinPromptSections([
-      wakePrompt,
-      sessionHandoffNote,
-      paperclipEnvNote,
-      apiAccessNote,
-      renderedPrompt,
-    ]);
+    const prompt = shouldUseResumeDeltaPrompt
+      ? joinPromptSections([
+        wakePrompt,
+        sessionHandoffNote,
+        paperclipEnvNote,
+        apiAccessNote,
+        renderedPrompt,
+      ])
+      : joinPromptSections([
+        renderedPrompt,
+        paperclipEnvNote,
+        apiAccessNote,
+        sessionHandoffNote,
+        wakePrompt,
+      ]);
     const promptMetrics = {
       promptChars: prompt.length,
       wakePromptChars: wakePrompt.length,

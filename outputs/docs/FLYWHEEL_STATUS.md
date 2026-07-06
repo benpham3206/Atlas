@@ -1,6 +1,6 @@
 # Internal momentum flywheel — status (110–120%)
 
-**Updated:** 2026-06-30
+**Updated:** 2026-07-03
 **Playbook:** `outputs/internal/GIANTS_DOGFOOD_MOMENTUM.md`
 **Verify:** `npm run flywheel:check` · `npm run momentum:pulse`
 
@@ -24,12 +24,12 @@
 | Hermes docs drift notify | 6h | Photon | Upstream Hermes docs only on drift |
 | Photon iMessage watchdog | 20m | origin | Gateway/sidecar health — fix if error streak |
 
-## Sprint mode (Public Atlas)
+## Sprint mode (Doc Do)
 
-While `NEXT_ACTION.md` § Public Atlas is active:
+While `NEXT_ACTION.md` **Do:** names **PS-P*** (personal runtime) or **PA-P*** (public graft):
 
-- **Ben inch** = current **PA-P*** task in **Cursor** (not ontology spine title).
-- **Weekly turn** = complete one PA-* slice + gate + `TASKS.md` checkbox + optional `CONTEXT_LOG` epic line (not `POST /personal/complete` for smoke).
+- **Ben inch** = that **Do:** row in **Cursor** (`gate:test` + object history for PS-P* per `PERSONAL_WORKSPACE_STATUS.md`) — not deferred ontology spine title.
+- **Weekly turn** = one PS-* or PA-* slice + gate + `TASKS.md` / `PERSONAL_WORKSPACE_STATUS.md` checkbox + optional `CONTEXT_LOG` line (not smoke `POST /personal/complete`).
 - **Pulse** prints **Now:** first; spine labeled **deferred**.
 
 ## 110% checklist

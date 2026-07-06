@@ -270,6 +270,7 @@ test("GET /personal/session-context returns dual-spine header and agent_contract
   assert.ok(ctx.payload.data.parallel_polish);
   assert.ok(Array.isArray(ctx.payload.data.agent_contract.personal_planning));
   assert.match(ctx.payload.data.agent_contract.task_completion, /complete/);
+  assert.match(ctx.payload.data.agent_contract.identity, /JARVIS|charter/i);
 });
 
 test("GET /personal/overview lists all personal projects", async (t) => {

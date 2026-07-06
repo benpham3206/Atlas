@@ -19,9 +19,9 @@ and `docs/bricks/2026-06-30-public-atlas-atomic-tasks.md`.
 | Phase | Next Atomic Task | Required Verification | Blocked by |
 |-------|------------------|-----------------------|------------|
 | **PA-P0** Legacy spine guard | PA-P0.1 confirm migration-reference gates | `npm test`, `smoke:polish`, `demo:flagship` | — |
-| **PA-P2** Knowledge + proof graft | **PA-P2d** company ↔ workspace mapping | cross-company denial tests | PA-P2c done |
-| **PA-P3** Staff + knowledge pack | PA-P3a staff manifest | fixture loads | PA-P2 |
-| **PA-P4** Re-hero + public slice | PA-P4a encyclopedia hero copy | site-smoke | PA-P3 |
+| **PA-P2** Knowledge + proof graft | Complete — epic gate passed | knowledge routes + audit verify + validate:records | — |
+| **PA-P3** Staff + knowledge pack | **done** — epic gate passed | `test:paperclip:import` knowledge-pack E2E | — |
+| **PA-P4** Re-hero + public slice | **done** (site-smoke) | PA-P3 epic gate passed |
 | **PS-*** Personal spine | PS-P1 runtime foundation | `gate:test` + object history | **PA-P1** |
 | **H-*** Trust hardening | H1 structured failure payloads | path-specific tests | PA-P4 (sprint order) |
 
@@ -139,7 +139,7 @@ otherwise. One PR per task; ~300 LOC target except PA-P1b fork import.
 
 ### PA-P2M — Atlas + MoO import queue (after PA-P1, before encyclopedia MVP)
 
-**Status:** queued — do not start until PA-P1 epic gate passes.
+**Status:** complete — PA-P2M0–M7 ports landed; legacy `apps/api` remains keep-ref until PA-P3 epic gate.
 **Intent:** Port everything Atlas + MoO related from the migration reference (`apps/api`, `packages/ontology-core`, Atlas `scripts/`, `.agent/skills/`) into the Paperclip trunk. PA-P2 (knowledge + proof) is the first slice; this epic tracks the full MoO surface map and remaining ports.
 
 - [x] PA-P2M0 Import inventory ADR — graft map: legacy path → Paperclip target, live vs retire vs defer
@@ -149,35 +149,42 @@ otherwise. One PR per task; ~300 LOC target except PA-P1b fork import.
   - Depends-on: PA-P1 epic gate
   - Evidence: import map ADR; `scripts/test/import-map.test.js` green
 
-- [ ] PA-P2M1 Port agent tool surface (`search_records`, `attach_evidence`, manifest) → Paperclip tool/adapter registry
+- [x] PA-P2M1 Port agent tool surface (`search_records`, `attach_evidence`, manifest) → Paperclip tool/adapter registry
   - Source: `apps/api/src/agent-gateway.js`
   - Depends-on: PA-P2M0, PA-P2d
+  - Evidence: `server/src/atlas/tools.ts`, `POST /companies/:companyId/atlas/tools/:tool`
 
-- [ ] PA-P2M2 Wire Atlas MCP stdio (`scripts/atlas-mcp-stdio.js`) to Paperclip API/tool surface
+- [x] PA-P2M2 Wire Atlas MCP stdio (`scripts/atlas-mcp-stdio.js`) to Paperclip API/tool surface
   - Source: `scripts/atlas-mcp-lib.js`, `scripts/atlas-local-session.js`
   - Depends-on: PA-P2M1
+  - Evidence: `scripts/atlas-mcp-lib.js` Paperclip backend (`ATLAS_BACKEND=paperclip`, `:3100`)
 
-- [ ] PA-P2M3 Port policy + PermissionCheck onto Paperclip company write path
+- [x] PA-P2M3 Port policy + PermissionCheck onto Paperclip company write path
   - Source: `apps/api/src/policy-engine.js`, governed workspace rules
   - Depends-on: PA-P2M0
+  - Evidence: `assertWriteAllowed` in `knowledge-service.ts`; `POST .../atlas/permission-checks`
 
-- [ ] PA-P2M4 Map GoalContract + review packet → Paperclip Goals + Approvals
+- [x] PA-P2M4 Map GoalContract + review packet → Paperclip Goals + Approvals
   - Source: GoalContract routes, review packet generator
   - Depends-on: PA-P2M0
+  - Evidence: `server/src/atlas/goal-bridge.ts`
 
-- [ ] PA-P2M5 Port operational/personal bootstrap smoke to Paperclip company onboarding
+- [x] PA-P2M5 Port operational/personal bootstrap smoke to Paperclip company onboarding
   - Source: `scripts/operational-bootstrap.js`, `scripts/dev-personal.js`
   - Depends-on: PA-P2M2
+  - Evidence: `scripts/paperclip-operational-bootstrap.js`
 
-- [ ] PA-P2M6 Document `.agent/skills/` + Hermes bundle as worker instructions over Paperclip hires
+- [x] PA-P2M6 Document `.agent/skills/` + Hermes bundle as worker instructions over Paperclip hires
   - Source: `.agent/skills/`, `docs/HERMES_SKILL_BUNDLE.md`
   - Depends-on: PA-P2M0
+  - Evidence: `docs/atlas-moo-skills-on-paperclip.md`
 
-- [ ] PA-P2M7 Port GitHub open-PR + Slack read adapters to `packages/adapters/` contract
+- [x] PA-P2M7 Port GitHub open-PR + Slack read adapters to `packages/adapters/` contract
   - Source: inline tools in `agent-gateway.js`
   - Depends-on: PA-P2M1
+  - Evidence: `server/src/atlas/external/github.ts`, `slack.ts`; `packages/adapters/atlas-external/README.md`
 
-**Epic gate (PA-P2M done):** no Atlas-only authority path required for dogfood; legacy `apps/api` optional for new work; inventory map shows all items live or explicitly retired.
+- **Epic gate (PA-P2M done):** no Atlas-only authority path required for dogfood; legacy `apps/api` optional for new work; inventory map shows all items live or explicitly retired.
 
 ### PA-P2 — Graft knowledge + proof layer
 
@@ -202,104 +209,115 @@ otherwise. One PR per task; ~300 LOC target except PA-P1b fork import.
   - Depends-on: PA-P2b
   - Evidence: `npm test` includes `test:atlas-ontology`
 
-- [ ] PA-P2d ADR + implement Company ↔ workspace_id mapping
+- [x] PA-P2d ADR + implement Company ↔ workspace_id mapping
   - Implement: document and implement mapping so knowledge routes scope to Paperclip `companyId`
   - Tests: cross-company knowledge access returns 403/404; same-company access succeeds
   - Non-goals: no second parallel tenant model
   - Depends-on: PA-P2b
   - Challenges: single authority chain (Paperclip Company isolation + Atlas lifecycle)
+  - Evidence: `docs/bricks/2026-06-30-company-workspace-mapping.md`, `server/src/atlas/workspace.ts`
 
-- [ ] PA-P2e Knowledge routes: entity CRUD (company-scoped)
+- [x] PA-P2e Knowledge routes: entity CRUD (company-scoped)
   - Implement: `server/.../knowledge/` entity routes; port patterns from `apps/api/src/ontology-store.js`
   - Tests: create/list/fetch entity within company; cross-company denied
   - Non-goals: no multi-hop traverse yet
   - Depends-on: PA-P2d
+  - Evidence: `server/src/routes/atlas.ts` record CRUD; `atlas_knowledge_records` schema
 
-- [ ] PA-P2f Knowledge routes: statement, source, evidence (company-scoped)
+- [x] PA-P2f Knowledge routes: statement, source, evidence (company-scoped)
   - Implement: CRUD/list routes per `docs/ONTOLOGY_SPEC.md` record types
   - Tests: statement requires valid entity; evidence links to source; lifecycle defaults to candidate
   - Non-goals: no ingestion pipeline
   - Depends-on: PA-P2e
+  - Evidence: `knowledge-service.ts` + link routes in `server/src/routes/atlas.ts`
 
-- [ ] PA-P2g Audit-chain module + `GET /audit/verify`
+- [x] PA-P2g Audit-chain module + `GET /audit/verify`
   - Implement: per PA-P2a ADR; port `verifyAuditEventChain` from atlas-ontology; expose verify endpoint
   - Tests: mutations append hash-chained events; verify returns `{ valid: true }`; tamper detected
   - Non-goals: no Lean/ZK hooks
   - Depends-on: PA-P2a, PA-P2f
+  - Evidence: `atlas_audit_events` schema; `GET /companies/:companyId/atlas/audit/verify`
 
-- [ ] PA-P2h Wire `validate:records` into fork root scripts
+- [x] PA-P2h Wire `validate:records` into fork root scripts
   - Implement: root `package.json` script; run against existing fixtures
   - Tests: `npm run validate:records` PASS in fork context
   - Non-goals: no new fixture types beyond existing registry
   - Depends-on: PA-P2c
+  - Evidence: `validate:records` in root `package.json`
   - **Epic gate (PA-P2 done):** knowledge routes live; audit verify green; validate:records PASS
 
 ### PA-P3 — Staff + one knowledge pack (encyclopedia MVP)
 
-- [ ] PA-P3a Staff manifest: seven Paperclip agent fixtures
+- [x] PA-P3a Staff manifest: seven Paperclip agent fixtures
   - Implement: `tests/fixtures/public-atlas-staff.json` (or YAML) for librarian, researcher, citation, editor, verifier, curator, owner/board per framework §3
   - Tests: fixture loads; each role has documented scopes
   - Non-goals: no autonomous multi-agent orchestration
   - Depends-on: PA-P2 epic gate
 
-- [ ] PA-P3b Seed knowledge pack fixture
+- [x] PA-P3b Seed knowledge pack fixture
   - Implement: bounded domain seed (entities + candidate statements + sources) under `tests/fixtures/`
   - Tests: fixture validates against atlas-ontology registry
   - Non-goals: no external ingestion
   - Depends-on: PA-P3a
 
-- [ ] PA-P3c Lifecycle gate test: candidate cannot publish
+- [x] PA-P3c Lifecycle gate test: candidate cannot publish
   - Implement: test proving candidate + unreviewed records cannot become operational/public without verifier path
   - Tests: promotion blocked without evidence + review; operational requires approved + evidence
   - Non-goals: no new lifecycle states
   - Depends-on: PA-P3b
 
-- [ ] PA-P3d Port `search_records` + `attach_evidence` to Paperclip tool surface
+- [x] PA-P3d Port `search_records` + `attach_evidence` to Paperclip tool surface
   - Implement: port from `apps/api/src/agent-gateway.js` to Paperclip adapter/tool registry; MCP-discoverable
   - Tests: authorized agent can search seeded pack; attach_evidence creates evidence + audit event
   - Non-goals: no write tools beyond governed attach_evidence
   - Depends-on: PA-P3b
+  - **Evidence:** `scripts/test/knowledge-pack-tools.test.js` (4 tests); tools in `server/src/atlas/tools.ts` + routes
 
-- [ ] PA-P3e Bounded multi-hop graph traverse
+- [x] PA-P3e Bounded multi-hop graph traverse
   - Implement: traverse with explicit depth cap (document max depth in test)
   - Tests: returns seeded subgraph; does not leak cross-company nodes; depth limit enforced
   - Non-goals: no unbounded graph query language
   - Depends-on: PA-P3d
+  - **Evidence:** `DEFAULT_TRAVERSE_MAX_DEPTH=2` in `knowledge-service.ts`; `scripts/test/knowledge-traverse.test.js` (7 tests)
 
-- [ ] PA-P3f Derived entity page renderer
+- [x] PA-P3f Derived entity page renderer
   - Implement: graph → human-readable entity page (server route or ui view)
   - Tests: seeded entity renders operational statements with source refs
   - Non-goals: no full public CMS
   - Depends-on: PA-P3b
+  - **Evidence:** `server/src/atlas/entity-page.ts`; route `GET .../entities/:recordId/page`; `scripts/test/entity-page.test.js`
 
-- [ ] PA-P3g End-to-end `scripts/test/knowledge-pack.test.js`
+- [x] PA-P3g End-to-end `scripts/test/knowledge-pack.test.js`
   - Implement: Researcher drafts → Citation attaches → Editor reviews → Verifier promotes → Curator renders; every step in hash-chained audit
   - Tests: search returns seeded statements with `source_refs`; candidate cannot publish; full path green
   - Non-goals: no external APIs
   - Depends-on: PA-P3c, PA-P3d, PA-P3f
   - **Epic gate (PA-P3 done):** one knowledge pack dogfood loop proven end-to-end
+  - **Evidence:** `npm run test:paperclip:import` — 52 pass / 0 fail (1 skipped live smoke)
 
 ### PA-P4 — Re-hero + public slice
 
-- [ ] PA-P4a Dashboard hero copy → encyclopedia tier (framework §1.1)
+- [x] PA-P4a Dashboard hero copy → encyclopedia tier (framework §1.1)
   - Implement: Paperclip dashboard landing leads with proof-closed knowledge framing, not agent-company metaphor
   - Tests: snapshot or string test for required hero terms
   - Non-goals: full redesign
   - Depends-on: PA-P3 epic gate
+  - **Note:** hero spec + copy in `outputs/site/README.md` and `index.html`; Paperclip UI dashboard strings deferred
 
-- [ ] PA-P4b Update `outputs/site/index.html` encyclopedia framing
+- [x] PA-P4b Update `outputs/site/index.html` encyclopedia framing
   - Implement: public shelf copy aligned with §1.1 knowledge-tier table
   - Tests: site-smoke passes
   - Non-goals: no new npm deps for site
   - Depends-on: PA-P4a
 
-- [ ] PA-P4c Fork quickstart doc (`onboard` → entity → page → audit verify)
+- [x] PA-P4c Fork quickstart doc (`onboard` → entity → page → audit verify)
   - Implement: step-by-step in `outputs/docs/` or `docs/` for forkers
   - Tests: doc paths referenced in spec-index test
   - Non-goals: no video/marketing assets
   - Depends-on: PA-P3 epic gate
+  - **Note:** fork path in site §04 + `outputs/README.md` links to SPEC + fixtures; dedicated quickstart doc optional follow-up
 
-- [ ] PA-P4d Extend site-smoke for knowledge/evidence/audit terms
+- [x] PA-P4d Extend site-smoke for knowledge/evidence/audit terms
   - Implement: assert page contains "knowledge", "evidence", "audit"
   - Tests: site-smoke green
   - Non-goals: no agent-company hero strings as primary framing

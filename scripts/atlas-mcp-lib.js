@@ -1,6 +1,42 @@
 import { resolveMcpConnection, readLocalSessionEnvelope } from "./atlas-local-session.js";
 
 export const DEFAULT_API_URL = "http://127.0.0.1:4000";
+export const DEFAULT_PAPERCLIP_API_URL = "http://127.0.0.1:3100";
+
+/** True when MCP should target Paperclip Atlas routes (/api/companies/:id/atlas/...). */
+export function isPaperclipBackend(env = process.env, connection = null) {
+  if (env.ATLAS_BACKEND === "paperclip") {
+    return true;
+  }
+  if (env.PAPERCLIP_API_URL || env.PAPERCLIP_COMPANY_ID || env.PAPERCLIP_AGENT_API_KEY) {
+    return true;
+  }
+  const apiUrl = connection?.apiUrl ?? env.PAPERCLIP_API_URL ?? env.ATLAS_API_URL ?? "";
+  return apiUrl.includes(":3100");
+}
+
+export function resolvePaperclipApiUrl(env = process.env) {
+  return (env.PAPERCLIP_API_URL ?? DEFAULT_PAPERCLIP_API_URL).replace(/\/$/, "");
+}
+
+export function resolvePaperclipCompanyId(env = process.env, connection = null) {
+  const fromEnv = env.PAPERCLIP_COMPANY_ID;
+  if (typeof fromEnv === "string" && fromEnv.trim()) {
+    return fromEnv.trim();
+  }
+  const envelope = connection?.envelope ?? {};
+  if (typeof envelope.company_id === "string" && envelope.company_id.trim()) {
+    return envelope.company_id.trim();
+  }
+  if (typeof envelope.workspace_id === "string" && envelope.workspace_id.trim()) {
+    return envelope.workspace_id.trim();
+  }
+  return null;
+}
+
+export function paperclipApiPrefix(apiUrl) {
+  return apiUrl.endsWith("/api") ? "" : "/api";
+}
 export const JSON_RPC_VERSION = "2.0";
 export const MCP_COMPONENT = "atlas-mcp-stdio";
 
@@ -529,6 +565,51 @@ export function requireString(value, field) {
   return value.trim();
 }
 
+export async function paperclipAtlasRequest(method, path, body, env = process.env, options = {}) {
+  const connection = resolveMcpConnectionOrThrow(env, options);
+  const apiUrl = (env.PAPERCLIP_API_URL ?? connection.apiUrl ?? resolvePaperclipApiUrl(env)).replace(/\/$/, "");
+  const companyId = resolvePaperclipCompanyId(env, connection);
+  if (!companyId) {
+    throw createMcpError({
+      root_cause: "missing_paperclip_company_id",
+      failure_type: "authorization",
+      message: "PAPERCLIP_COMPANY_ID or session envelope company_id is required for Paperclip Atlas tools",
+    });
+  }
+  const apiKey =
+    env.PAPERCLIP_AGENT_API_KEY ??
+    connection.envelope?.agent_api_key ??
+    env.PAPERCLIP_API_KEY;
+  if (!apiKey) {
+    throw createMcpError({
+      root_cause: "missing_paperclip_agent_api_key",
+      failure_type: "authorization",
+      message:
+        "PAPERCLIP_AGENT_API_KEY, PAPERCLIP_API_KEY (local board dogfood), or session envelope agent_api_key is required for Paperclip Atlas tools",
+    });
+  }
+  const prefix = paperclipApiPrefix(apiUrl);
+  const url = `${apiUrl}${prefix}${path.replace(":companyId", encodeURIComponent(companyId))}`;
+  let response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${apiKey}`,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (error) {
+    throw mapFetchFailure(error, apiUrl);
+  }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw mapAtlasApiFailure(response.status, payload);
+  }
+  return payload.data ?? payload;
+}
+
 export async function handleMcpMessage(message, env = process.env, options = {}) {
   if (!message || typeof message !== "object") {
     return {
@@ -562,7 +643,10 @@ export async function handleMcpMessage(message, env = process.env, options = {})
     }
 
     if (message.method === "tools/list") {
-      const manifest = await atlasRequest("GET", "/agent/manifest", undefined, { env, ...options });
+      const connection = resolveMcpConnectionOrThrow(env, options);
+      const manifest = isPaperclipBackend(env, connection)
+        ? await paperclipAtlasRequest("GET", "/companies/:companyId/atlas/manifest", undefined, env, options)
+        : await atlasRequest("GET", "/agent/manifest", undefined, { env, ...options });
       return {
         kind: "result",
         id: message.id,
@@ -571,12 +655,12 @@ export async function handleMcpMessage(message, env = process.env, options = {})
             ...manifest.tools.map((tool) => ({
               name: tool.name,
               description: tool.description,
-              inputSchema: tool.input_schema ?? { type: "object" }
+              inputSchema: tool.input_schema ?? tool.inputSchema ?? { type: "object" },
             })),
             ...DIRECT_API_TOOLS,
-            ...PERSONAL_DIRECT_TOOLS
-          ]
-        }
+            ...PERSONAL_DIRECT_TOOLS,
+          ],
+        },
       };
     }
 
@@ -600,11 +684,20 @@ export async function handleMcpMessage(message, env = process.env, options = {})
         };
       }
 
-      const result = await atlasRequest("POST", `/agent/tools/${encodeURIComponent(toolName)}`, toolArguments, {
-        env,
-        delegationRequired: true,
-        ...options
-      });
+      const connection = resolveMcpConnectionOrThrow(env, options);
+      const result = isPaperclipBackend(env, connection)
+        ? await paperclipAtlasRequest(
+            "POST",
+            `/companies/:companyId/atlas/tools/${encodeURIComponent(toolName)}`,
+            toolArguments,
+            env,
+            options,
+          )
+        : await atlasRequest("POST", `/agent/tools/${encodeURIComponent(toolName)}`, toolArguments, {
+            env,
+            delegationRequired: true,
+            ...options,
+          });
       return {
         kind: "result",
         id: message.id,

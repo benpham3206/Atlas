@@ -16,6 +16,7 @@
  *   --checkpoints      filesystem checkpoints
  *   --yolo             bypass dangerous-command approval prompts (agents have no TTY)
  *   --source           session source tag for filtering
+ *   --reasoning-effort thinking/reasoning effort for supported models
  */
 
 import fs from "node:fs/promises";
@@ -68,6 +69,18 @@ function cfgStringArray(v: unknown): string[] | undefined {
   return Array.isArray(v) && v.every((i) => typeof i === "string")
     ? (v as string[])
     : undefined;
+}
+
+function capSessionHandoff(text: string, maxChars = 8000): string {
+  if (text.length <= maxChars) return text;
+  const head = text.slice(0, 6000);
+  const tail = text.slice(-1500);
+  const omitted = text.length - head.length - tail.length;
+  return [
+    head,
+    `[... ${omitted} chars omitted — full handoff available via Paperclip API ...]`,
+    tail,
+  ].join("");
 }
 
 export function resolveHermesCommand(config: Record<string, unknown>): string {
@@ -131,6 +144,22 @@ function renderConditionalSections(template: string, vars: Record<string, unknow
   );
 }
 
+function renderPaperclipEnvNote(): string {
+  return [
+    "Paperclip runtime note:",
+    "Paperclip runtime values are exposed through PAPERCLIP_* environment variables, including PAPERCLIP_API_URL, PAPERCLIP_RUN_ID, and PAPERCLIP_API_KEY when provided.",
+    "Do not assume these variables are missing without checking your shell environment.",
+  ].join("\n");
+}
+
+function renderApiAccessNote(): string {
+  return [
+    "Paperclip API access note:",
+    "Use shell commands with curl to make Paperclip API requests when needed.",
+    "Include X-Paperclip-Run-Id on mutating requests.",
+  ].join("\n");
+}
+
 export function buildPrompt(
   ctx: AdapterExecutionContext,
   config: Record<string, unknown>,
@@ -162,7 +191,7 @@ export function buildPrompt(
     resumedSession: options.resumedSession === true,
   });
   const paperclipTaskMarkdown = cfgString(context.paperclipTaskMarkdown)?.trim() || "";
-  const sessionHandoffMarkdown = cfgString(context.paperclipSessionHandoffMarkdown)?.trim() || "";
+  const sessionHandoffMarkdown = capSessionHandoff(cfgString(context.paperclipSessionHandoffMarkdown)?.trim() || "");
   const wakePayloadJson = stringifyPaperclipWakePayload(context.paperclipWake) || "";
 
   const vars: Record<string, unknown> = {
@@ -191,13 +220,27 @@ export function buildPrompt(
     paperclipRunIdEnv: "PAPERCLIP_RUN_ID",
   };
 
-  const rendered = renderTemplate(renderConditionalSections(template, vars), vars);
-  return joinPromptSections([
-    wakePrompt,
-    sessionHandoffMarkdown,
-    paperclipTaskMarkdown,
-    rendered,
-  ]);
+  const shouldUseResumeDeltaPrompt = options.resumedSession === true && wakePrompt.length > 0;
+  const rendered = shouldUseResumeDeltaPrompt
+    ? ""
+    : renderTemplate(renderConditionalSections(template, vars), vars);
+  return shouldUseResumeDeltaPrompt
+    ? joinPromptSections([
+      wakePrompt,
+      sessionHandoffMarkdown,
+      renderPaperclipEnvNote(),
+      renderApiAccessNote(),
+      "",
+      rendered,
+    ])
+    : joinPromptSections([
+      rendered,
+      renderPaperclipEnvNote(),
+      renderApiAccessNote(),
+      sessionHandoffMarkdown,
+      paperclipTaskMarkdown,
+      wakePrompt,
+    ]);
 }
 
 // ---------------------------------------------------------------------------
@@ -334,6 +377,7 @@ export async function execute(
   const maxTurns = cfgNumber(config.maxTurnsPerRun);
   const toolsets = cfgString(config.toolsets) || cfgStringArray(config.enabledToolsets)?.join(",");
   const extraArgs = cfgStringArray(config.extraArgs);
+  const reasoningEffort = cfgString(config.reasoningEffort) || cfgString(config.thinkingEffort);
   const persistSession = cfgBoolean(config.persistSession) !== false;
   const worktreeMode = cfgBoolean(config.worktreeMode) === true;
   const checkpoints = cfgBoolean(config.checkpoints) === true;
@@ -427,6 +471,10 @@ export async function execute(
 
   if (maxTurns && maxTurns > 0) {
     args.push("--max-turns", String(maxTurns));
+  }
+
+  if (reasoningEffort) {
+    args.push("--reasoning-effort", reasoningEffort);
   }
 
   if (worktreeMode) args.push("-w");

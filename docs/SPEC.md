@@ -36,18 +36,23 @@ pnpm run paperclipai run       # onboard + run
 
 ---
 
-## Atlas differentiators (stub → PA-P2+)
+## Atlas differentiators (live on Paperclip trunk)
 
 **Import inventory (PA-P2M0):** [Atlas + MoO graft map](../docs/bricks/2026-06-30-atlas-moo-import-map.md)
 
 | Capability | Migration reference | Graft target | Status |
 | --- | --- | --- | --- |
 | Ontology registry + lifecycle | `packages/ontology-core/` | `packages/atlas-ontology/` | **grafted** (PA-P2b) |
-| Knowledge tools | `apps/api/src/agent-gateway.js` | Paperclip adapter/tool surface | **stub** (PA-P2/P3) |
-| Hash-chained audit + verify | `packages/ontology-core`, `GET /audit/verify` on legacy API | `atlas_audit_events` sidecar + `/api/companies/:id/audit/verify` | **design** (PA-P2a) → **stub** (PA-P2g) |
-| Record validation | `npm run validate:records` | fork CI script | **stub** (PA-P2h) |
-| Encyclopedia knowledge pack | — | `tests/fixtures/` + staff manifest | **stub** (PA-P3) |
-| Proof-closed public hero | `outputs/site/` | dashboard + site copy | **stub** (PA-P4) |
+| Knowledge tools | `apps/api/src/agent-gateway.js` | `server/src/routes/atlas.ts` | **live** (PA-P2e–f, PA-P2M1) |
+| Hash-chained audit + verify | `packages/ontology-core`, legacy `/audit/verify` | `atlas_audit_events` + `/api/companies/:id/atlas/audit/verify` | **live** (PA-P2g) |
+| Record validation | `npm run validate:records` | fork CI script | **live** (PA-P2h) |
+| MCP Tool Router | `scripts/atlas-mcp-stdio.js` | Paperclip backend (`ATLAS_BACKEND=paperclip`) | **live** (PA-P2M2) |
+| GoalContract / review bridge | legacy workspace routes | `/atlas/goal-contracts`, `/atlas/review-packets` | **live** (PA-P2M4) |
+| Operational bootstrap | `scripts/operational-bootstrap.js` | `scripts/paperclip-operational-bootstrap.js` | **live** (PA-P2M5) |
+| MoO skills mapping | `.agent/skills/` | [skills on Paperclip](./atlas-moo-skills-on-paperclip.md) | **live** (PA-P2M6) |
+| GitHub / Slack adapters | `apps/api/src/*-client.js` | `server/src/atlas/external/` | **live** (PA-P2M7) |
+| Encyclopedia knowledge pack | — | `tests/fixtures/encyclopedia-knowledge-pack.json` + staff manifest + E2E harness | **live** (PA-P3) |
+| Proof-closed public hero | `outputs/site/` | dashboard + site copy | **live** (PA-P4) |
 
 ---
 

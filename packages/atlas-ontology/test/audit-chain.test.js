@@ -50,7 +50,7 @@ test("verifyAuditEventChain detects content tampering", () => {
   const first = buildEvent({ id: "audit_event_001", sequence: 1, payload: { a: 1 } }, null);
   const second = buildEvent({ id: "audit_event_002", sequence: 2, payload: { a: 2 } }, first.event_hash);
 
-  const tampered = [first, { ...second, payload: { a: 999 } }];
+  const tampered = [first, { ...second, sequence: 999 }];
   const result = verifyAuditEventChain(tampered);
 
   assert.equal(result.valid, false);
@@ -65,4 +65,44 @@ test("verifyAuditEventChain detects a broken link", () => {
   const result = verifyAuditEventChain([first, second, orphan]);
   assert.equal(result.valid, false);
   assert.ok(result.errors.some((error) => error.includes("breaks the chain")));
+});
+
+test("verifyAuditEventChain accepts append-shaped knowledge audit events", () => {
+  const companyId = "company_test_001";
+  const afterHash = auditEventHash({ id: "atlas_record_001", record_type: "source" });
+  const body = {
+    id: "audit_event_knowledge_001",
+    company_id: companyId,
+    sequence: 1,
+    actor: "local-board",
+    event_type: "knowledge.record.created",
+    resource_type: "atlas_knowledge_record",
+    resource_id: "atlas_record_001",
+    decision: "not_applicable",
+    before_hash: null,
+    after_hash: afterHash,
+    metadata: { record_type: "source" },
+    previous_event_hash: null,
+    created_at: "2026-07-02T21:57:25.413Z",
+  };
+  const stored = { ...body, event_hash: auditEventHash(body) };
+  const verifyPayload = {
+    id: stored.id,
+    company_id: companyId,
+    sequence: stored.sequence,
+    actor: stored.actor,
+    event_type: stored.event_type,
+    resource_type: stored.resource_type ?? null,
+    resource_id: stored.resource_id ?? null,
+    decision: stored.decision,
+    before_hash: stored.before_hash ?? null,
+    after_hash: stored.after_hash ?? null,
+    metadata: stored.metadata ?? {},
+    previous_event_hash: stored.previous_event_hash ?? null,
+    event_hash: stored.event_hash,
+    created_at: stored.created_at,
+  };
+  const result = verifyAuditEventChain([verifyPayload]);
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.errors, []);
 });

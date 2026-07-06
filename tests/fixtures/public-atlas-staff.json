@@ -1,0 +1,75 @@
+{
+  "version": "1",
+  "description": "Public Atlas encyclopedia staff roster per ARCHITECTURE_COMPETITIVE_FRAMEWORK §3",
+  "staff": [
+    {
+      "role_key": "librarian",
+      "display_name": "Librarian / Ontologist",
+      "moo_profile": "Planner",
+      "paperclip_role": "agent",
+      "actor_type": "agent",
+      "paperclip_hire": "librarian",
+      "scopes": ["ontology:read", "ontology:write"],
+      "lifecycle_authority": "Owns object/link types and domain packs; cannot promote records to operational alone."
+    },
+    {
+      "role_key": "researcher",
+      "display_name": "Researcher",
+      "moo_profile": "Research",
+      "paperclip_role": "agent",
+      "actor_type": "agent",
+      "paperclip_hire": "researcher",
+      "scopes": ["web:read", "artifact:write"],
+      "lifecycle_authority": "Drafts candidate statements and sources; cannot promote to operational."
+    },
+    {
+      "role_key": "citation",
+      "display_name": "Citation Checker",
+      "moo_profile": "Evidence",
+      "paperclip_role": "agent",
+      "actor_type": "agent",
+      "paperclip_hire": "citation",
+      "scopes": ["evidence:write"],
+      "lifecycle_authority": "Runs attach_evidence; flags unsupported claims; cannot promote to operational."
+    },
+    {
+      "role_key": "editor",
+      "display_name": "Editor / Critic",
+      "moo_profile": "Critic",
+      "paperclip_role": "agent",
+      "actor_type": "agent",
+      "paperclip_hire": "editor",
+      "scopes": ["artifact:read", "verification:write"],
+      "lifecycle_authority": "Blocks weak records and requests rework; cannot promote to operational alone."
+    },
+    {
+      "role_key": "verifier",
+      "display_name": "Verifier",
+      "moo_profile": "Safety-Verification",
+      "paperclip_role": "agent",
+      "actor_type": "agent",
+      "paperclip_hire": "verifier",
+      "scopes": ["test:run", "validate:records"],
+      "lifecycle_authority": "Promotes candidate to operational only when evidence and review pass; requires Owner approval for canon."
+    },
+    {
+      "role_key": "curator",
+      "display_name": "Curator / Publisher",
+      "moo_profile": "Workflow",
+      "paperclip_role": "agent",
+      "actor_type": "agent",
+      "paperclip_hire": "curator",
+      "scopes": ["artifact:write"],
+      "lifecycle_authority": "Generates human-readable entity pages from the graph; cannot promote to operational alone."
+    },
+    {
+      "role_key": "owner",
+      "display_name": "Owner (Board)",
+      "moo_profile": "Board",
+      "paperclip_role": "board",
+      "actor_type": "board",
+      "scopes": ["*"],
+      "lifecycle_authority": "Approves operational promotion and irreversible publish/export; full authority via Board token, not a Paperclip agent hire."
+    }
+  ]
+}

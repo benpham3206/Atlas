@@ -1,28 +1,28 @@
 # Personal Atlas workspace — progress (canonical)
 
 **Workspace:** `workspace_personal`
-**Updated:** 2026-06-30
+**Updated:** 2026-07-02
 **Read in UI:** Personal home + `?view=next-action` · API: `GET /personal/overview`
 
 This file is the **human-readable map** for the personal cockpit. Operational dogfood (`workspace_operational_dogfood`) and polish program (`outputs/internal/NEXT_ACTION.md`) are **parallel tracks** — not substitutes for this spine.
 
 **Orchestrator mixture map (goal):** `outputs/internal/ATLAS_ORCHESTRATOR_PROGRESS_MAP.md` · ontology project `object_personal_project_orchestrator_map`.
 
-## Active sprint (Public Atlas)
+## Active sprint (Personal runtime — PS-P1)
 
-Public Atlas Paperclip pivot (**PA-***) takes priority over personal spine tasks until **PA-P1 epic gate** passes. See `docs/bricks/2026-06-30-public-atlas-atomic-tasks.md` and `TASKS.md` § Public Atlas.
+**PA-P1–P4 epic gates are done** (`outputs/internal/NEXT_ACTION.md`). **Doc Do:** **PS-P1** — personal workspace runtime foundation (`gate:test` + object history). Acceptance: `TASKS.md` § personal spine.
 
 ## Spine (roadmap tasks)
 
 | Priority | Task ID | Status | Meaning |
 | --- | --- | --- | --- |
 | 1 | `object_task_harden_personal_loop` | **done** | launchd `:4000`, `ATLAS_DATA_FILE`, `smoke:personal`, MCP session hygiene |
-| 2 | `object_task_runtime_foundation` | **blocked** | **Postgres** + migrations + object history — deferred until **PA-P1 epic gate** (maps to PS-P1) |
+| 2 | `object_task_runtime_foundation` | **in progress (PS-P1)** | **Postgres** + migrations + object history — active Ben inch in **Cursor** |
 | 3 | `object_task_policy_audit` | **todo** | PermissionCheck on mutations + append-only AuditEvent (blocked until #2 done) |
-| 4 | `object_task_public_atlas` | **in progress (PA-*)** | Public Atlas encyclopedia MVP via Paperclip fork + Atlas graft — see PA-P1–P4 in TASKS.md |
+| 4 | `object_task_public_atlas` | **done (PA-*)** | Public Atlas encyclopedia MVP — PA-P1–P4 gates green; graft in repo |
 | 5 | `object_task_enterprise_workspace` | **todo** | Tenant / org foundations |
 
-**Live next-action (repo):** **PA-P1b** Paperclip import — see `outputs/internal/NEXT_ACTION.md` (tag **PA-P1a** done).
+**Live next-action (repo):** **PS-P1** — see `outputs/internal/NEXT_ACTION.md` **Do:** (pulse **Now:** matches).
 
 ## Parallel: Matrix polish program (not personal tasks)
 

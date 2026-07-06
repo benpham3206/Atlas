@@ -34,6 +34,7 @@ A customer-facing output belongs here only when it has:
 | Output | Purpose |
 | --- | --- |
 | `site/README.md` | Public website direction and current status. |
+| `site/index.html` | Proof-closed encyclopedia hero; links fork index [`docs/SPEC.md`](../docs/SPEC.md), [`staff manifest`](../tests/fixtures/public-atlas-staff.json), [`knowledge pack`](../tests/fixtures/encyclopedia-knowledge-pack.json). |
 | `app/README.md` | Customer-facing Atlas app surface and run path. |
 | `docs/LONG_RUNNING_WORK.md` | Finished product note for long-horizon Atlas operation. |
 | `codebase/README.md` | Technical codebase output package. |

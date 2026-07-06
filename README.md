@@ -1,5 +1,8 @@
 # Atlas
 
+> **STALE — legacy reference only.** This describes the pre-Paperclip zero-dependency system (`apps/api`, `apps/web`). The live system is the Paperclip trunk + Atlas graft; see **`docs/SPEC.md`** (index) and **`AGENTS.md`**. Direction lives only in `outputs/internal/NEXT_ACTION.md`.
+
+
 Atlas is a minimal operational ontology platform. The Personal Atlas v0 slice adds governed actions, a next-action dashboard, and an in-memory personal workspace.
 
 ## Requirements

@@ -191,13 +191,41 @@ export function sha256Hex(input) {
   return createHash("sha256").update(input).digest("hex");
 }
 
-export function auditEventHash(event) {
+const ATLAS_AUDIT_CREATED_AT_META_KEY = "_atlas_audit_created_at";
+
+export function canonicalizeAuditEventForHash(event) {
   if (!isPlainObject(event)) {
-    throw new TypeError("auditEventHash requires an object");
+    throw new TypeError("canonicalizeAuditEventForHash requires an object");
   }
 
   const { event_hash, ...rest } = event;
-  return sha256Hex(canonicalJson(rest));
+  const rawMetadata = isPlainObject(rest.metadata) ? rest.metadata : {};
+  const storedCreatedAt =
+    typeof rawMetadata[ATLAS_AUDIT_CREATED_AT_META_KEY] === "string"
+      ? rawMetadata[ATLAS_AUDIT_CREATED_AT_META_KEY]
+      : null;
+  const { [ATLAS_AUDIT_CREATED_AT_META_KEY]: _ignoredCreatedAt, ...metadata } = rawMetadata;
+
+  return {
+    id: rest.id,
+    sequence: rest.sequence,
+    actor: rest.actor,
+    event_type: rest.event_type,
+    resource_type: rest.resource_type ?? null,
+    resource_id: rest.resource_id ?? null,
+    decision: rest.decision ?? "not_applicable",
+    before_hash: rest.before_hash ?? null,
+    after_hash: rest.after_hash ?? null,
+    metadata,
+    previous_event_hash: rest.previous_event_hash ?? null,
+    created_at: storedCreatedAt ?? rest.created_at,
+    ...(Object.hasOwn(rest, "company_id") ? { company_id: rest.company_id } : {}),
+    ...(Object.hasOwn(rest, "workspace_id") ? { workspace_id: rest.workspace_id } : {})
+  };
+}
+
+export function auditEventHash(event) {
+  return sha256Hex(canonicalJson(canonicalizeAuditEventForHash(event)));
 }
 
 export function verifyAuditEventChain(events) {

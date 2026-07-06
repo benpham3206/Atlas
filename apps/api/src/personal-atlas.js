@@ -478,6 +478,8 @@ export function getPersonalSessionContext(store, options = {}) {
         "Polish program epics live in outputs/internal/NEXT_ACTION.md — not governed personal task completion."
     },
     agent_contract: {
+      identity:
+        "Hermes/JARVIS operator per WORLDVIEW charter (JARVIS complement charter.md): co-pilot not autopilot; prose-first; Atlas personal spine for next-action, not brochure planning.",
       personal_planning: [
         "Use personal.list_tasks, personal.get_overview, personal.get_next_action, or personal.get_session_context (MCP).",
         "Or atlas.api.get with path /personal/tasks, /personal/overview, /personal/next-action, or /personal/session-context.",

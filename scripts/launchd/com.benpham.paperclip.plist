@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.benpham.paperclip</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__HERMES_PAPERCLIP_WRAPPER__</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>WorkingDirectory</key>
+  <string>__ATLAS_ROOT__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ATLAS_ROOT</key>
+    <string>__ATLAS_ROOT__</string>
+    <key>PATH</key>
+    <string>/Users/benjaminpham/.local/bin:/Users/benjaminpham/.hermes/hermes-agent/venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>__HERMES_LOGS__/paperclip.stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HERMES_LOGS__/paperclip.stderr.log</string>
+</dict>
+</plist>
