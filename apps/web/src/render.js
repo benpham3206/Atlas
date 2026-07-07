@@ -1239,6 +1239,251 @@ export function renderBootstrapPage(options = {}) {
   );
 }
 
+function stickDotColor(layer) {
+  const normalized = String(layer ?? "").toLowerCase();
+
+  if (
+    normalized.includes("electronic") ||
+    normalized.includes("euv") ||
+    normalized.includes("semiconductor") ||
+    normalized.includes("summit") ||
+    normalized.includes("control")
+  ) {
+    return "#e5b567";
+  }
+
+  if (
+    normalized.includes("precision") ||
+    normalized.includes("energy") ||
+    normalized.includes("chemical") ||
+    normalized.includes("instrument")
+  ) {
+    return "#7ec8a8";
+  }
+
+  return "#8a9a90";
+}
+
+function renderStickDependencyLinks(record, recordById) {
+  const dependencyIds = Array.isArray(record.depends_on) ? record.depends_on : [];
+
+  if (dependencyIds.length === 0) {
+    return "None";
+  }
+
+  return dependencyIds
+    .map((dependencyId) => {
+      const dependency = recordById.get(dependencyId);
+      const label = dependency?.name ?? dependencyId;
+      return `<a class="review-link" href="#node-${escapeHtml(dependencyId)}">${escapeHtml(label)}</a>`;
+    })
+    .join(", ");
+}
+
+export function renderStickPage(stickResult) {
+  const treeHtml = renderPlatformSidebarHtml("stick", { view: "home" }, "");
+  const error = stickResult?.error;
+
+  if (!stickResult?.ok) {
+    return pageShell(
+      "Atlas — The stick to EUV",
+      `<h1>The stick to EUV</h1>
+      <p class="muted">A vertical dependency chain from fire and the lever to EUV lithography — seeded from Rebuild.md. All records lifecycle=candidate.</p>
+      <section class="error" role="alert">
+        <h2>Stick data unavailable</h2>
+        <p>The EUV dependency chain could not be loaded. The server is still running.</p>
+        <p><strong>Failure:</strong> ${escapeHtml(error?.failure_type ?? "unknown")}</p>
+        <p><strong>Root cause:</strong> ${escapeHtml(error?.root_cause ?? "No root cause available")}</p>
+      </section>`,
+      { treeHtml }
+    );
+  }
+
+  const records = stickResult.data?.records ?? [];
+  const recordById = new Map(records.map((record) => [record.id, record]));
+  const cards = records
+    .map((record, index) => {
+      const dotColor = stickDotColor(record.layer);
+      const depth = String(records.length - index).padStart(2, "0");
+      const deps = (record.depends_on ?? []).length
+        ? `<p class="stick-deps">depends on ${renderStickDependencyLinks(record, recordById)}</p>`
+        : `<p class="stick-deps stick-bedrock">bedrock — depends on nothing</p>`;
+
+      return `<div class="stick-row">
+        <div class="stick-gauge" aria-hidden="true">
+          <span class="stick-depth">${depth}</span>
+          <span class="stick-dot" style="background: ${dotColor};"></span>
+        </div>
+        <article id="node-${escapeHtml(record.id)}" class="stick-card">
+          <div class="stick-card-header">
+            <h2>${escapeHtml(record.name ?? record.id)}</h2>
+            <span class="stick-capability" style="color: ${dotColor};">${escapeHtml(record.capability_gained ?? "capability unspecified")}</span>
+          </div>
+          <p class="stick-desc">${escapeHtml(record.description ?? "")}</p>
+          ${deps}
+        </article>
+      </div>`;
+    })
+    .join("");
+
+  return pageShell(
+    "Atlas — The stick to EUV",
+    `<style>
+      .stick-page {
+        display: grid;
+        gap: 20px;
+        max-width: 860px;
+      }
+
+      .stick-eyebrow {
+        margin: 0 0 6px;
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .stick-page header h1 {
+        margin: 0 0 6px;
+      }
+
+      .stick-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 10px;
+      }
+
+      .stick-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .stick-dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 999px;
+        flex: 0 0 auto;
+        box-shadow: 0 0 0 3px var(--bg);
+      }
+
+      .stick-column {
+        position: relative;
+        display: grid;
+        gap: 10px;
+      }
+
+      .stick-column::before {
+        content: "";
+        position: absolute;
+        left: 37px;
+        top: 14px;
+        bottom: 14px;
+        width: 1px;
+        background: var(--border);
+      }
+
+      .stick-row {
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        column-gap: 14px;
+      }
+
+      .stick-gauge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-top: 15px;
+        align-self: start;
+      }
+
+      .stick-depth {
+        width: 22px;
+        text-align: right;
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+      }
+
+      .stick-card {
+        margin: 0;
+        padding: 13px 16px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--panel);
+      }
+
+      .stick-card:target {
+        border-color: var(--selected);
+        box-shadow: 0 0 0 1px var(--selected);
+      }
+
+      .stick-card-header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        align-items: baseline;
+        justify-content: space-between;
+      }
+
+      .stick-card-header h2 {
+        margin: 0;
+        font-size: 15px;
+      }
+
+      .stick-capability {
+        font-size: 11px;
+        letter-spacing: 0.04em;
+      }
+
+      .stick-desc {
+        margin: 6px 0 0;
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .stick-deps {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .stick-bedrock {
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        font-size: 10px;
+      }
+
+      @media (max-width: 700px) {
+        .stick-row { grid-template-columns: 40px minmax(0, 1fr); column-gap: 10px; }
+        .stick-column::before { left: 29px; }
+        .stick-depth { display: none; }
+        .stick-gauge { padding-left: 18px; }
+      }
+    </style>
+    <div class="stick-page">
+      <header>
+        <p class="stick-eyebrow">public atlas · candidate records · source: rebuild.md §26</p>
+        <h1>The stick to EUV</h1>
+        <p class="muted">One vertical dependency chain, read like a core sample: fire at 01, EUV lithography at 20. Every node links to what it stands on. The higher you climb, the hotter the light.</p>
+        <div class="stick-legend" aria-label="Layer legend">
+          <span class="stick-legend-item"><span class="stick-dot" style="background: #e5b567;"></span>electronics · euv · control</span>
+          <span class="stick-legend-item"><span class="stick-dot" style="background: #7ec8a8;"></span>precision · energy · chemistry</span>
+          <span class="stick-legend-item"><span class="stick-dot" style="background: #8a9a90;"></span>foundations</span>
+        </div>
+      </header>
+      <div class="stick-column">
+        ${cards}
+      </div>
+    </div>`,
+    { treeHtml }
+  );
+}
+
 export function renderSessionContextBar(sessionContext, mcpSession = null, options = {}) {
   if (!sessionContext) {
     return "";

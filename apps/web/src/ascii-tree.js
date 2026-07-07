@@ -41,7 +41,9 @@ function renderTreeLines(node, ctx, branchPrefix, isLast) {
   const connector = isLast ? "`- " : "|- ";
   const childPrefix = branchPrefix + (isLast ? "   " : "|  ");
 
-  const href = node.view && node.view !== "repo"
+  const href = node.href
+    ? node.href
+    : node.view && node.view !== "repo"
     ? treeHref(node.view, { ...ctx.linkParams, view: node.view })
     : node.repoPath
       ? repoHref(node.repoPath, ctx.linkParams)

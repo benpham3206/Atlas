@@ -147,6 +147,7 @@ export const MOO_PLATFORM_TREE = {
       label: "Product Surfaces",
       children: [
         { label: "orchestration console", view: "home", status: "live" },
+        { label: "EUV stick", href: "/stick", status: "live" },
         { label: "board (Paperclip)", view: "board", status: "live" },
         { label: "company hires", view: "company", status: "live" },
         { label: "goal contract editor", view: "goal-contracts", status: "stub" },

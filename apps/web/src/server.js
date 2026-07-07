@@ -23,12 +23,13 @@ import {
   fetchWorkspaceReviewPackets,
   revokeWorkspaceAgentDelegation
 } from "./api-client.js";
-import { renderBootstrapPage, renderPersonalDashboard } from "./render.js";
+import { renderBootstrapPage, renderPersonalDashboard, renderStickPage } from "./render.js";
 import {
   readGateStatusHint,
   readLocalMcpSession,
   resolveRepoRoot
 } from "./read-local-mcp-session.js";
+import { orderStickRecordsSummitFirst, readStickRecords } from "./stick.js";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 3000;
@@ -74,6 +75,8 @@ export function createWebServer(options = {}) {
   const createObjectType = options.createWorkspaceObjectType ?? createWorkspaceObjectType;
   const bootstrapAtlas = options.bootstrapPersonalAtlas ?? bootstrapPersonalAtlas;
   const completeTask = options.completePersonalTask ?? completePersonalTask;
+  const stickRecordsPath = options.stickRecordsPath;
+  const readStickData = options.readStickRecords ?? readStickRecords;
 
   const server = createServer((request, response) => {
     handleRequest({
@@ -103,7 +106,9 @@ export function createWebServer(options = {}) {
       createActionRun,
       createObjectType,
       bootstrapAtlas,
-      completeTask
+      completeTask,
+      stickRecordsPath,
+      readStickData
     }).catch((error) => {
       console.error(error);
       sendHtml(
@@ -146,12 +151,43 @@ async function handleRequest({
   createActionRun,
   createObjectType,
   bootstrapAtlas,
-  completeTask
+  completeTask,
+  stickRecordsPath,
+  readStickData
 }) {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
 
   if (request.method === "GET" && url.pathname === "/health") {
     return sendJson(response, 200, createHealthStatus("atlas-web", now()));
+  }
+
+  if (request.method === "GET" && url.pathname === "/stick") {
+    const stickResult = readStickData({
+      repoRoot: repoRootResolver(),
+      recordsPath: stickRecordsPath
+    });
+
+    if (!stickResult.ok) {
+      return sendHtml(response, 200, renderStickPage(stickResult));
+    }
+
+    const orderResult = orderStickRecordsSummitFirst(stickResult.data.records);
+    if (!orderResult.ok) {
+      return sendHtml(response, 200, renderStickPage(orderResult));
+    }
+
+    return sendHtml(
+      response,
+      200,
+      renderStickPage({
+        ok: true,
+        data: {
+          ...stickResult.data,
+          records: orderResult.data
+        },
+        error: null
+      })
+    );
   }
 
   if (request.method === "GET" && url.pathname === "/") {
